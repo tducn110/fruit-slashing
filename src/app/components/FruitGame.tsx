@@ -246,9 +246,7 @@ export function FruitGame({ onGameOver }: Props) {
       }
 
       if (f.g.y > H + 100) {
-        if (!f.sliced && f.kind !== "bomb" && playingRef.current) {
-          loseLife();
-        }
+        // No penalty for missing fruit — only bombs hurt
         f.g.destroy();
         fruitsRef.current.splice(i, 1);
       }
@@ -406,13 +404,6 @@ export function FruitGame({ onGameOver }: Props) {
         rot: 0, vr: 0, life: ttl, ttl, rotates: false,
       });
     }
-  }
-
-  function loseLife() {
-    livesRef.current -= 1;
-    comboRef.current = 0;
-    updateHud();
-    if (livesRef.current <= 0) gameOver();
   }
 
   function gameOver() {

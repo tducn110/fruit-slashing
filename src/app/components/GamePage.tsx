@@ -231,6 +231,24 @@ export function GamePage({
                 </tbody>
               </table>
             )}
+
+            {/* Login prompt for guest users */}
+            {!user && (
+              <div style={{
+                marginTop: 16, padding: "14px 16px",
+                borderRadius: 14,
+                background: "linear-gradient(135deg, rgba(248,200,96,0.15), rgba(232,116,50,0.1))",
+                border: "1.5px dashed rgba(232,116,50,0.3)",
+                textAlign: "center",
+              }}>
+                <p style={{ margin: "0 0 6px", fontWeight: 700, color: "#e87432", fontSize: 14 }}>
+                  🔐 Đăng nhập để lưu điểm!
+                </p>
+                <p style={{ margin: 0, fontSize: 12, color: "#8a7d65", lineHeight: 1.5 }}>
+                  Điểm của bạn sẽ được lưu vào bảng vinh danh và không bị mất khi thoát game.
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
