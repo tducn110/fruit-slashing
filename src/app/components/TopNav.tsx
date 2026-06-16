@@ -1,8 +1,6 @@
 import { Volume2, VolumeX } from "lucide-react";
 
 interface Props {
-  active: string;
-  onNav: (id: string) => void;
   onLogin: () => void;
   user: { name: string; photoURL?: string | null } | null;
   onLogout: () => void;
@@ -10,12 +8,7 @@ interface Props {
   onToggleMute: () => void;
 }
 
-const SECTIONS = [
-  { id: "gioi-thieu", label: "Giới thiệu" },
-  { id: "bang-diem", label: "Bảng điểm" },
-];
-
-export function TopNav({ active, onNav, onLogin, user, onLogout, muted, onToggleMute }: Props) {
+export function TopNav({ onLogin, user, onLogout, muted, onToggleMute }: Props) {
   return (
     <nav style={{
       position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
@@ -27,10 +20,7 @@ export function TopNav({ active, onNav, onLogin, user, onLogout, muted, onToggle
       fontFamily: "Be Vietnam Pro, sans-serif",
     }}>
       {/* Logo */}
-      <button
-        onClick={() => onNav("gioi-thieu")}
-        style={{ display: "flex", alignItems: "center", gap: 10, background: "transparent", border: "none", cursor: "pointer" }}
-      >
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{
           width: 38, height: 38, borderRadius: "50%",
           background: "radial-gradient(circle at 30% 30%, #f8c860, #d99820)",
@@ -41,32 +31,6 @@ export function TopNav({ active, onNav, onLogin, user, onLogout, muted, onToggle
         <span className="brandName" style={{ fontWeight: 800, color: "#2a2418", letterSpacing: 0.3 }}>
           Bộ Lạc Đậu Phộng
         </span>
-      </button>
-
-      {/* Section dots (progress) */}
-      <div className="navCenter" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        {SECTIONS.map((s, i) => (
-          <button
-            key={s.id}
-            onClick={() => onNav(s.id)}
-            title={s.label}
-            style={{
-              display: "flex", alignItems: "center", gap: 6,
-              background: "transparent", border: "none", cursor: "pointer",
-              padding: "6px 10px", borderRadius: 999,
-              color: active === s.id ? "#e87432" : "#6b6149",
-              fontWeight: active === s.id ? 700 : 500,
-              fontSize: 13,
-            }}
-          >
-            <span style={{
-              width: 8, height: 8, borderRadius: "50%",
-              background: active === s.id ? "#e87432" : "#c8bfa6",
-              transition: "all .25s",
-            }} />
-            <span className="navLabel">{s.label}</span>
-          </button>
-        ))}
       </div>
 
       {/* Right side */}
@@ -114,11 +78,7 @@ export function TopNav({ active, onNav, onLogin, user, onLogout, muted, onToggle
       </div>
 
       <style>{`
-        @media (max-width: 880px) { .navLabel { display: none; } }
-        @media (max-width: 640px) {
-          .brandName { display: none; }
-          .navCenter { gap: 4px !important; }
-        }
+        @media (max-width: 640px) { .brandName { display: none; } }
       `}</style>
     </nav>
   );

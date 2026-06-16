@@ -84,16 +84,6 @@ export function HeroSection({ onPlay }: Props) {
           }}>
             ▶  Chơi ngay
           </button>
-          <a href="#nhan-vat" style={{
-            padding: "16px 32px", borderRadius: 999,
-            background: "rgba(255,255,255,0.85)",
-            color: "#2a2418", border: "2px solid #8a7d65",
-            fontWeight: 700, fontSize: 17, cursor: "pointer",
-            textDecoration: "none",
-            display: "inline-block",
-          }}>
-            Gặp Bộ Lạc
-          </a>
         </div>
       </div>
     </section>

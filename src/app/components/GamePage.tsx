@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FruitGame } from "./FruitGame";
 import { Home, Settings, Trophy, Volume2, VolumeX, X } from "lucide-react";
 import type { User } from "firebase/auth";
@@ -42,6 +42,12 @@ export function GamePage({
   useEffect(() => {
     if (panel === "dashboard") onRefreshLeaderboard();
   }, [panel, onRefreshLeaderboard]);
+
+  // Auto-open dashboard on game over
+  const handleGameOver = useCallback((score: number) => {
+    onGameOver(score);
+    setPanel("dashboard");
+  }, [onGameOver]);
 
   const toggle = (p: "settings" | "dashboard") =>
     setPanel((prev) => (prev === p ? null : p));
@@ -109,7 +115,7 @@ export function GamePage({
 
       {/* Game canvas — fills remaining space */}
       <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
-        <FruitGame onGameOver={onGameOver} muted={muted} />
+        <FruitGame onGameOver={handleGameOver} muted={muted} />
 
         {/* Settings overlay */}
         {panel === "settings" && (
