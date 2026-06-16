@@ -38,13 +38,13 @@ export function TopNav({ active, onNav, onLogin, user, onLogout, muted, onToggle
           display: "grid", placeItems: "center",
           color: "#2a2418", fontWeight: 800,
         }}>L</div>
-        <span style={{ fontWeight: 800, color: "#2a2418", letterSpacing: 0.3 }}>
+        <span className="brandName" style={{ fontWeight: 800, color: "#2a2418", letterSpacing: 0.3 }}>
           Bộ Lạc Đậu Phộng
         </span>
       </button>
 
       {/* Section dots (progress) */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div className="navCenter" style={{ display: "flex", alignItems: "center", gap: 10 }}>
         {SECTIONS.map((s, i) => (
           <button
             key={s.id}
@@ -115,6 +115,10 @@ export function TopNav({ active, onNav, onLogin, user, onLogout, muted, onToggle
 
       <style>{`
         @media (max-width: 880px) { .navLabel { display: none; } }
+        @media (max-width: 640px) {
+          .brandName { display: none; }
+          .navCenter { gap: 4px !important; }
+        }
       `}</style>
     </nav>
   );
