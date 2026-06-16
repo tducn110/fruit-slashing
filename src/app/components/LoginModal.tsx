@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Mail, Lock, User } from "lucide-react";
+import { X } from "lucide-react";
 import { useAuth } from "../lib/AuthContext";
 
 interface Props {
@@ -8,38 +8,15 @@ interface Props {
 }
 
 export function LoginModal({ open, onClose }: Props) {
-  const { loginWithGoogle, signUp, signIn, user, error, clearError, loading } = useAuth();
-  const [mode, setMode] = useState<"login" | "signup">("login");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [pwd, setPwd] = useState("");
+  const { loginWithGoogle, user, error, clearError, loading } = useAuth();
   const [submitting, setSubmitting] = useState(false);
 
   // Close when user logs in (user changes from null → object)
   if (user && open) {
-    // small delay so success is visible
     setTimeout(() => onClose(), 300);
   }
 
   if (!open) return null;
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    clearError();
-    setSubmitting(true);
-    try {
-      if (mode === "signup") {
-        await signUp(email, pwd, name.trim() || email.split("@")[0] || "Người chơi");
-      } else {
-        await signIn(email, pwd);
-      }
-      // onClose will be triggered by the user state change above
-    } catch {
-      // error is already set in AuthContext
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   const googleLogin = async () => {
     clearError();
@@ -70,7 +47,7 @@ export function LoginModal({ open, onClose }: Props) {
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: "100%", maxWidth: 420,
+          width: "100%", maxWidth: 400,
           background: "#fdf6ea",
           borderRadius: 24,
           border: "1.5px solid rgba(138,125,101,0.4)",
@@ -96,10 +73,10 @@ export function LoginModal({ open, onClose }: Props) {
             fontWeight: 800, color: "#2a2418",
           }}>L</div>
           <h2 style={{ margin: 0, color: "#2a2418", fontWeight: 800 }}>
-            {mode === "login" ? "Chào mừng trở lại" : "Tham gia Bộ Lạc"}
+            Tham gia Bộ Lạc
           </h2>
           <p style={{ margin: "6px 0 0", color: "#8a7d65", fontSize: 13 }}>
-            {mode === "login" ? "Đăng nhập để lưu điểm cao của bạn" : "Tạo tài khoản để chơi và lưu thành tích"}
+            Đăng nhập để lưu điểm và lên bảng vinh danh
           </p>
         </div>
 
@@ -140,7 +117,6 @@ export function LoginModal({ open, onClose }: Props) {
             justifyContent: "center",
             gap: 10,
             opacity: btnDisabled ? 0.6 : 1,
-            marginBottom: 16,
           }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24">
@@ -152,64 +128,36 @@ export function LoginModal({ open, onClose }: Props) {
           Đăng nhập bằng Google
         </button>
 
-        <div style={{ display: "flex", alignItems: "center", marginBottom: 16, color: "#8a7d65", fontSize: 12, fontWeight: 700 }}>
+        <div style={{ display: "flex", alignItems: "center", margin: "16px 0", color: "#8a7d65", fontSize: 12, fontWeight: 700 }}>
           <span style={{ flex: 1, height: 1, background: "rgba(138,125,101,0.25)" }} />
           <span style={{ padding: "0 12px" }}>HOẶC</span>
           <span style={{ flex: 1, height: 1, background: "rgba(138,125,101,0.25)" }} />
         </div>
 
-        <form onSubmit={submit}>
-          {mode === "signup" && (
-            <Field icon={<User size={16} />} placeholder="Tên hiển thị" value={name} onChange={setName} />
-          )}
-          <Field icon={<Mail size={16} />} type="email" placeholder="Email" value={email} onChange={setEmail} required />
-          <Field icon={<Lock size={16} />} type="password" placeholder="Mật khẩu" value={pwd} onChange={setPwd} required />
-
-          <button type="submit" disabled={btnDisabled} className="game-btn game-btn-primary" style={{
-            width: "100%", marginTop: 8, padding: "14px",
-            opacity: btnDisabled ? 0.6 : 1,
-            cursor: btnDisabled ? "wait" : "pointer",
-          }}>
-            {submitting ? "Đang xử lý…" : mode === "login" ? "Đăng nhập" : "Tạo tài khoản"}
-          </button>
-        </form>
-
-        <div style={{ textAlign: "center", marginTop: 18, fontSize: 13, color: "#6b6149" }}>
-          {mode === "login" ? "Chưa có tài khoản? " : "Đã có tài khoản? "}
-          <button type="button" onClick={() => { setMode(mode === "login" ? "signup" : "login"); clearError(); }} className="game-btn-link">
-            {mode === "login" ? "Đăng ký" : "Đăng nhập"}
-          </button>
-        </div>
+        {/* Continue as guest */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="game-btn"
+          style={{
+            width: "100%",
+            padding: "14px",
+            background: "rgba(245,236,215,0.8)",
+            color: "#6b6149",
+            border: "1.5px solid rgba(138,125,101,0.3)",
+            borderRadius: 999,
+            fontWeight: 700,
+            fontSize: 14,
+            cursor: "pointer",
+          }}
+        >
+          👤 Tiếp tục với tài khoản khách
+        </button>
 
         <p style={{ fontSize: 11, color: "#a89c80", textAlign: "center", marginTop: 14, marginBottom: 0 }}>
           🔐 Dữ liệu được lưu trên Firebase
         </p>
       </div>
     </div>
-  );
-}
-
-function Field({ icon, type = "text", placeholder, value, onChange, required }: {
-  icon: React.ReactNode; type?: string; placeholder: string;
-  value: string; onChange: (v: string) => void; required?: boolean;
-}) {
-  return (
-    <label style={{
-      display: "flex", alignItems: "center", gap: 10,
-      padding: "12px 14px", marginBottom: 12,
-      background: "#fff", border: "1.5px solid rgba(138,125,101,0.4)",
-      borderRadius: 14,
-    }}>
-      <span style={{ color: "#8a7d65" }}>{icon}</span>
-      <input
-        type={type} placeholder={placeholder} value={value} required={required}
-        onChange={(e) => onChange(e.target.value)}
-        style={{
-          border: "none", outline: "none", width: "100%",
-          background: "transparent", fontSize: 14,
-          fontFamily: "Be Vietnam Pro, sans-serif", color: "#2a2418",
-        }}
-      />
-    </label>
   );
 }

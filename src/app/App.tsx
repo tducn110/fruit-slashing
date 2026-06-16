@@ -18,18 +18,22 @@ export default function App() {
   // Game view — full screen, dashboard panel opens on demand inside GamePage
   if (view === "game") {
     return (
-      <GamePage
-        muted={muted}
-        onToggleMute={() => setMuted((m) => !m)}
-        user={user}
-        bestScore={bestScore}
-        lastScore={lastScore}
-        totalGamesPlayed={totalGamesPlayed}
-        leaderboard={leaderboard}
-        onGameOver={onGameOver}
-        onHome={() => { setView("landing"); refreshLeaderboard(); }}
-        onRefreshLeaderboard={refreshLeaderboard}
-      />
+      <>
+        <GamePage
+          muted={muted}
+          onToggleMute={() => setMuted((m) => !m)}
+          user={user}
+          bestScore={bestScore}
+          lastScore={lastScore}
+          totalGamesPlayed={totalGamesPlayed}
+          leaderboard={leaderboard}
+          onGameOver={onGameOver}
+          onHome={() => { setView("landing"); refreshLeaderboard(); }}
+          onRefreshLeaderboard={refreshLeaderboard}
+          onLoginPrompt={() => setShowLogin(true)}
+        />
+        <LoginModal open={showLogin} onClose={() => setShowLogin(false)} />
+      </>
     );
   }
 
