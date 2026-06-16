@@ -212,13 +212,21 @@ export function FruitGame({ onGameOver }: Props) {
         }
       }
 
-      const spawnEvery = Math.max(400, 1200 - scoreRef.current * 8);
+      // Progressive difficulty based on elapsed time
+      const t = elapsed; // seconds elapsed
+      //  0–30s easy → 30–90s faster → 90–150s hard → 150–180s extreme
+      const difficulty = t < 30 ? 0 : t < 90 ? (t - 30) / 60 : t < 150 ? 0.5 + (t - 90) / 120 : 1;
+      const d = Math.min(1, Math.max(0, difficulty));
+
+      const spawnEvery = 1100 - d * 680;             // 1100ms → 420ms
+      const fruitsToSpawn = 1 + Math.floor(d * 3.5);  // 1 → 4
+      const bombChance = 0.02 + d * 0.26;             // 2% → 28%
+      const flightSec = 1.35 - d * 0.65;              // 1.35s → 0.7s (faster fall)
+
       if (now - lastSpawnRef.current > spawnEvery) {
         lastSpawnRef.current = now;
-        // Spawn more fruits simultaneously as score increases (max 4)
-        const fruitsToSpawn = Math.min(4, 1 + Math.floor(scoreRef.current / 40));
         for (let j = 0; j < fruitsToSpawn; j++) {
-          spawnFruit();
+          spawnFruit(bombChance, flightSec);
         }
       }
       if (comboRef.current > 0 && now > comboResetRef.current) {
@@ -303,12 +311,10 @@ export function FruitGame({ onGameOver }: Props) {
   }
 
   // ── Game actions ────────────────────────────────────────────────────────────
-  function spawnFruit() {
+  function spawnFruit(bombChance: number, flightSec: number) {
     const stage = stageRef.current;
     if (!stage) return;
     const { w: W, h: H } = sizeRef.current;
-    const bombChance = Math.min(0.25, 0.04 + scoreRef.current * 0.004);
-    // durian is rare (5pts), lychee slightly less common
     const pool: FruitKind[] = ["mango", "mango", "banana", "lychee", "dragonfruit", "durian"];
     const kind: FruitKind = Math.random() < bombChance ? "bomb" : pool[Math.floor(Math.random() * pool.length)];
     const r = RADIUS[kind];
@@ -319,7 +325,6 @@ export function FruitGame({ onGameOver }: Props) {
     g.x = startX;
     g.y = H + 40;
     const targetX = Math.max(r, Math.min(W - r, startX + (Math.random() - 0.5) * (W * 0.45)));
-    const flightSec = Math.max(0.8, 1.4 - scoreRef.current * 0.003);
     const vx = (targetX - startX) / flightSec;
     const peakY = 80 + Math.random() * (H * 0.2);
     const vy = -Math.sqrt(2 * 1000 * Math.max(50, H - peakY));
@@ -336,13 +341,14 @@ export function FruitGame({ onGameOver }: Props) {
     const angle = Math.atan2(dy, dx);
 
     if (f.kind === "bomb") {
-      // Massive explosion leveraging texture sharing
+      // Explosion — deduct 1 life, reset combo
       spawnSplat(f.g.x, f.g.y, 0xff5a2a, 80, 8);
       spawnSplat(f.g.x, f.g.y, 0xffe66a, 40, 6);
       spawnSplat(f.g.x, f.g.y, 0x1f1f1f, 30, 10);
-      livesRef.current = 0;
+      livesRef.current -= 1;
+      comboRef.current = 0;
       updateHud();
-      gameOver();
+      if (livesRef.current <= 0) gameOver();
       f.g.destroy();
       const idx = fruitsRef.current.indexOf(f);
       if (idx >= 0) fruitsRef.current.splice(idx, 1);

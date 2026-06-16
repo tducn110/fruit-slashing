@@ -238,7 +238,7 @@ export function GamePage({
             {!user && (
               <button
                 onClick={onLoginPrompt}
-                className="game-btn"
+                className="game-btn loginPromptBtn"
                 style={{
                   marginTop: 16, padding: "14px 16px",
                   borderRadius: 14, width: "100%",
@@ -289,5 +289,7 @@ const mobileStyles = `
   .gameSub { font-size: 13px !important; }
   .gameActions { gap: 4px !important; }
 }
+.loginPromptBtn:hover p:first-child { text-decoration: underline; }
+.loginPromptBtn:hover { border-color: rgba(232,116,50,0.6) !important; background: rgba(248,200,96,0.2) !important; }
 `;
 document.head.insertAdjacentHTML("beforeend", `<style>${mobileStyles}</style>`);
