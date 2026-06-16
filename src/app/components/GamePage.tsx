@@ -65,7 +65,7 @@ export function GamePage({
       zIndex: 100,
     }}>
       {/* Top bar */}
-      <div style={{
+      <div className="gameTopBar" style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "10px 16px",
         background: "rgba(245,236,215,0.92)",
@@ -76,26 +76,26 @@ export function GamePage({
       }}>
         {/* Left: home */}
         <button onClick={onHome} className="game-btn" style={btnStyle}>
-          <Home size={15} /> Trang chủ
+          <Home size={15} /> <span className="btnLabel">Trang chủ</span>
         </button>
 
         {/* Center: title */}
-        <span style={{
+        <span className="gameTitle" style={{
           fontWeight: 800, fontSize: 16, color: "#2a2418",
           fontFamily: "Be Vietnam Pro, sans-serif",
           letterSpacing: 0.5,
         }}>
-          Chém Lạc <span style={{ color: "#e87432" }}>Vùng Cao</span>
+          Chém Lạc <span className="gameSub" style={{ color: "#e87432" }}>Vùng Cao</span>
         </span>
 
         {/* Right: Settings + Dashboard */}
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="gameActions" style={{ display: "flex", gap: 8 }}>
           <button
             onClick={() => toggle("dashboard")}
             className="game-btn"
             style={{ ...btnStyle, ...(panel === "dashboard" ? { background: "rgba(232,116,50,0.12)", borderColor: "#e87432" } : {}) }}
           >
-            <Trophy size={15} /> Bảng điểm
+            <Trophy size={15} /> <span className="btnLabel">Bảng điểm</span>
           </button>
           <button
             onClick={() => toggle("settings")}
@@ -240,3 +240,24 @@ function Row({ label, value }: { label: string; value: string | number }) {
     </div>
   );
 }
+
+/* ── Mobile responsive styles ───────────────────────────────────── */
+const mobileStyles = `
+@media (max-width: 640px) {
+  .gameTopBar {
+    flex-wrap: nowrap !important;
+    padding: 8px 10px !important;
+    gap: 6px !important;
+  }
+  .gameTopBar .game-btn {
+    padding: 6px 10px !important;
+    font-size: 11px !important;
+    gap: 4px !important;
+  }
+  .btnLabel { display: none !important; }
+  .gameTitle  { font-size: 13px !important; }
+  .gameSub { font-size: 13px !important; }
+  .gameActions { gap: 4px !important; }
+}
+`;
+document.head.insertAdjacentHTML("beforeend", `<style>${mobileStyles}</style>`);
