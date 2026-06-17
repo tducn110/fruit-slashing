@@ -95,13 +95,6 @@ export function HeroSection({ onPlay }: Props) {
             ▶  Chơi ngay
           </button>
 
-          <div style={{ animation: "mascotBounce 2.5s infinite ease-in-out" }}>
-            <img 
-              src="/assets/001_avatar_laclac.png" 
-              alt="Mascot Lạc Lạc" 
-              style={{ width: 110, height: "auto", objectFit: "contain", filter: "drop-shadow(0 10px 15px rgba(42,36,24,0.15))" }} 
-            />
-          </div>
         </div>
 
         <style>{`

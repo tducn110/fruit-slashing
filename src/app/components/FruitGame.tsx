@@ -1,16 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Application,
-  Assets,
   Container,
   Graphics,
-  Rectangle,
   Sprite,
   Texture,
   Ticker,
 } from "pixi.js";
-
-import { AVATARS } from "../utils/avatars";
 
 import {
   type FruitKind,
@@ -111,38 +107,30 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
       app.stage.addChild(playLayer);
       stageRef.current = playLayer;
 
+      // Generate textures for optimization
+      const kinds: FruitKind[] = ["durian", "lychee", "banana", "dragonfruit", "mango", "peanut", "bomb"];
       const tex: Record<string, Texture> = {};
+      
       const whiteCircle = new Graphics().circle(0, 0, 10).fill(0xffffff);
       tex["circle"] = app.renderer.generateTexture(whiteCircle);
       whiteCircle.destroy();
 
-      const bombRadius = RADIUS["bomb"];
-      const gBomb = makeFruit("bomb", bombRadius);
-      tex["bomb"] = app.renderer.generateTexture(gBomb);
-      gBomb.destroy();
+      kinds.forEach(k => {
+        const r = RADIUS[k];
+        const gFull = makeFruit(k, r);
+        tex[k] = app.renderer.generateTexture(gFull);
+        gFull.destroy();
 
-      // Load avatar textures
-      const avatarUrls = AVATARS.map(name => `/assets/imagebldp/${name}`);
-      Assets.load(avatarUrls).then((loadedAssets) => {
-        if (cancelled) return;
-        
-        for (const name of AVATARS) {
-          const t = loadedAssets[`/assets/imagebldp/${name}`];
-          if (t) {
-            tex[name] = t;
-            // Create half textures
-            tex[`${name}_left`] = new Texture({
-              source: t.source,
-              frame: new Rectangle(0, 0, t.width / 2, t.height),
-            });
-            tex[`${name}_right`] = new Texture({
-              source: t.source,
-              frame: new Rectangle(t.width / 2, 0, t.width / 2, t.height),
-            });
-          }
+        if (k !== "bomb") {
+          const gLeft = makeHalf(k, r, "left");
+          tex[`${k}_left`] = app.renderer.generateTexture(gLeft);
+          gLeft.destroy();
+          const gRight = makeHalf(k, r, "right");
+          tex[`${k}_right`] = app.renderer.generateTexture(gRight);
+          gRight.destroy();
         }
-        texturesRef.current = tex;
       });
+      texturesRef.current = tex;
 
       // Trail layer
       const trailG = new Graphics();
@@ -366,25 +354,15 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     const stage = stageRef.current;
     if (!stage) return;
     const { w: W, h: H } = sizeRef.current;
-    
-    let kind = "bomb";
-    if (Math.random() > bombChance) {
-      kind = AVATARS[Math.floor(Math.random() * AVATARS.length)];
-    }
-    
-    // Default radius for avatars
-    const r = kind === "bomb" ? RADIUS["bomb"] : 36;
+    const pool: FruitKind[] = ["mango", "mango", "banana", "lychee", "dragonfruit", "durian"];
+    const kind: FruitKind =
+      Math.random() < bombChance ? "bomb"
+      : Math.random() < 0.08 ? "peanut"
+      : pool[Math.floor(Math.random() * pool.length)];
+    const r = RADIUS[kind];
 
-    const t = texturesRef.current[kind];
-    if (!t) return; // Assets not loaded yet
-    const g = new Sprite(t);
+    const g = new Sprite(texturesRef.current[kind]);
     g.anchor.set(0.5);
-    if (kind !== "bomb") {
-      // Scale avatar down to match game size
-      const scale = (r * 2) / Math.max(t.width, t.height);
-      g.scale.set(scale);
-    }
-    
     const startX = Math.max(r, Math.min(W - r, 80 + Math.random() * Math.max(1, W - 160)));
     g.x = startX;
     g.y = H + 40;
@@ -394,7 +372,7 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     const vy = -Math.sqrt(2 * 1000 * Math.max(50, H - peakY));
     const vr = (Math.random() - 0.5) * 6;
     stage.addChild(g);
-    fruitsRef.current.push({ kind: kind as FruitKind, g, vx, vy, rot: 0, vr, r, sliced: false });
+    fruitsRef.current.push({ kind, g, vx, vy, rot: 0, vr, r, sliced: false });
   }
 
   function sliceFruit(f: Fruit, dx: number, dy: number) {
@@ -444,20 +422,10 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
 
     const perp = angle + Math.PI / 2;
     const speed = 220;
-    
-    // Scale for half sprites to match the full sprite
-    const t = texturesRef.current[f.kind];
-    const scale = f.kind !== "bomb" ? (f.r * 2) / Math.max(t.width, t.height) : 1;
-
     // halves
     (["left", "right"] as const).forEach((side, i) => {
-      const halfTex = texturesRef.current[`${f.kind}_${side}`];
-      if (!halfTex) return;
-      const half = new Sprite(halfTex);
-      // anchor logic for halves: the left half needs its right edge to be the center, etc.
-      // But simple 0.5 anchor works decently if we just offset slightly, or just use 0.5
-      half.anchor.set(i === 0 ? 1 : 0, 0.5); 
-      half.scale.set(scale);
+      const half = new Sprite(texturesRef.current[`${f.kind}_${side}`]);
+      half.anchor.set(0.5);
       half.x = f.g.x;
       half.y = f.g.y;
       half.rotation = f.g.rotation;
@@ -471,20 +439,16 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
       });
     });
 
-    // Spawn massive amount of flesh particles
-    const fleshColor = f.kind.includes("laclac") ? 0xfff5e0 : 0xffffff;
-    const bodyColor = f.kind.includes("laclac") ? 0xd4a574 : 0xcccccc;
-    spawnSplat(f.g.x, f.g.y, fleshColor, 35, 5);
-    spawnSplat(f.g.x, f.g.y, bodyColor, 10, 3);
+    // Spawn massive amount of flesh particles now that they share shapes/textures
+    spawnSplat(f.g.x, f.g.y, COLORS[f.kind].flesh, 45, 5);
+    spawnSplat(f.g.x, f.g.y, COLORS[f.kind].body, 15, 3);
 
     comboRef.current += 1;
     comboResetRef.current = performance.now() + 700;
-    
-    // Base points and multi
-    const base = 5;
+    const base = POINTS[f.kind];
     const mult = comboRef.current >= 5 ? 3 : comboRef.current >= 3 ? 2 : 1;
-    // Lạc lạc = bonus
-    const peanutBonus = f.kind.includes("laclac") ? 5 : 1;
+    // 🥜 Peanut = ×10 bonus!
+    const peanutBonus = f.kind === "peanut" ? 10 : 1;
     const pointsEarned = base * mult * peanutBonus;
     scoreRef.current += pointsEarned;
     updateHud();
