@@ -10,10 +10,15 @@ interface Props {
 export function LoginModal({ open, onClose }: Props) {
   const { loginWithGoogle, user, error, clearError, loading } = useAuth();
   const [submitting, setSubmitting] = useState(false);
+  const [successMsg, setSuccessMsg] = useState(false);
 
   // Close when user logs in (user changes from null → object)
-  if (user && open) {
-    setTimeout(() => onClose(), 300);
+  if (user && open && !successMsg) {
+    setSuccessMsg(true);
+    setTimeout(() => {
+      setSuccessMsg(false);
+      onClose();
+    }, 1500);
   }
 
   if (!open) return null;
@@ -81,7 +86,7 @@ export function LoginModal({ open, onClose }: Props) {
         </div>
 
         {/* Error banner */}
-        {error && (
+        {error && !successMsg && (
           <div style={{
             background: "rgba(186,26,26,0.08)",
             border: "1px solid rgba(186,26,26,0.25)",
@@ -93,6 +98,23 @@ export function LoginModal({ open, onClose }: Props) {
             fontWeight: 600,
           }}>
             {error}
+          </div>
+        )}
+
+        {/* Success banner */}
+        {successMsg && (
+          <div style={{
+            background: "rgba(52, 168, 83, 0.15)",
+            border: "1px solid rgba(52, 168, 83, 0.4)",
+            borderRadius: 12,
+            padding: "10px 14px",
+            marginBottom: 16,
+            fontSize: 13,
+            color: "#2b8a3e",
+            fontWeight: 700,
+            textAlign: "center",
+          }}>
+            🎉 Đăng nhập thành công!
           </div>
         )}
 

@@ -46,6 +46,8 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
   const [flashRed, setFlashRed] = useState(false);
   const [bombTexts, setBombTexts] = useState<{ x: number; y: number; id: number }[]>([]);
   const bombIdRef = useRef(0);
+  const [pointTexts, setPointTexts] = useState<{ x: number; y: number; id: number; text: string; color: string }[]>([]);
+  const pointIdRef = useRef(0);
 
   const GAME_DURATION = 180; // 3 phút — requirement §1.1
   const playingRef = useRef(false);
@@ -336,10 +338,12 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
           const b = trailRef.current[i];
           const age = (now - b.t) / 220;
           const al = 1 - age;
+          // Outer white stroke
           tg.moveTo(a.x, a.y).lineTo(b.x, b.y)
-            .stroke({ color: 0xffffff, width: 7 * al + 1, alpha: al * 0.9, cap: "round" });
+            .stroke({ color: 0xffffff, width: 12 * al + 3, alpha: al * 0.95, cap: "round", join: "round" });
+          // Inner orange stroke
           tg.moveTo(a.x, a.y).lineTo(b.x, b.y)
-            .stroke({ color: 0xe87432, width: 3 * al + 0.5, alpha: al, cap: "round" });
+            .stroke({ color: 0xe87432, width: 5 * al + 1, alpha: al, cap: "round", join: "round" });
         }
       }
     }
@@ -445,8 +449,32 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     const mult = comboRef.current >= 5 ? 3 : comboRef.current >= 3 ? 2 : 1;
     // 🥜 Peanut = ×10 bonus!
     const peanutBonus = f.kind === "peanut" ? 10 : 1;
-    scoreRef.current += base * mult * peanutBonus;
+    const pointsEarned = base * mult * peanutBonus;
+    scoreRef.current += pointsEarned;
     updateHud();
+
+    // Floating text for points
+    const ptId = ++pointIdRef.current;
+    const wrap = wrapRef.current;
+    if (wrap) {
+      const rect = wrap.getBoundingClientRect();
+      const sx = rect.width > 0 ? f.g.x / (sizeRef.current.w / rect.width) : 0;
+      const sy = rect.height > 0 ? f.g.y / (sizeRef.current.h / rect.height) : 0;
+      let text = `+${pointsEarned}`;
+      let color = "#fff";
+      if (peanutBonus > 1) {
+        text = `+${pointsEarned} LẠC LẠC!`;
+        color = "#f0b840";
+      } else if (mult >= 3) {
+        text = `+${pointsEarned} CRITICAL!`;
+        color = "#ff2a2a";
+      } else if (mult >= 2) {
+        text = `+${pointsEarned} COMBO!`;
+        color = "#e87432";
+      }
+      setPointTexts((prev) => [...prev.slice(-8), { x: sx, y: sy, id: ptId, text, color }]);
+      setTimeout(() => setPointTexts((prev) => prev.filter((t) => t.id !== ptId)), 800);
+    }
 
     // 🔊 Slice SFX
     if (!muted) onPlaySlice?.();
@@ -499,6 +527,7 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     particlesRef.current = [];
     trailRef.current = [];
     setBombTexts([]);
+    setPointTexts([]);
     setFlashRed(false);
     shakeRef.current = { active: false, startTime: 0, duration: 0.4, intensity: 8 };
     if (stageRef.current) { stageRef.current.x = 0; stageRef.current.y = 0; }
@@ -587,6 +616,29 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
         </div>
       ))}
 
+      {/* 💯 Floating Point texts */}
+      {pointTexts.map((pt) => (
+        <div
+          key={pt.id}
+          style={{
+            position: "absolute",
+            left: pt.x,
+            top: pt.y,
+            transform: "translate(-50%, -50%)",
+            fontSize: "clamp(18px, 4vw, 36px)",
+            fontWeight: 900,
+            color: pt.color,
+            textShadow: "0 2px 4px rgba(42,36,24,0.8), 0 0 8px rgba(0,0,0,0.5), 0 0 20px " + pt.color,
+            pointerEvents: "none",
+            zIndex: 9,
+            animation: "pointPop 0.8s ease-out forwards",
+            fontFamily: "Be Vietnam Pro, sans-serif",
+          }}
+        >
+          {pt.text}
+        </div>
+      ))}
+
       {/* HTML HUD overlay */}
       <div style={{
         position: "absolute", top: 14, left: 20, right: 20,
@@ -600,8 +652,12 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
             Điểm: {hud.score}
           </div>
           {hud.combo >= 2 && (
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#e87432", marginTop: 4, textShadow: "0 1px 0 rgba(255,255,255,0.6)" }}>
-              Combo ×{hud.combo}
+            <div style={{
+              fontSize: 18, fontWeight: 800, color: hud.combo >= 5 ? "#ff2a2a" : "#e87432",
+              marginTop: 4,
+              textShadow: "0 2px 4px rgba(42,36,24,0.3), 0 0 10px rgba(255,255,255,0.9)",
+            }}>
+              {hud.combo >= 5 ? "🔥 BẠO KÍCH: Combo ×" : "Combo ×"}{hud.combo}
               {hud.combo >= 5 ? "  (điểm ×3)" : hud.combo >= 3 ? "  (điểm ×2)" : ""}
             </div>
           )}
@@ -713,6 +769,11 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
           0%   { opacity: 1; transform: translate(-50%, -50%) scale(0.5); }
           30%  { opacity: 1; transform: translate(-50%, -50%) scale(1.3); }
           100% { opacity: 0; transform: translate(-50%, -50%) scale(1.0) translateY(-40px); }
+        }
+        @keyframes pointPop {
+          0%   { opacity: 1; transform: translate(-50%, -50%) scale(0.7); }
+          30%  { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+          100% { opacity: 0; transform: translate(-50%, -50%) scale(1.0) translateY(-30px); }
         }
       `}</style>
     </div>
