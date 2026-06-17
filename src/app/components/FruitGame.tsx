@@ -111,6 +111,7 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
       app.stage.addChild(playLayer);
       stageRef.current = playLayer;
 
+      const tex: Record<string, Texture> = {};
       const whiteCircle = new Graphics().circle(0, 0, 10).fill(0xffffff);
       tex["circle"] = app.renderer.generateTexture(whiteCircle);
       whiteCircle.destroy();
