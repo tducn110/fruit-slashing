@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useAuth } from "../lib/AuthContext";
 import { saveRun, getLeaderboard, getUserStats, type ScoreRecord } from "../../lib/firebase";
 
@@ -16,8 +16,15 @@ export function useFirebaseStorage() {
   const [lastScore, setLastScore] = useState<number | null>(null);
   const [leaderboard, setLeaderboard] = useState<ScoreRecord[]>([]);
   const [totalGamesPlayed, setTotalGamesPlayed] = useState(0);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  // ── Fetch leaderboard + user stats on mount ──────────────────────────
+  // 🔥 Use refs to avoid stale closure — always read latest user/bestScore
+  const userRef = useRef(user);
+  userRef.current = user;
+  const bestScoreRef = useRef(bestScore);
+  bestScoreRef.current = bestScore;
+
+  // ── Fetch leaderboard + user stats on mount / user change ──────────
   useEffect(() => {
     // Fetch leaderboard immediately (no auth needed)
     getLeaderboard(10)
@@ -43,29 +50,46 @@ export function useFirebaseStorage() {
   /** Called by GamePage when game ends — saves to Firestore + refreshes leaderboard. */
   const handleGameOver = useCallback(
     async (finalScore: number) => {
-      setLastScore(finalScore);
-      if (finalScore > bestScore) setBestScore(finalScore);
-      setTotalGamesPlayed((n) => n + 1);
+      const currentUser = userRef.current;
+      const currentBest = bestScoreRef.current;
 
-      if (user && finalScore > 0) {
+      setLastScore(finalScore);
+      if (finalScore > currentBest) setBestScore(finalScore);
+      setTotalGamesPlayed((n) => n + 1);
+      setSaveError(null);
+
+      if (currentUser && finalScore > 0) {
         try {
-          const playTimeSec = 180; // matches GAME_DURATION in FruitGame
+          console.log("[Firestore] Saving run for", currentUser.uid, "score:", finalScore);
+          const playTimeSec = 180;
           await saveRun(
-            user.uid,
-            user.displayName ?? "Người chơi",
-            user.photoURL,
+            currentUser.uid,
+            currentUser.displayName ?? "Người chơi",
+            currentUser.photoURL,
             finalScore,
             playTimeSec,
           );
-          // Refresh leaderboard after save
+          console.log("[Firestore] Save OK, refreshing leaderboard...");
           const lb = await getLeaderboard(10);
           setLeaderboard(lb);
-        } catch (e) {
-          console.warn("Firestore save failed", e);
+        } catch (e: any) {
+          const msg = e?.message ?? String(e);
+          console.error("[Firestore] Save FAILED:", msg);
+
+          // Detect common Firebase errors
+          if (msg.includes("permission-denied") || msg.includes("Missing or insufficient permissions")) {
+            setSaveError("Không thể lưu điểm: Firestore rules chưa cho phép ghi. Vui lòng cập nhật rules.");
+          } else if (msg.includes("unavailable") || msg.includes("network")) {
+            setSaveError("Không có kết nối mạng. Điểm sẽ không được lưu.");
+          } else {
+            setSaveError("Lưu điểm thất bại: " + msg.slice(0, 80));
+          }
         }
+      } else if (!currentUser) {
+        console.log("[Firestore] Skipped save — user not logged in (score:", finalScore, ")");
       }
     },
-    [bestScore, user],
+    [], // 🔥 empty deps — uses refs for latest values
   );
 
   /** Fetch leaderboard on demand (e.g. when Dashboard panel opens). */
@@ -85,6 +109,7 @@ export function useFirebaseStorage() {
     lastScore,
     totalGamesPlayed,
     leaderboard,
+    saveError,
     onGameOver: handleGameOver,
     refreshLeaderboard: fetchLeaderboard,
   };

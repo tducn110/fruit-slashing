@@ -13,6 +13,7 @@ interface Props {
   lastScore: number | null;
   totalGamesPlayed: number;
   leaderboard: ScoreRecord[];
+  saveError?: string | null;
   onGameOver: (score: number) => void;
   onHome: () => void;
   onRefreshLeaderboard: () => void;
@@ -34,6 +35,7 @@ export function GamePage({
   lastScore,
   totalGamesPlayed,
   leaderboard,
+  saveError,
   onGameOver,
   onHome,
   onRefreshLeaderboard,
@@ -241,6 +243,22 @@ export function GamePage({
                   })}
                 </tbody>
               </table>
+            )}
+
+            {/* 🔥 Save error banner */}
+            {saveError && (
+              <div style={{
+                marginTop: 12,
+                padding: "10px 14px",
+                borderRadius: 10,
+                background: "rgba(194,56,56,0.08)",
+                border: "1px solid rgba(194,56,56,0.25)",
+                fontSize: 12,
+                color: "#c23838",
+                lineHeight: 1.5,
+              }}>
+                ⚠️ {saveError}
+              </div>
             )}
 
             {/* Login prompt for guest users */}
