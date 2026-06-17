@@ -17,6 +17,8 @@ export default function App() {
   const [showLogin, setShowLogin] = useState(false);
   const [muted, setMuted] = useState(false);
   const [audioUnlocked, setAudioUnlocked] = useState(false);
+  const [audioStatus, setAudioStatus] = useState(""); // "Đang tải nhạc..." or ""
+  const audioBusyRef = useRef(false); // 🔥 block re-entry
   const loadingTarget = useRef<"game" | "landing">("game");
 
   // 🎵 Sync mute state to audio manager
@@ -24,13 +26,28 @@ export default function App() {
     audioManager.setMuted(muted);
   }, [muted]);
 
+  // 🎵 Preload BGM in background immediately (no user gesture needed for fetch)
+  useEffect(() => {
+    setAudioStatus("Đang tải nhạc...");
+    audioManager.preloadBgmOnly("/assets/").then(() => {
+      setAudioStatus("");
+    });
+  }, []);
+
   // 🎵 Unlock audio + start BGM on first user tap (browser autoplay policy)
   const handleFirstInteraction = useCallback(async () => {
-    if (audioUnlocked) return;
-    await audioManager.unlock();
-    await audioManager.preloadBgmOnly("/assets/");
-    audioManager.playBgm(0.7);
-    setAudioUnlocked(true);
+    if (audioBusyRef.current || audioUnlocked) return;
+    audioBusyRef.current = true;
+    try {
+      await audioManager.unlock();
+      // BGM buffer already loaded by useEffect above — play instantly
+      audioManager.playBgm(0.7);
+      setAudioUnlocked(true);
+    } catch {
+      // Failed — allow retry
+    } finally {
+      audioBusyRef.current = false;
+    }
   }, [audioUnlocked]);
 
   // Khi user nhấn "Chơi ngay" → loading rồi vào game
@@ -111,11 +128,7 @@ export default function App() {
       {/* 🎵 Tap-to-start overlay — unlocks audio on first interaction */}
       {!audioUnlocked && (
         <div
-          onPointerDown={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            handleFirstInteraction();
-          }}
+          onClick={handleFirstInteraction}
           style={{
             position: "fixed", inset: 0,
             zIndex: 99999,
@@ -143,14 +156,14 @@ export default function App() {
             textShadow: "0 1px 0 rgba(255,255,255,0.6)",
             marginBottom: 8,
           }}>
-            Chạm vào màn hình để bắt đầu
+            {audioStatus || "Chạm vào màn hình để bắt đầu"}
           </div>
           <div style={{
             fontSize: 13,
             color: "#8a7d65",
             textAlign: "center",
           }}>
-            (Yêu cầu để mở nhạc nền)
+            {audioStatus ? "(Vui lòng đợi...)" : "(Yêu cầu để mở nhạc nền)"}
           </div>
           <style>{`
             @keyframes pulse {
