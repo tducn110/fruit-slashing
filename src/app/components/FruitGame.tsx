@@ -520,6 +520,14 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     setCountdown(3);
   }
 
+  // ⏱ Auto-start countdown on first mount (no "Bắt đầu chém" button needed)
+  useEffect(() => {
+    if (!running && finalScore === null && countdown === null) {
+      beginCountdown();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Run countdown tick
   useEffect(() => {
     if (countdown === null || countdown <= 0) return;
@@ -616,17 +624,17 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
           {hud.lives > 0 ? "♥".repeat(hud.lives) : "✕"}
         </div>
       </div>
-      {!running && (
+      {!running && countdown === null && (
         <div style={{
           position: "absolute", inset: 0,
           display: "grid", placeItems: "center",
           background: finalScore !== null ? "rgba(245,236,215,0.6)" : "transparent",
           backdropFilter: finalScore !== null ? "blur(2px)" : "none",
           borderRadius: 20,
-          pointerEvents: "auto",
+          pointerEvents: finalScore !== null ? "auto" : "none",
         }}>
-          <div style={{ textAlign: "center" }}>
-            {finalScore !== null && (
+          {finalScore !== null && (
+            <div style={{ textAlign: "center" }}>
               <div style={{
                 marginBottom: 18,
                 padding: "18px 28px",
@@ -648,25 +656,25 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
                   {livesRef.current > 0 ? `${livesRef.current} mạng còn` : "Hết mạng"}
                 </div>
               </div>
-            )}
-            <button
-              onClick={beginCountdown}
-              style={{
-                padding: "18px 38px",
-                background: "linear-gradient(180deg, #f08a48 0%, #e87432 100%)",
-                color: "#fff",
-                border: "3px solid #b85a22",
-                borderRadius: 999,
-                fontFamily: "Be Vietnam Pro, sans-serif",
-                fontWeight: 800,
-                fontSize: 20,
-                cursor: "pointer",
-                boxShadow: "0 10px 24px rgba(232,116,50,0.45)",
-              }}
-            >
-              {finalScore !== null ? "Chơi lại" : "Bắt đầu chém"}
-            </button>
-          </div>
+              <button
+                onClick={beginCountdown}
+                style={{
+                  padding: "18px 38px",
+                  background: "linear-gradient(180deg, #f08a48 0%, #e87432 100%)",
+                  color: "#fff",
+                  border: "3px solid #b85a22",
+                  borderRadius: 999,
+                  fontFamily: "Be Vietnam Pro, sans-serif",
+                  fontWeight: 800,
+                  fontSize: 20,
+                  cursor: "pointer",
+                  boxShadow: "0 10px 24px rgba(232,116,50,0.45)",
+                }}
+              >
+                Chơi lại
+              </button>
+            </div>
+          )}
         </div>
       )}
       {/* ⏱ Countdown overlay */}
