@@ -3,6 +3,7 @@ import { FruitGame } from "./FruitGame";
 import { Home, Settings, Trophy, Volume2, VolumeX, X } from "lucide-react";
 import type { User } from "firebase/auth";
 import type { ScoreRecord } from "../../lib/firebase";
+import { useGameSound } from "../hooks/useSound";
 
 interface Props {
   muted: boolean;
@@ -39,6 +40,9 @@ export function GamePage({
   onLoginPrompt,
 }: Props) {
   const [panel, setPanel] = useState<null | "settings" | "dashboard">(null);
+
+  // 🎵 Sound — BGM managed by App.tsx, SFX for in-game slicing
+  const { playSlice, playBomb } = useGameSound(muted);
 
   // Refresh leaderboard when dashboard opens
   useEffect(() => {
@@ -117,7 +121,12 @@ export function GamePage({
 
       {/* Game canvas — fills remaining space */}
       <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
-        <FruitGame onGameOver={handleGameOver} muted={muted} />
+        <FruitGame
+          onGameOver={handleGameOver}
+          muted={muted}
+          onPlaySlice={playSlice}
+          onPlayBomb={playBomb}
+        />
 
         {/* Settings overlay */}
         {panel === "settings" && (

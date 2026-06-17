@@ -1,6 +1,6 @@
 import { Graphics, Container } from "pixi.js";
 
-export type FruitKind = "durian" | "lychee" | "banana" | "dragonfruit" | "mango" | "bomb";
+export type FruitKind = "durian" | "lychee" | "banana" | "dragonfruit" | "mango" | "peanut" | "bomb";
 
 export interface Fruit {
   kind: FruitKind;
@@ -119,6 +119,34 @@ const FRUIT_REGISTRY: Record<FruitKind, FruitConfig> = {
     },
     drawHalf: defaultDrawHalf
   },
+  peanut: {
+    points: 10,
+    radius: 28,
+    colors: { body: 0xd4a574, edge: 0x8b6914, flesh: 0xfff5e0 },
+    drawFull: (g, r, c) => {
+      const lobeR = r * 0.58;
+      const offset = r * 0.48;
+      g.circle(0, -offset, lobeR).fill(c.body).stroke({ color: c.edge, width: 2 });
+      g.circle(0, offset, lobeR).fill(c.body).stroke({ color: c.edge, width: 2 });
+      g.ellipse(0, 0, r * 0.42, r * 0.55).fill(c.body).stroke({ color: c.edge, width: 1.5 });
+      g.moveTo(-r * 0.4, -r * 0.15).quadraticCurveTo(0, 0, -r * 0.4, r * 0.15)
+        .stroke({ color: c.edge, width: 1.2, alpha: 0.5, cap: "round" });
+      g.moveTo(r * 0.4, -r * 0.15).quadraticCurveTo(0, 0, r * 0.4, r * 0.15)
+        .stroke({ color: c.edge, width: 1.2, alpha: 0.5, cap: "round" });
+      for (let i = 0; i < 5; i++) {
+        const ay = -r * 0.7 + i * r * 0.35;
+        g.moveTo(-r * 0.45, ay).lineTo(r * 0.45, ay)
+          .stroke({ color: c.edge, width: 0.6, alpha: 0.3 });
+      }
+      g.ellipse(-r * 0.18, -r * 0.5, r * 0.14, r * 0.1)
+        .fill({ color: 0xffffff, alpha: 0.2 });
+    },
+    drawHalf: (g, r, c, side) => {
+      const sign = side === "left" ? -1 : 1;
+      g.ellipse(0, 0, r * 0.42, r * 0.95).fill(c.flesh).stroke({ color: c.edge, width: 1.5 });
+      g.rect(sign === -1 ? -2 : 0, -r * 0.95, 2, r * 1.9).fill(c.edge);
+    }
+  },
   bomb: {
     points: 0,
     radius: 30,
@@ -130,7 +158,7 @@ const FRUIT_REGISTRY: Record<FruitKind, FruitConfig> = {
       g.circle(0, -r * 1.35, r * 0.16).fill(0xffaa22);
       g.circle(0, -r * 1.35, r * 0.09).fill(0xffe66a);
     },
-    drawHalf: () => {} // Bombs are not splittable into halves
+    drawHalf: () => {}
   }
 };
 

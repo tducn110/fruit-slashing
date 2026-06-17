@@ -24,9 +24,12 @@ import {
 // ─── Component ────────────────────────────────────────────────────────────────
 interface Props {
   onGameOver?: (score: number) => void;
+  muted?: boolean;
+  onPlaySlice?: () => void;
+  onPlayBomb?: () => void;
 }
 
-export function FruitGame({ onGameOver }: Props) {
+export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<Application | null>(null);
   const stageRef = useRef<Container | null>(null);
@@ -36,6 +39,13 @@ export function FruitGame({ onGameOver }: Props) {
   const trailRef = useRef<TrailPoint[]>([]);
   const sizeRef = useRef({ w: 800, h: 450 });
   const texturesRef = useRef<Record<string, Texture>>({});
+
+  // Screen shake
+  const shakeRef = useRef({ active: false, startTime: 0, duration: 0.4, intensity: 8 });
+  // Flash + bomb text
+  const [flashRed, setFlashRed] = useState(false);
+  const [bombTexts, setBombTexts] = useState<{ x: number; y: number; id: number }[]>([]);
+  const bombIdRef = useRef(0);
 
   const GAME_DURATION = 180; // 3 phút — requirement §1.1
   const playingRef = useRef(false);
@@ -50,6 +60,7 @@ export function FruitGame({ onGameOver }: Props) {
   const [running, setRunning] = useState(false);
   const [finalScore, setFinalScore] = useState<number | null>(null);
   const [hud, setHud] = useState({ score: 0, lives: 3, combo: 0, time: GAME_DURATION });
+  const [countdown, setCountdown] = useState<number | null>(null);
 
   // ── Init Pixi once ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -95,7 +106,7 @@ export function FruitGame({ onGameOver }: Props) {
       stageRef.current = playLayer;
 
       // Generate textures for optimization
-      const kinds: FruitKind[] = ["durian", "lychee", "banana", "dragonfruit", "mango", "bomb"];
+      const kinds: FruitKind[] = ["durian", "lychee", "banana", "dragonfruit", "mango", "peanut", "bomb"];
       const tex: Record<string, Texture> = {};
       
       const whiteCircle = new Graphics().circle(0, 0, 10).fill(0xffffff);
@@ -212,10 +223,19 @@ export function FruitGame({ onGameOver }: Props) {
         }
       }
 
-      // Progressive difficulty based on elapsed time
+      // Progressive difficulty — 5 giai đoạn rõ rệt
       const t = elapsed; // seconds elapsed
-      //  0–30s easy → 30–90s faster → 90–150s hard → 150–180s extreme
-      const difficulty = t < 30 ? 0 : t < 90 ? (t - 30) / 60 : t < 150 ? 0.5 + (t - 90) / 120 : 1;
+      // GĐ1: 0–10s  — đơn giản (d: 0.05 → 0.15)
+      // GĐ2: 10–20s — chuyển tiếp (d: 0.15 → 0.35)
+      // GĐ3: 20–40s — phức tạp   (d: 0.35 → 0.65)
+      // GĐ4: 40–80s — giữ nhịp khó (d: 0.65 → 0.78)
+      // GĐ5: 80–180s— khó nhất    (d: 0.78 → 1.0)
+      const difficulty =
+        t < 10  ? 0.05 + (t / 10) * 0.10            // 0.05 → 0.15
+        : t < 20  ? 0.15 + ((t - 10) / 10) * 0.20    // 0.15 → 0.35
+        : t < 40  ? 0.35 + ((t - 20) / 20) * 0.30    // 0.35 → 0.65
+        : t < 80  ? 0.65 + ((t - 40) / 40) * 0.13    // 0.65 → 0.78
+        :           0.78 + ((t - 80) / 100) * 0.22;   // 0.78 → 1.0
       const d = Math.min(1, Math.max(0, difficulty));
 
       const spawnEvery = 1100 - d * 680;             // 1100ms → 420ms
@@ -289,6 +309,21 @@ export function FruitGame({ onGameOver }: Props) {
       }
     }
 
+    // Screen shake — apply to stage container
+    if (shakeRef.current.active && stageRef.current) {
+      const elapsed = (performance.now() - shakeRef.current.startTime) / 1000;
+      if (elapsed >= shakeRef.current.duration) {
+        shakeRef.current.active = false;
+        stageRef.current.x = 0;
+        stageRef.current.y = 0;
+      } else {
+        const decay = 1 - elapsed / shakeRef.current.duration;
+        const intensity = shakeRef.current.intensity * decay;
+        stageRef.current.x = (Math.random() - 0.5) * intensity * 2;
+        stageRef.current.y = (Math.random() - 0.5) * intensity * 2;
+      }
+    }
+
     // Trail
     const tg = trailGRef.current;
     if (tg) {
@@ -316,7 +351,10 @@ export function FruitGame({ onGameOver }: Props) {
     if (!stage) return;
     const { w: W, h: H } = sizeRef.current;
     const pool: FruitKind[] = ["mango", "mango", "banana", "lychee", "dragonfruit", "durian"];
-    const kind: FruitKind = Math.random() < bombChance ? "bomb" : pool[Math.floor(Math.random() * pool.length)];
+    const kind: FruitKind =
+      Math.random() < bombChance ? "bomb"
+      : Math.random() < 0.08 ? "peanut"
+      : pool[Math.floor(Math.random() * pool.length)];
     const r = RADIUS[kind];
 
     const g = new Sprite(texturesRef.current[kind]);
@@ -348,6 +386,29 @@ export function FruitGame({ onGameOver }: Props) {
       livesRef.current -= 1;
       comboRef.current = 0;
       updateHud();
+
+      // 🔥 Screen shake 0.4s
+      shakeRef.current = { active: true, startTime: performance.now(), duration: 0.4, intensity: 8 };
+
+      // 🔴 Flash red 100ms
+      setFlashRed(true);
+      setTimeout(() => setFlashRed(false), 100);
+
+      // 💥 "BÙM!" text
+      const bid = ++bombIdRef.current;
+      // Convert Pixi coords → screen percentage for responsive overlay
+      const wrap = wrapRef.current;
+      if (wrap) {
+        const rect = wrap.getBoundingClientRect();
+        const sx = rect.width > 0 ? f.g.x / (sizeRef.current.w / rect.width) : 0;
+        const sy = rect.height > 0 ? f.g.y / (sizeRef.current.h / rect.height) : 0;
+        setBombTexts((prev) => [...prev.slice(-4), { x: sx, y: sy, id: bid }]);
+        setTimeout(() => setBombTexts((prev) => prev.filter((t) => t.id !== bid)), 800);
+      }
+
+      // 🔊 Bomb SFX
+      if (!muted) onPlayBomb?.();
+
       if (livesRef.current <= 0) gameOver();
       f.g.destroy();
       const idx = fruitsRef.current.indexOf(f);
@@ -382,8 +443,13 @@ export function FruitGame({ onGameOver }: Props) {
     comboResetRef.current = performance.now() + 700;
     const base = POINTS[f.kind];
     const mult = comboRef.current >= 5 ? 3 : comboRef.current >= 3 ? 2 : 1;
-    scoreRef.current += base * mult;
+    // 🥜 Peanut = ×10 bonus!
+    const peanutBonus = f.kind === "peanut" ? 10 : 1;
+    scoreRef.current += base * mult * peanutBonus;
     updateHud();
+
+    // 🔊 Slice SFX
+    if (!muted) onPlaySlice?.();
 
     f.g.destroy();
     const idx = fruitsRef.current.indexOf(f);
@@ -432,6 +498,10 @@ export function FruitGame({ onGameOver }: Props) {
     fruitsRef.current = [];
     particlesRef.current = [];
     trailRef.current = [];
+    setBombTexts([]);
+    setFlashRed(false);
+    shakeRef.current = { active: false, startTime: 0, duration: 0.4, intensity: 8 };
+    if (stageRef.current) { stageRef.current.x = 0; stageRef.current.y = 0; }
     scoreRef.current = 0;
     livesRef.current = 3;
     comboRef.current = 0;
@@ -442,7 +512,27 @@ export function FruitGame({ onGameOver }: Props) {
     setFinalScore(null);
     playingRef.current = true;
     setRunning(true);
+    setCountdown(null);
   }
+
+  // ⏱ Countdown 3-2-1 before game starts
+  function beginCountdown() {
+    setCountdown(3);
+  }
+
+  // Run countdown tick
+  useEffect(() => {
+    if (countdown === null || countdown <= 0) return;
+    const timer = setTimeout(() => {
+      if (countdown === 1) {
+        start();
+      } else {
+        setCountdown(countdown - 1);
+      }
+    }, 700);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [countdown]);
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
@@ -455,12 +545,47 @@ export function FruitGame({ onGameOver }: Props) {
         }}
       />
 
+      {/* 🔴 Flash red overlay */}
+      {flashRed && (
+        <div style={{
+          position: "absolute", inset: 0,
+          background: "rgba(255, 30, 30, 0.35)",
+          pointerEvents: "none",
+          zIndex: 5,
+          transition: "opacity 0.1s",
+        }} />
+      )}
+
+      {/* 💥 "BÙM!" floating texts */}
+      {bombTexts.map((bt) => (
+        <div
+          key={bt.id}
+          style={{
+            position: "absolute",
+            left: bt.x,
+            top: bt.y,
+            transform: "translate(-50%, -50%)",
+            fontSize: "clamp(24px, 6vw, 52px)",
+            fontWeight: 900,
+            color: "#ff2a2a",
+            textShadow: "0 4px 16px rgba(255,0,0,0.7), 0 0 40px rgba(255,80,0,0.5)",
+            pointerEvents: "none",
+            zIndex: 10,
+            animation: "bombPop 0.8s ease-out forwards",
+            fontFamily: "Be Vietnam Pro, sans-serif",
+          }}
+        >
+          BÙM!
+        </div>
+      ))}
+
       {/* HTML HUD overlay */}
       <div style={{
         position: "absolute", top: 14, left: 20, right: 20,
         display: "flex", justifyContent: "space-between", alignItems: "flex-start",
         pointerEvents: "none",
         fontFamily: "Be Vietnam Pro, sans-serif",
+        zIndex: 8,
       }}>
         <div>
           <div style={{ fontSize: 20, fontWeight: 700, color: "#2a2418", textShadow: "0 1px 0 rgba(255,255,255,0.6)" }}>
@@ -525,7 +650,7 @@ export function FruitGame({ onGameOver }: Props) {
               </div>
             )}
             <button
-              onClick={start}
+              onClick={beginCountdown}
               style={{
                 padding: "18px 38px",
                 background: "linear-gradient(180deg, #f08a48 0%, #e87432 100%)",
@@ -544,6 +669,44 @@ export function FruitGame({ onGameOver }: Props) {
           </div>
         </div>
       )}
+      {/* ⏱ Countdown overlay */}
+      {countdown !== null && countdown > 0 && (
+        <div style={{
+          position: "absolute", inset: 0,
+          display: "grid", placeItems: "center",
+          background: "rgba(245,236,215,0.75)",
+          backdropFilter: "blur(4px)",
+          zIndex: 50,
+          pointerEvents: "none",
+          fontFamily: "Be Vietnam Pro, sans-serif",
+        }}>
+          <div style={{
+            fontSize: "clamp(80px, 18vw, 160px)",
+            fontWeight: 900,
+            color: "#e87432",
+            textShadow: "0 4px 24px rgba(232,116,50,0.35), 0 2px 8px rgba(42,36,24,0.15)",
+            animation: "countPop 0.6s ease-out",
+            lineHeight: 1,
+          }}>
+            {countdown}
+          </div>
+          <style>{`
+            @keyframes countPop {
+              0%   { transform: scale(2); opacity: 0; }
+              50%  { transform: scale(0.9); opacity: 1; }
+              100% { transform: scale(1); opacity: 1; }
+            }
+          `}</style>
+        </div>
+      )}
+      {/* CSS animations */}
+      <style>{`
+        @keyframes bombPop {
+          0%   { opacity: 1; transform: translate(-50%, -50%) scale(0.5); }
+          30%  { opacity: 1; transform: translate(-50%, -50%) scale(1.3); }
+          100% { opacity: 0; transform: translate(-50%, -50%) scale(1.0) translateY(-40px); }
+        }
+      `}</style>
     </div>
   );
 }

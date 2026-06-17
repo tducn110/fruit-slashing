@@ -4,16 +4,49 @@
     <head>
       
       <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>Speed Click Game</title>
-      <meta name="description" content="Engage in a fun, fast-paced game where you click on randomly appearing trash items to score points and contribute to cleaning up rural areas." />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+      <title>Chém Lạc Vùng Cao — Fruit Ninja Style</title>
+      <meta name="description" content="Mini game chém trái cây vùng cao — chơi nhanh, vui, gây nghiện!" />
       <meta name="robots" content="noindex, nofollow" />
-      <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
+      <style>
+        html, body { height: 100%; margin: 0; background: #f5ecd7; }
+        #root { height: 100%; }
+        /* Static preloader — shown before React mounts */
+        #preloader {
+          position: fixed; inset: 0;
+          display: flex; flex-direction: column;
+          align-items: center; justify-content: center;
+          background: linear-gradient(180deg, #f5ecd7 0%, #efe3c4 50%, #e6d8b2 100%);
+          z-index: 99999;
+          font-family: 'Be Vietnam Pro', system-ui, sans-serif;
+          transition: opacity 0.3s ease;
+        }
+        #preloader.hide { opacity: 0; pointer-events: none; }
+        #preloader .spinner {
+          width: 40px; height: 40px;
+          border: 3px solid rgba(138,125,101,0.15);
+          border-top-color: #e87432;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+          margin-bottom: 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #preloader p {
+          color: #8a7d65; font-size: 13px;
+          font-weight: 500; letter-spacing: 1px;
+        }
+      </style>
       
     </head>
 
     <body>
       
+      <!-- Static preloader — removed by React on mount -->
+      <div id="preloader">
+        <div class="spinner"></div>
+        <p>Đang tải game...</p>
+      </div>
+
       <div id="root"></div>
       <script type="module" src="/src/main.tsx"></script>
       
