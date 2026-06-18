@@ -23,7 +23,7 @@ import {
   makeFruit,
   makeHalf,
   drawBackground,
-} from "../utils/fruit-utils";
+} from "../../utils/fruit-utils";
 
 export interface GameSession {
   seed: number;
@@ -201,7 +201,7 @@ export function FruitGame({ onGameStart, onGameOver, muted = false, onPlaySlice,
       ...screen,
       id,
       text: result.fruit.kind === "peanut" ? `+${result.points} SIÊU HIẾM!` : `+${result.points}`,
-      color: result.fruit.kind === "peanut" ? "#ff8c00" : "#e87432",
+      color: result.fruit.kind === "peanut" ? "var(--mascot-yellow)" : "var(--primary)",
     }]);
     setTimeout(() => setPointTexts((items) => items.filter((item) => item.id !== id)), 800);
     if (!callbacksRef.current.muted) callbacksRef.current.onPlaySlice?.();
@@ -431,7 +431,7 @@ export function FruitGame({ onGameStart, onGameOver, muted = false, onPlaySlice,
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
-      <div ref={wrapRef} style={{ width: "100%", height: "100%", overflow: "hidden", background: "#f5ecd7" }} />
+      <div ref={wrapRef} style={{ width: "100%", height: "100%", overflow: "hidden", background: "var(--rice-paper)" }} />
       {flashRed && <div style={{ position: "absolute", inset: 0, background: "rgba(255,30,30,.35)", pointerEvents: "none", zIndex: 5 }} />}
       {bombTexts.map((text) => (
         <div key={text.id} className="bombText" style={{ left: text.x, top: text.y }}>BÙM!</div>
@@ -465,26 +465,6 @@ export function FruitGame({ onGameStart, onGameOver, muted = false, onPlaySlice,
       {(countdown !== null || starting) && (
         <div className="countdownOverlay"><div className="countdownNumber">{starting ? "…" : countdown}</div></div>
       )}
-
-      <style>{`
-        .gameHud { position:absolute; top:14px; left:20px; right:20px; display:flex; justify-content:space-between; align-items:flex-start; pointer-events:none; font-family:'Be Vietnam Pro',sans-serif; z-index:8; color:#2a2418; text-shadow:0 1px 0 rgba(255,255,255,.6) }
-        .comboText { font-size:18px; font-weight:800; color:#e87432; margin-top:4px }
-        .gameTimer { font-size:22px; font-weight:800; background:rgba(255,255,255,.75); border-radius:12px; padding:4px 16px; border:1.5px solid rgba(138,125,101,.3) }
-        .gameTimer.danger { color:#c23838 }
-        .gameLives { font-size:24px; font-weight:700; color:#c23838; letter-spacing:2px }
-        .bombText,.pointText { position:absolute; transform:translate(-50%,-50%); pointer-events:none; z-index:10; font-family:'Be Vietnam Pro',sans-serif; font-weight:900; animation:pointPop .8s ease-out forwards }
-        .bombText { font-size:clamp(24px,6vw,52px); color:#ff2a2a; text-shadow:0 4px 16px rgba(255,0,0,.7) }
-        .pointText { font-size:clamp(18px,4vw,36px); text-shadow:0 2px 4px rgba(42,36,24,.8) }
-        .gameOverOverlay,.countdownOverlay { position:absolute; inset:0; display:grid; place-items:center; background:rgba(245,236,215,.72); backdrop-filter:blur(4px); z-index:50; font-family:'Be Vietnam Pro',sans-serif }
-        .scoreCard { margin-bottom:18px; padding:18px 28px; border-radius:20px; background:rgba(255,255,255,.9); border:1.5px solid rgba(138,125,101,.4); box-shadow:0 10px 30px rgba(42,36,24,.15) }
-        .scoreLabel { font-size:13px; color:#8a7d65; font-weight:700; letter-spacing:1px; text-transform:uppercase }
-        .scoreValue { font-size:36px; font-weight:800; color:#e87432; margin-top:4px }
-        .scoreMeta { font-size:13px; color:#8a7d65; margin-top:8px }
-        .replayButton { padding:18px 38px; background:linear-gradient(180deg,#f08a48,#e87432); color:#fff; border:3px solid #b85a22; border-radius:999px; font-family:inherit; font-weight:800; font-size:20px; cursor:pointer; box-shadow:0 10px 24px rgba(232,116,50,.45) }
-        .countdownNumber { font-size:clamp(80px,18vw,160px); font-weight:900; color:#e87432; animation:countPop .6s ease-out }
-        @keyframes countPop { from { transform:scale(2); opacity:0 } to { transform:scale(1); opacity:1 } }
-        @keyframes pointPop { 0% { opacity:1; transform:translate(-50%,-50%) scale(.7) } 100% { opacity:0; transform:translate(-50%,-80%) scale(1) } }
-      `}</style>
     </div>
   );
 }

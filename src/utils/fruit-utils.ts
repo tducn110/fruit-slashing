@@ -1,7 +1,18 @@
 import { Graphics, Container } from "pixi.js";
-import { FRUIT_RULES, type FruitKind } from "../../game/core";
+import { FRUIT_RULES, type FruitKind } from "../game/core";
 
-export type { FruitKind } from "../../game/core";
+export type { FruitKind } from "../game/core";
+
+export const GAME_COLORS = {
+  ricePaper: 0xf5ecd7,
+  inkDark: 0x2a2418,
+  orangeCta: 0xe87432,
+  bambooGreen: 0x6b8e3d,
+  bambooSoft: 0xc8d68a,
+  hillLight: 0xe6d8b2,
+  hillDark: 0xd8c896,
+  birdGray: 0x8a7d65,
+} as const;
 
 export interface Fruit {
   kind: FruitKind;
@@ -185,26 +196,26 @@ export function makeHalf(kind: FruitKind, r: number, side: "left" | "right"): Gr
 
 export function drawBackground(c: Container, W: number, H: number) {
   const sky = new Graphics();
-  sky.rect(0, 0, W, H).fill(0xf5ecd7);
+  sky.rect(0, 0, W, H).fill(GAME_COLORS.ricePaper);
   c.addChild(sky);
 
   const hills = new Graphics();
   hills.moveTo(0, H * 0.62)
     .bezierCurveTo(W * 0.2, H * 0.55, W * 0.5, H * 0.68, W, H * 0.6)
     .lineTo(W, H).lineTo(0, H).closePath()
-    .fill({ color: 0xe6d8b2, alpha: 0.75 });
+    .fill({ color: GAME_COLORS.hillLight, alpha: 0.75 });
   hills.moveTo(0, H * 0.72)
     .bezierCurveTo(W * 0.3, H * 0.65, W * 0.7, H * 0.78, W, H * 0.7)
     .lineTo(W, H).lineTo(0, H).closePath()
-    .fill({ color: 0xd8c896, alpha: 0.8 });
+    .fill({ color: GAME_COLORS.hillDark, alpha: 0.8 });
   c.addChild(hills);
 
   const grass = new Graphics();
   grass.moveTo(0, H * 0.85)
     .bezierCurveTo(W * 0.3, H * 0.8, W * 0.7, H * 0.9, W, H * 0.85)
     .lineTo(W, H).lineTo(0, H).closePath()
-    .fill(0xc8d68a);
-  grass.rect(0, H * 0.94, W, H * 0.06).fill(0x6b8e3d);
+    .fill(GAME_COLORS.bambooSoft);
+  grass.rect(0, H * 0.94, W, H * 0.06).fill(GAME_COLORS.bambooGreen);
   c.addChild(grass);
 
   const bamboo = new Graphics();
@@ -213,7 +224,7 @@ export function drawBackground(c: Container, W: number, H: number) {
     const baseY = H * 0.65 + (i % 3) * 8;
     const h = 60 + (i % 4) * 14;
     bamboo.moveTo(x, baseY).quadraticCurveTo(x + 2, baseY - h / 2, x + (i % 2 ? 3 : -3), baseY - h)
-      .stroke({ color: 0x6b8e3d, width: 1.4, alpha: 0.5, cap: "round" });
+      .stroke({ color: GAME_COLORS.bambooGreen, width: 1.4, alpha: 0.5, cap: "round" });
   }
   c.addChild(bamboo);
 
@@ -222,9 +233,9 @@ export function drawBackground(c: Container, W: number, H: number) {
     const x = 100 + i * (W / 5);
     const y = 80 + (i % 2) * 26;
     birds.moveTo(x, y).lineTo(x + 6, y - 4).lineTo(x + 12, y)
-      .stroke({ color: 0x8a7d65, width: 1.2, alpha: 0.55, cap: "round" });
+      .stroke({ color: GAME_COLORS.birdGray, width: 1.2, alpha: 0.55, cap: "round" });
     birds.moveTo(x + 12, y).lineTo(x + 18, y - 4).lineTo(x + 24, y)
-      .stroke({ color: 0x8a7d65, width: 1.2, alpha: 0.55, cap: "round" });
+      .stroke({ color: GAME_COLORS.birdGray, width: 1.2, alpha: 0.55, cap: "round" });
   }
   c.addChild(birds);
 }

@@ -1,0 +1,223 @@
+/* ─── Game UI Components ────────────────────────────────────────────────────────── */
+
+/* GamePage responsive top bar */
+@media (max-width: 640px) {
+  .gameTopBar {
+    flex-wrap: nowrap !important;
+    padding: 8px 10px !important;
+    gap: 6px !important;
+  }
+  .gameTopBar .game-btn {
+    padding: 6px 10px !important;
+    font-size: 11px !important;
+    gap: 4px !important;
+  }
+  .btnLabel { display: none !important; }
+  .gameTitle  { font-size: 13px !important; }
+  .gameSub { font-size: 13px !important; }
+  .gameActions { gap: 4px !important; }
+}
+
+.loginPromptBtn:hover p:first-child { text-decoration: underline; }
+.loginPromptBtn:hover {
+  border-color: rgba(232, 116, 50, 0.6) !important;
+  background: rgba(248, 200, 96, 0.2) !important;
+}
+
+/* ─── FruitGame Overlays & HUD ────────────────────────────────────────────────── */
+
+.gameHud {
+  position: absolute;
+  top: 14px;
+  left: 20px;
+  right: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  pointer-events: none;
+  font-family: var(--font-family);
+  z-index: 8;
+  color: var(--ink-dark);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.comboText {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--orange-cta);
+  margin-top: 4px;
+}
+
+.gameTimer {
+  font-size: 22px;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: 12px;
+  padding: 4px 16px;
+  border: 1.5px solid rgba(138, 125, 101, 0.3);
+}
+
+.gameTimer.danger {
+  color: var(--destructive);
+}
+
+.gameLives {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--destructive);
+  letter-spacing: 2px;
+}
+
+.bombText, .pointText {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 10;
+  font-family: var(--font-family);
+  font-weight: 900;
+  animation: pointPop 0.8s ease-out forwards;
+}
+
+.bombText {
+  font-size: clamp(24px, 6vw, 52px);
+  color: var(--destructive);
+  text-shadow: 0 4px 16px rgba(255, 0, 0, 0.7);
+}
+
+.pointText {
+  font-size: clamp(18px, 4vw, 36px);
+  text-shadow: 0 2px 4px rgba(42, 36, 24, 0.8);
+}
+
+.gameOverOverlay, .countdownOverlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(245, 236, 215, 0.72);
+  backdrop-filter: blur(4px);
+  z-index: 50;
+  font-family: var(--font-family);
+}
+
+.scoreCard {
+  margin-bottom: 18px;
+  padding: 18px 28px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1.5px solid rgba(138, 125, 101, 0.4);
+  box-shadow: 0 10px 30px rgba(42, 36, 24, 0.15);
+}
+
+.scoreLabel {
+  font-size: 13px;
+  color: var(--pencil-gray);
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.scoreValue {
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--orange-cta);
+  margin-top: 4px;
+}
+
+.scoreMeta {
+  font-size: 13px;
+  color: var(--pencil-gray);
+  margin-top: 8px;
+}
+
+.replayButton {
+  padding: 18px 38px;
+  background: linear-gradient(180deg, #f08a48, var(--orange-cta));
+  color: #fff;
+  border: 3px solid #b85a22;
+  border-radius: 999px;
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 20px;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(232, 116, 50, 0.45);
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.replayButton:hover {
+  transform: scale(1.03);
+}
+.replayButton:active {
+  transform: scale(0.95);
+}
+
+.countdownNumber {
+  font-size: clamp(80px, 18vw, 160px);
+  font-weight: 900;
+  color: var(--orange-cta);
+  animation: countPop 0.6s ease-out;
+}
+
+@keyframes countPop {
+  from { transform: scale(2); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes pointPop {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(0.7); }
+  100% { opacity: 0; transform: translate(-50%, -80%) scale(1); }
+}
+
+/* Global App Styles */
+html { scroll-behavior: smooth; }
+body { margin: 0; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--paper-warm, #efe3c4); }
+::-webkit-scrollbar-thumb { background: #c8bfa6; border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--pencil-gray, #a89c80); }
+
+/* Landing page entrance animation */
+.landing-enter {
+  animation: landingReveal 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes landingReveal {
+  0% { opacity: 0; transform: translateY(24px) scale(0.97); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Hero animations */
+@keyframes mascotBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+@keyframes waveLeft {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(15deg); }
+}
+
+.hero-badge {
+  animation: heroSlideUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+}
+.hero-title {
+  animation: heroSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both;
+}
+.hero-desc {
+  animation: heroSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.4s both;
+}
+.hero-cta {
+  animation: heroCTAPop 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.6s both;
+}
+
+@keyframes heroSlideUp {
+  0% { opacity: 0; transform: translateY(36px); filter: blur(4px); }
+  100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+@keyframes heroCTAPop {
+  0% { opacity: 0; transform: translateY(28px) scale(0.85); }
+  60% { opacity: 1; transform: translateY(-4px) scale(1.03); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* TopNav */
+@media (max-width: 640px) { .brandName { display: none; } }

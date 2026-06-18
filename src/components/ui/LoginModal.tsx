@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { X } from "lucide-react";
-import { useAuth } from "../lib/AuthContext";
+import { useAuth } from "../../contexts/AuthContext";
 
 interface Props {
   open: boolean;

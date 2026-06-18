@@ -8,7 +8,7 @@ import {
   signUpWithEmail,
   signInWithEmail,
   logout as fbLogout,
-} from "../../lib/firebase";
+} from "../lib/firebase";
 
 interface AuthState {
   user: User | null;

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { httpsCallable } from "firebase/functions";
-import { useAuth } from "../lib/AuthContext";
-import { functions, getLeaderboard, getUserStats, type ScoreRecord } from "../../lib/firebase";
-import type { GameResult, GameSession } from "../components/FruitGame";
+import { useAuth } from "../contexts/AuthContext";
+import { functions, getLeaderboard, getUserStats, type ScoreRecord } from "../lib/firebase";
+import type { GameResult, GameSession } from "../components/game/FruitGame";
 
 interface SubmitGameResponse {
   score: number;

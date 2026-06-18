@@ -34,7 +34,7 @@ export function HeroSection({ onPlay }: Props) {
         textAlign: "center",
         zIndex: 2,
       }}>
-        <div style={{
+        <div className="hero-badge" style={{
           display: "inline-block",
           margin: "0 auto",
           padding: "6px 16px",
@@ -49,7 +49,7 @@ export function HeroSection({ onPlay }: Props) {
           MINI GAME · BỘ LẠC ĐẬU PHỘNG
         </div>
 
-        <h1 style={{
+        <h1 className="hero-title" style={{
           fontSize: "clamp(40px, 7vw, 84px)",
           fontWeight: 800,
           lineHeight: 1.05,
@@ -61,7 +61,7 @@ export function HeroSection({ onPlay }: Props) {
           Chém Lạc <span style={{ color: "#e87432" }}>Vùng Cao</span>
         </h1>
 
-        <p style={{
+        <p className="hero-desc" style={{
           fontSize: "clamp(15px, 1.6vw, 19px)",
           color: "#4a4232",
           maxWidth: 640,
@@ -73,7 +73,7 @@ export function HeroSection({ onPlay }: Props) {
           giận đó!
         </p>
 
-        <div style={{ display: "flex", gap: 32, justifyContent: "center", alignItems: "center", flexWrap: "wrap", marginTop: 20 }}>
+        <div className="hero-cta" style={{ display: "flex", gap: 32, justifyContent: "center", alignItems: "center", flexWrap: "wrap", marginTop: 20 }}>
           <button onClick={onPlay} style={{
             padding: "16px 36px", borderRadius: 999,
             background: "linear-gradient(180deg,#f08a48,#e87432)",
@@ -96,17 +96,6 @@ export function HeroSection({ onPlay }: Props) {
           </button>
 
         </div>
-
-        <style>{`
-          @keyframes mascotBounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-12px); }
-          }
-          @keyframes waveLeft {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(15deg); }
-          }
-        `}</style>
       </div>
     </section>
   );

@@ -7,7 +7,6 @@
     "build": "vite build",
     "dev": "vite",
     "test": "vitest run src",
-    "test:rules": "firebase emulators:exec --project demo-chem-lac --only firestore \"vitest run tests/firestore.rules.test.ts\"",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },
@@ -21,13 +20,11 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.12",
-    "@firebase/rules-unit-testing": "^5.0.1",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "4.7.0",
     "tailwindcss": "4.1.12",
     "typescript": "^5.8.3",
-    "firebase-tools": "^15.21.0",
     "vite": "6.3.5",
     "vitest": "^3.2.4"
   },

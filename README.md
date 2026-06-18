@@ -14,7 +14,7 @@ Người chơi chưa đăng nhập vẫn chơi đầy đủ nhưng điểm chỉ
 
 ## Chạy local
 
-Yêu cầu Node.js 20+, npm và Java 21+ nếu chạy Firebase Emulator.
+Yêu cầu Node.js 20+ và npm.
 
 ```bash
 npm install
@@ -33,10 +33,7 @@ npm run typecheck
 npm run build
 npm --prefix functions run typecheck
 npm --prefix functions run build
-npm run test:rules
 ```
-
-`test:rules` khởi động Firestore Emulator và không kết nối project production.
 
 ## Deploy
 

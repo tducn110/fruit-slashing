@@ -76,10 +76,6 @@ export function TopNav({ onLogin, user, onLogout, muted, onToggleMute }: Props) 
           <button onClick={onLogin} style={pillBtn("solid")}>Đăng nhập</button>
         )}
       </div>
-
-      <style>{`
-        @media (max-width: 640px) { .brandName { display: none; } }
-      `}</style>
     </nav>
   );
 }
