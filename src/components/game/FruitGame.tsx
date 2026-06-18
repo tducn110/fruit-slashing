@@ -40,6 +40,7 @@ import { GameHud, type HudState } from "./GameHud";
 import { CountdownOverlay } from "./CountdownOverlay";
 import { GameOverOverlay } from "./GameOverOverlay";
 import { FloatingTextLayer, type BombText, type PointText } from "./FloatingTextLayer";
+import { usePixiApp } from "../../features/game/render/usePixiApp";
 
 const GAME_DURATION_SECONDS = GAME_DURATION_MS / 1000;
 const FRUIT_KINDS: FruitKind[] = ["durian", "lychee", "banana", "dragonfruit", "mango", "peanut", "bomb"];
@@ -47,15 +48,11 @@ const FRUIT_KINDS: FruitKind[] = ["durian", "lychee", "banana", "dragonfruit", "
 export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }: Props) {
   const callbacksRef = useRef({ onGameOver, muted, onPlaySlice, onPlayBomb });
   callbacksRef.current = { onGameOver, muted, onPlaySlice, onPlayBomb };
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const appRef = useRef<Application | null>(null);
-  const playLayerRef = useRef<Container | null>(null);
-  const trailGraphicsRef = useRef<Graphics | null>(null);
+  const { wrapRef, appRef, sizeRef, playLayerRef, trailGraphicsRef, ready } = usePixiApp();
   const texturesRef = useRef<Record<string, Texture>>({});
   const spriteMapRef = useRef(new Map<number, Sprite>());
   const particlesRef = useRef<Particle[]>([]);
   const trailRef = useRef<TrailPoint[]>([]);
-  const sizeRef = useRef({ w: 800, h: 450 });
   const coreRef = useRef<GameState | null>(null);
   const startedAtRef = useRef(0);
   const playingRef = useRef(false);
@@ -314,89 +311,56 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
   }
 
   useEffect(() => {
-    let cancelled = false;
-    const wrap = wrapRef.current;
-    if (!wrap) return;
-    const app = new Application();
-    const width = Math.max(320, wrap.clientWidth || 800);
-    const height = Math.max(200, wrap.clientHeight || 450);
-    sizeRef.current = { w: width, h: height };
+    if (!ready || !appRef.current || !wrapRef.current) return;
+    const app = appRef.current;
+    
+    const textures: Record<string, Texture> = {};
+    const circle = new Graphics().circle(0, 0, 10).fill(0xffffff);
+    textures.circle = app.renderer.generateTexture(circle);
+    circle.destroy();
+    for (const kind of FRUIT_KINDS) {
+      const full = makeFruit(kind, RADIUS[kind]);
+      textures[kind] = app.renderer.generateTexture(full);
+      full.destroy();
+      if (kind !== "bomb") {
+        for (const side of ["left", "right"] as const) {
+          const half = makeHalf(kind, RADIUS[kind], side);
+          textures[`${kind}_${side}`] = app.renderer.generateTexture(half);
+          half.destroy();
+        }
+      }
+    }
+    texturesRef.current = textures;
+
     const resizeObserver = new ResizeObserver(() => {
-      if (!appRef.current) return;
-      const nextWidth = Math.max(320, wrap.clientWidth);
-      const nextHeight = Math.max(200, wrap.clientHeight);
-      if (nextWidth === sizeRef.current.w && nextHeight === sizeRef.current.h) return;
-      sizeRef.current = { w: nextWidth, h: nextHeight };
-      appRef.current.renderer.resize(nextWidth, nextHeight);
-      const backgroundLayer = appRef.current.stage.children[0] as Container;
-      backgroundLayer.removeChildren().forEach((child) => child.destroy());
-      const background = new Container();
-      drawBackground(background, nextWidth, nextHeight);
-      backgroundLayer.addChild(new Sprite(appRef.current.renderer.generateTexture(background)));
-      background.destroy({ children: true });
       if (coreRef.current) syncFruitSprites(coreRef.current);
     });
+    resizeObserver.observe(wrapRef.current);
 
-    app.init({ width, height, background: 0xf5ecd7, antialias: true, resolution: window.devicePixelRatio || 1, autoDensity: true })
-      .then(() => {
-        if (cancelled) {
-          app.destroy(true);
-          return;
-        }
-        appRef.current = app;
-        wrap.appendChild(app.canvas);
-        Object.assign(app.canvas.style, { display: "block", width: "100%", height: "100%", touchAction: "none", cursor: "crosshair" });
+    const pointerHandler = (event: PointerEvent) => handlePointer(event.clientX, event.clientY);
+    app.canvas.addEventListener("pointermove", pointerHandler);
+    app.canvas.addEventListener("pointerdown", pointerHandler);
 
-        const backgroundLayer = new Container();
-        const background = new Container();
-        drawBackground(background, width, height);
-        backgroundLayer.addChild(new Sprite(app.renderer.generateTexture(background)));
-        background.destroy({ children: true });
-        app.stage.addChild(backgroundLayer);
+    app.ticker.add(tick);
 
-        const playLayer = new Container();
-        app.stage.addChild(playLayer);
-        playLayerRef.current = playLayer;
-
-        const textures: Record<string, Texture> = {};
-        const circle = new Graphics().circle(0, 0, 10).fill(0xffffff);
-        textures.circle = app.renderer.generateTexture(circle);
-        circle.destroy();
-        for (const kind of FRUIT_KINDS) {
-          const full = makeFruit(kind, RADIUS[kind]);
-          textures[kind] = app.renderer.generateTexture(full);
-          full.destroy();
-          if (kind !== "bomb") {
-            for (const side of ["left", "right"] as const) {
-              const half = makeHalf(kind, RADIUS[kind], side);
-              textures[`${kind}_${side}`] = app.renderer.generateTexture(half);
-              half.destroy();
-            }
-          }
-        }
-        texturesRef.current = textures;
-
-        const trailGraphics = new Graphics();
-        app.stage.addChild(trailGraphics);
-        trailGraphicsRef.current = trailGraphics;
-        const pointerHandler = (event: PointerEvent) => handlePointer(event.clientX, event.clientY);
-        app.canvas.addEventListener("pointermove", pointerHandler);
-        app.canvas.addEventListener("pointerdown", pointerHandler);
-        app.ticker.add(tick);
-        resizeObserver.observe(wrap);
-      })
-      .catch((error) => console.error("Pixi init failed", error));
+    if (!playingRef.current && !countdown) {
+      beginCountdown();
+    }
 
     return () => {
-      cancelled = true;
       resizeObserver.disconnect();
-      app.destroy(true, { children: true });
-      appRef.current = null;
-      playLayerRef.current = null;
-      trailGraphicsRef.current = null;
+      app.canvas.removeEventListener("pointermove", pointerHandler);
+      app.canvas.removeEventListener("pointerdown", pointerHandler);
+      app.ticker.remove(tick);
+
+      for (const tex of Object.values(texturesRef.current)) tex.destroy(true);
+      texturesRef.current = {};
+      spriteMapRef.current.forEach((sprite) => sprite.destroy());
       spriteMapRef.current.clear();
+      particlesRef.current.forEach((particle) => particle.g.destroy());
+      particlesRef.current = [];
     };
-  }, []);
+  }, [ready]);
 
   async function start() {
     if (starting) return;
