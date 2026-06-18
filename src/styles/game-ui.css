@@ -168,6 +168,23 @@
   100% { opacity: 0; transform: translate(-50%, -80%) scale(1); }
 }
 
+.game-canvas-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.game-panel-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  pointer-events: none;
+}
+
+.game-panel-layer > * {
+  pointer-events: auto;
+}
+
 /* Global App Styles */
 html { scroll-behavior: smooth; }
 body { margin: 0; }
