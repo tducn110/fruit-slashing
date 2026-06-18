@@ -120,37 +120,41 @@ export function GamePage({
 
       {/* Game canvas — fills remaining space */}
       <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
-        <FruitGame
-          onGameOver={handleGameOver}
-          muted={muted}
-          onPlaySlice={playSlice}
-          onPlayBomb={playBomb}
-        />
-
-        {/* Settings overlay */}
-        {panel === "settings" && (
-          <SettingsPanel
+        <div className="game-canvas-layer">
+          <FruitGame
+            onGameOver={handleGameOver}
             muted={muted}
-            onToggleMute={onToggleMute}
-            bestScore={bestScore}
-            lastScore={lastScore}
-            totalGamesPlayed={totalGamesPlayed}
-            user={user}
-            onClose={() => setPanel(null)}
+            onPlaySlice={playSlice}
+            onPlayBomb={playBomb}
           />
-        )}
+        </div>
 
-        {/* Dashboard overlay */}
-        {panel === "dashboard" && (
-          <DashboardPanel
-            leaderboard={leaderboard}
-            user={user}
-            savingScore={savingScore}
-            saveError={saveError}
-            onLoginPrompt={onLoginPrompt}
-            onClose={() => setPanel(null)}
-          />
-        )}
+        <div className="game-panel-layer">
+          {/* Settings overlay */}
+          {panel === "settings" && (
+            <SettingsPanel
+              muted={muted}
+              onToggleMute={onToggleMute}
+              bestScore={bestScore}
+              lastScore={lastScore}
+              totalGamesPlayed={totalGamesPlayed}
+              user={user}
+              onClose={() => setPanel(null)}
+            />
+          )}
+
+          {/* Dashboard overlay */}
+          {panel === "dashboard" && (
+            <DashboardPanel
+              leaderboard={leaderboard}
+              user={user}
+              savingScore={savingScore}
+              saveError={saveError}
+              onLoginPrompt={onLoginPrompt}
+              onClose={() => setPanel(null)}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
