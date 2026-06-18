@@ -44,6 +44,7 @@ import { usePixiApp } from "../../features/game/render/usePixiApp";
 import { useFruitTextures } from "../../features/game/render/useFruitTextures";
 import { useFruitSprites } from "../../features/game/render/useFruitSprites";
 import { useParticleSystem } from "../../features/game/render/useParticleSystem";
+import { useGameFeedback } from "../../features/game/render/useGameFeedback";
 
 const GAME_DURATION_SECONDS = GAME_DURATION_MS / 1000;
 const FRUIT_KINDS: FruitKind[] = ["durian", "lychee", "banana", "dragonfruit", "mango", "peanut", "bomb"];
@@ -55,40 +56,27 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
   const { texturesRef, texturesReady } = useFruitTextures({ appRef, appReady: ready });
   const { syncFruitSprites, clearFruitSprites } = useFruitSprites({ playLayerRef, texturesRef, sizeRef });
   const { addParticle, updateParticles, clearParticles } = useParticleSystem();
+  const {
+    flashRed,
+    bombTexts,
+    pointTexts,
+    triggerBombFeedback,
+    triggerPointFeedback,
+    updateScreenShake,
+    clearFeedback,
+  } = useGameFeedback();
+
   const trailRef = useRef<TrailPoint[]>([]);
   const coreRef = useRef<GameState | null>(null);
   const startedAtRef = useRef(0);
   const playingRef = useRef(false);
   const submittedRef = useRef(false);
-  const shakeRef = useRef({ active: false, startedAt: 0 });
 
   const [running, setRunning] = useState(false);
   const [starting, setStarting] = useState(false);
   const [finalScore, setFinalScore] = useState<number | null>(null);
   const [hud, setHud] = useState<HudState>({ score: 0, lives: 3, combo: 0, time: GAME_DURATION_SECONDS });
   const [countdown, setCountdown] = useState<number | null>(null);
-  const [flashRed, setFlashRed] = useState(false);
-  const [bombTexts, setBombTexts] = useState<BombText[]>([]);
-  const [pointTexts, setPointTexts] = useState<PointText[]>([]);
-  const effectIdRef = useRef(0);
-  const timersRef = useRef<number[]>([]);
-
-  function schedule(callback: () => void, delay: number) {
-    const timer = window.setTimeout(() => {
-      timersRef.current = timersRef.current.filter((id) => id !== timer);
-      callback();
-    }, delay);
-
-    timersRef.current.push(timer);
-    return timer;
-  }
-
-  useEffect(() => {
-    return () => {
-      timersRef.current.forEach((timer) => window.clearTimeout(timer));
-      timersRef.current = [];
-    };
-  }, []);
 
   function renderScale(): number {
     return Math.min(sizeRef.current.w / WORLD_WIDTH, sizeRef.current.h / WORLD_HEIGHT);
@@ -142,14 +130,7 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
       spawnSplat(screen.x, screen.y, 0xff5a2a, 80, 8);
       spawnSplat(screen.x, screen.y, 0xffe66a, 40, 6);
       spawnSplat(screen.x, screen.y, 0x1f1f1f, 30, 10);
-      shakeRef.current = { active: true, startedAt: performance.now() };
-      setFlashRed(true);
-      schedule(() => setFlashRed(false), 100);
-      const id = ++effectIdRef.current;
-      setBombTexts((items) => [...items.slice(-4), { ...screen, id }]);
-      schedule(() => {
-        setBombTexts((items) => items.filter((item) => item.id !== id));
-      }, 800);
+      triggerBombFeedback(screen);
       if (!callbacksRef.current.muted) callbacksRef.current.onPlayBomb?.();
       return;
     }
@@ -179,16 +160,12 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     });
     spawnSplat(screen.x, screen.y, COLORS[result.fruit.kind].flesh, 45, 5);
     spawnSplat(screen.x, screen.y, COLORS[result.fruit.kind].body, 15, 3);
-    const id = ++effectIdRef.current;
-    setPointTexts((items) => [...items.slice(-8), {
-      ...screen,
-      id,
+    triggerPointFeedback({
+      x: screen.x,
+      y: screen.y,
       text: result.fruit.kind === "peanut" ? `+${result.points} SIÊU HIẾM!` : `+${result.points}`,
       color: result.fruit.kind === "peanut" ? "var(--mascot-yellow)" : "var(--primary)",
-    }]);
-    schedule(() => {
-      setPointTexts((items) => items.filter((item) => item.id !== id));
-    }, 800);
+    });
     if (!callbacksRef.current.muted) callbacksRef.current.onPlaySlice?.();
   }
 
@@ -244,17 +221,7 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
 
     updateParticles(ticker.deltaMS / 1000, sizeRef.current.h);
 
-    const layer = playLayerRef.current;
-    if (shakeRef.current.active && layer) {
-      const elapsed = (performance.now() - shakeRef.current.startedAt) / 400;
-      if (elapsed >= 1) {
-        shakeRef.current.active = false;
-        layer.position.set(0, 0);
-      } else {
-        const amount = 8 * (1 - elapsed);
-        layer.position.set((Math.random() - 0.5) * amount * 2, (Math.random() - 0.5) * amount * 2);
-      }
-    }
+    updateScreenShake(playLayerRef.current);
 
     const trailGraphics = trailGraphicsRef.current;
     if (trailGraphics) {
@@ -313,6 +280,7 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
       coreRef.current = createGame(seed);
       submittedRef.current = false;
       clearParticles();
+      clearFeedback();
       clearFruitSprites();
       startedAtRef.current = performance.now();
       playingRef.current = true;
