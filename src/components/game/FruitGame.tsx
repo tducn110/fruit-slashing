@@ -43,6 +43,7 @@ import { FloatingTextLayer, type BombText, type PointText } from "./FloatingText
 import { usePixiApp } from "../../features/game/render/usePixiApp";
 import { useFruitTextures } from "../../features/game/render/useFruitTextures";
 import { useFruitSprites } from "../../features/game/render/useFruitSprites";
+import { useParticleSystem } from "../../features/game/render/useParticleSystem";
 
 const GAME_DURATION_SECONDS = GAME_DURATION_MS / 1000;
 const FRUIT_KINDS: FruitKind[] = ["durian", "lychee", "banana", "dragonfruit", "mango", "peanut", "bomb"];
@@ -53,7 +54,7 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
   const { wrapRef, appRef, sizeRef, playLayerRef, trailGraphicsRef, ready } = usePixiApp();
   const { texturesRef, texturesReady } = useFruitTextures({ appRef, appReady: ready });
   const { syncFruitSprites, clearFruitSprites } = useFruitSprites({ playLayerRef, texturesRef, sizeRef });
-  const particlesRef = useRef<Particle[]>([]);
+  const { addParticle, updateParticles, clearParticles } = useParticleSystem();
   const trailRef = useRef<TrailPoint[]>([]);
   const coreRef = useRef<GameState | null>(null);
   const startedAtRef = useRef(0);
@@ -120,7 +121,7 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
       const angle = Math.random() * Math.PI * 2;
       const speed = 100 + Math.random() * 220;
       const ttl = 0.6 + Math.random() * 0.3;
-      particlesRef.current.push({
+      addParticle({
         g: particle,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed - 80,
@@ -158,20 +159,21 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     const splitSpeed = 220;
     const scale = renderScale();
     (["left", "right"] as const).forEach((side, index) => {
-      const half = new Sprite(texturesRef.current[`${result.fruit.kind}_${side}`]);
-      half.anchor.set(0.5);
-      half.position.set(screen.x, screen.y);
-      half.rotation = result.fruit.rotation;
-      half.scale.set(scale);
-      layer.addChild(half);
-      particlesRef.current.push({
-        g: half,
+      const g = new Sprite(texturesRef.current[`${result.fruit.kind}_${side}`]);
+      g.anchor.set(0.5);
+      g.position.set(screen.x, screen.y);
+      g.rotation = result.fruit.rotation;
+      g.scale.set(scale);
+      const vr = (Math.random() - 0.5) * 10;
+      layer.addChild(g);
+      addParticle({
+        g,
         vx: result.fruit.vx * (sizeRef.current.w / WORLD_WIDTH) + Math.cos(perpendicular) * splitSpeed * (index === 0 ? -1 : 1),
         vy: result.fruit.vy * (sizeRef.current.h / WORLD_HEIGHT) + Math.sin(perpendicular) * splitSpeed * (index === 0 ? -1 : 1) - 80,
         rot: result.fruit.rotation,
-        vr: index === 0 ? -4 : 4,
-        life: 1.4,
-        ttl: 1.4,
+        vr,
+        life: 1,
+        ttl: 1,
         rotates: true,
       });
     });
@@ -240,23 +242,7 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
       if (state.ended) finishGame();
     }
 
-    const deltaSeconds = Math.min(0.05, ticker.deltaMS / 1000);
-    for (let index = particlesRef.current.length - 1; index >= 0; index -= 1) {
-      const particle = particlesRef.current[index];
-      particle.vy += 1000 * (particle.rotates ? 1 : 0.5) * deltaSeconds;
-      particle.g.x += particle.vx * deltaSeconds;
-      particle.g.y += particle.vy * deltaSeconds;
-      if (particle.rotates) {
-        particle.rot += particle.vr * deltaSeconds;
-        particle.g.rotation = particle.rot;
-      }
-      particle.life -= deltaSeconds;
-      particle.g.alpha = Math.max(0, particle.life / particle.ttl);
-      if (particle.life <= 0 || particle.g.y > sizeRef.current.h + 100) {
-        particle.g.destroy();
-        particlesRef.current.splice(index, 1);
-      }
-    }
+    updateParticles(ticker.deltaMS / 1000, sizeRef.current.h);
 
     const layer = playLayerRef.current;
     if (shakeRef.current.active && layer) {
@@ -313,8 +299,7 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
       app.ticker.remove(tick);
 
       clearFruitSprites();
-      particlesRef.current.forEach((particle) => particle.g.destroy());
-      particlesRef.current = [];
+      clearParticles();
     };
   }, [ready, texturesReady]);
 
@@ -327,8 +312,7 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
       const seed = values[0] || Date.now();
       coreRef.current = createGame(seed);
       submittedRef.current = false;
-      particlesRef.current.forEach((particle) => particle.g.destroy());
-      particlesRef.current = [];
+      clearParticles();
       clearFruitSprites();
       startedAtRef.current = performance.now();
       playingRef.current = true;
