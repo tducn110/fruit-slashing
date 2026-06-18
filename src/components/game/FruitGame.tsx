@@ -36,12 +36,10 @@ interface Props {
   onPlayBomb?: () => void;
 }
 
-interface HudState {
-  score: number;
-  lives: number;
-  combo: number;
-  time: number;
-}
+import { GameHud, type HudState } from "./GameHud";
+import { CountdownOverlay } from "./CountdownOverlay";
+import { GameOverOverlay } from "./GameOverOverlay";
+import { FloatingTextLayer, type BombText, type PointText } from "./FloatingTextLayer";
 
 const GAME_DURATION_SECONDS = GAME_DURATION_MS / 1000;
 const FRUIT_KINDS: FruitKind[] = ["durian", "lychee", "banana", "dragonfruit", "mango", "peanut", "bomb"];
@@ -70,8 +68,8 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
   const [hud, setHud] = useState<HudState>({ score: 0, lives: 3, combo: 0, time: GAME_DURATION_SECONDS });
   const [countdown, setCountdown] = useState<number | null>(null);
   const [flashRed, setFlashRed] = useState(false);
-  const [bombTexts, setBombTexts] = useState<{ x: number; y: number; id: number }[]>([]);
-  const [pointTexts, setPointTexts] = useState<{ x: number; y: number; id: number; text: string; color: string }[]>([]);
+  const [bombTexts, setBombTexts] = useState<BombText[]>([]);
+  const [pointTexts, setPointTexts] = useState<PointText[]>([]);
   const effectIdRef = useRef(0);
   const timersRef = useRef<number[]>([]);
 
@@ -444,39 +442,31 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
       <div ref={wrapRef} style={{ width: "100%", height: "100%", overflow: "hidden", background: "var(--rice-paper)" }} />
-      {flashRed && <div style={{ position: "absolute", inset: 0, background: "rgba(255,30,30,.35)", pointerEvents: "none", zIndex: 5 }} />}
-      {bombTexts.map((text) => (
-        <div key={text.id} className="bombText" style={{ left: text.x, top: text.y }}>BÙM!</div>
-      ))}
-      {pointTexts.map((text) => (
-        <div key={text.id} className="pointText" style={{ left: text.x, top: text.y, color: text.color }}>{text.text}</div>
-      ))}
-
-      <div className="gameHud">
-        <div>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>Điểm: {hud.score}</div>
-          {hud.combo >= 2 && <div className="comboText">{hud.combo >= 5 ? "BẠO KÍCH: " : ""}Combo ×{hud.combo}</div>}
-        </div>
-        {running && <div className={`gameTimer ${hud.time <= 15 ? "danger" : ""}`}>{String(Math.floor(hud.time / 60)).padStart(2, "0")}:{String(hud.time % 60).padStart(2, "0")}</div>}
-        <div className="gameLives">{hud.lives > 0 ? "♥".repeat(hud.lives) : "✕"}</div>
-      </div>
-
-      {!running && countdown === null && finalScore !== null && (
-        <div className="gameOverOverlay">
-          <div style={{ textAlign: "center" }}>
-            <div className="scoreCard">
-              <div className="scoreLabel">Kết thúc</div>
-              <div className="scoreValue">{finalScore} điểm</div>
-              <div className="scoreMeta">Điểm sẽ được gửi nếu bạn đã đăng nhập.</div>
-            </div>
-            <button onClick={beginCountdown} className="replayButton">Chơi lại</button>
-          </div>
-        </div>
+      
+      {flashRed && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "rgba(255,30,30,.35)",
+            pointerEvents: "none",
+            zIndex: 5,
+          }}
+        />
       )}
 
-      {(countdown !== null || starting) && (
-        <div className="countdownOverlay"><div className="countdownNumber">{starting ? "…" : countdown}</div></div>
-      )}
+      <FloatingTextLayer bombTexts={bombTexts} pointTexts={pointTexts} />
+
+      <GameHud hud={hud} running={running} />
+
+      <GameOverOverlay
+        finalScore={finalScore}
+        running={running}
+        countdown={countdown}
+        onReplay={beginCountdown}
+      />
+
+      <CountdownOverlay countdown={countdown} starting={starting} />
     </div>
   );
 }
