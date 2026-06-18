@@ -73,6 +73,24 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
   const [bombTexts, setBombTexts] = useState<{ x: number; y: number; id: number }[]>([]);
   const [pointTexts, setPointTexts] = useState<{ x: number; y: number; id: number; text: string; color: string }[]>([]);
   const effectIdRef = useRef(0);
+  const timersRef = useRef<number[]>([]);
+
+  function schedule(callback: () => void, delay: number) {
+    const timer = window.setTimeout(() => {
+      timersRef.current = timersRef.current.filter((id) => id !== timer);
+      callback();
+    }, delay);
+
+    timersRef.current.push(timer);
+    return timer;
+  }
+
+  useEffect(() => {
+    return () => {
+      timersRef.current.forEach((timer) => window.clearTimeout(timer));
+      timersRef.current = [];
+    };
+  }, []);
 
   function worldToScreen(x: number, y: number) {
     return {
@@ -153,10 +171,12 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
       spawnSplat(screen.x, screen.y, 0x1f1f1f, 30, 10);
       shakeRef.current = { active: true, startedAt: performance.now() };
       setFlashRed(true);
-      setTimeout(() => setFlashRed(false), 100);
+      schedule(() => setFlashRed(false), 100);
       const id = ++effectIdRef.current;
       setBombTexts((items) => [...items.slice(-4), { ...screen, id }]);
-      setTimeout(() => setBombTexts((items) => items.filter((item) => item.id !== id)), 800);
+      schedule(() => {
+        setBombTexts((items) => items.filter((item) => item.id !== id));
+      }, 800);
       if (!callbacksRef.current.muted) callbacksRef.current.onPlayBomb?.();
       return;
     }
@@ -192,7 +212,9 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
       text: result.fruit.kind === "peanut" ? `+${result.points} SIÊU HIẾM!` : `+${result.points}`,
       color: result.fruit.kind === "peanut" ? "var(--mascot-yellow)" : "var(--primary)",
     }]);
-    setTimeout(() => setPointTexts((items) => items.filter((item) => item.id !== id)), 800);
+    schedule(() => {
+      setPointTexts((items) => items.filter((item) => item.id !== id));
+    }, 800);
     if (!callbacksRef.current.muted) callbacksRef.current.onPlaySlice?.();
   }
 
