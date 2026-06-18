@@ -41,6 +41,7 @@ import { CountdownOverlay } from "./CountdownOverlay";
 import { GameOverOverlay } from "./GameOverOverlay";
 import { FloatingTextLayer, type BombText, type PointText } from "./FloatingTextLayer";
 import { usePixiApp } from "../../features/game/render/usePixiApp";
+import { useFruitTextures } from "../../features/game/render/useFruitTextures";
 
 const GAME_DURATION_SECONDS = GAME_DURATION_MS / 1000;
 const FRUIT_KINDS: FruitKind[] = ["durian", "lychee", "banana", "dragonfruit", "mango", "peanut", "bomb"];
@@ -49,7 +50,7 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
   const callbacksRef = useRef({ onGameOver, muted, onPlaySlice, onPlayBomb });
   callbacksRef.current = { onGameOver, muted, onPlaySlice, onPlayBomb };
   const { wrapRef, appRef, sizeRef, playLayerRef, trailGraphicsRef, ready } = usePixiApp();
-  const texturesRef = useRef<Record<string, Texture>>({});
+  const { texturesRef, texturesReady } = useFruitTextures({ appRef, appReady: ready });
   const spriteMapRef = useRef(new Map<number, Sprite>());
   const particlesRef = useRef<Particle[]>([]);
   const trailRef = useRef<TrailPoint[]>([]);
@@ -311,27 +312,9 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
   }
 
   useEffect(() => {
-    if (!ready || !appRef.current || !wrapRef.current) return;
+    if (!ready || !texturesReady || !appRef.current || !wrapRef.current) return;
     const app = appRef.current;
     
-    const textures: Record<string, Texture> = {};
-    const circle = new Graphics().circle(0, 0, 10).fill(0xffffff);
-    textures.circle = app.renderer.generateTexture(circle);
-    circle.destroy();
-    for (const kind of FRUIT_KINDS) {
-      const full = makeFruit(kind, RADIUS[kind]);
-      textures[kind] = app.renderer.generateTexture(full);
-      full.destroy();
-      if (kind !== "bomb") {
-        for (const side of ["left", "right"] as const) {
-          const half = makeHalf(kind, RADIUS[kind], side);
-          textures[`${kind}_${side}`] = app.renderer.generateTexture(half);
-          half.destroy();
-        }
-      }
-    }
-    texturesRef.current = textures;
-
     const resizeObserver = new ResizeObserver(() => {
       if (coreRef.current) syncFruitSprites(coreRef.current);
     });
@@ -353,14 +336,12 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
       app.canvas.removeEventListener("pointerdown", pointerHandler);
       app.ticker.remove(tick);
 
-      for (const tex of Object.values(texturesRef.current)) tex.destroy(true);
-      texturesRef.current = {};
       spriteMapRef.current.forEach((sprite) => sprite.destroy());
       spriteMapRef.current.clear();
       particlesRef.current.forEach((particle) => particle.g.destroy());
       particlesRef.current = [];
     };
-  }, [ready]);
+  }, [ready, texturesReady]);
 
   async function start() {
     if (starting) return;
