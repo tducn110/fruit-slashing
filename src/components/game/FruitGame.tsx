@@ -42,6 +42,7 @@ import { GameOverOverlay } from "./GameOverOverlay";
 import { FloatingTextLayer, type BombText, type PointText } from "./FloatingTextLayer";
 import { usePixiApp } from "../../features/game/render/usePixiApp";
 import { useFruitTextures } from "../../features/game/render/useFruitTextures";
+import { useFruitSprites } from "../../features/game/render/useFruitSprites";
 
 const GAME_DURATION_SECONDS = GAME_DURATION_MS / 1000;
 const FRUIT_KINDS: FruitKind[] = ["durian", "lychee", "banana", "dragonfruit", "mango", "peanut", "bomb"];
@@ -51,7 +52,7 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
   callbacksRef.current = { onGameOver, muted, onPlaySlice, onPlayBomb };
   const { wrapRef, appRef, sizeRef, playLayerRef, trailGraphicsRef, ready } = usePixiApp();
   const { texturesRef, texturesReady } = useFruitTextures({ appRef, appReady: ready });
-  const spriteMapRef = useRef(new Map<number, Sprite>());
+  const { syncFruitSprites, clearFruitSprites } = useFruitSprites({ playLayerRef, texturesRef, sizeRef });
   const particlesRef = useRef<Particle[]>([]);
   const trailRef = useRef<TrailPoint[]>([]);
   const coreRef = useRef<GameState | null>(null);
@@ -88,46 +89,21 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     };
   }, []);
 
-  function worldToScreen(x: number, y: number) {
-    return {
-      x: (x / WORLD_WIDTH) * sizeRef.current.w,
-      y: (y / WORLD_HEIGHT) * sizeRef.current.h,
-    };
-  }
-
   function renderScale(): number {
     return Math.min(sizeRef.current.w / WORLD_WIDTH, sizeRef.current.h / WORLD_HEIGHT);
+  }
+
+  function worldToScreen(x: number, y: number) {
+    return {
+      x: (x - WORLD_WIDTH / 2) * renderScale() + sizeRef.current.w / 2,
+      y: (y - WORLD_HEIGHT / 2) * renderScale() + sizeRef.current.h / 2,
+    };
   }
 
   function syncHud(state: GameState) {
     setHud({ score: state.score, lives: state.lives, combo: state.combo, time: timeLeftSeconds(state) });
   }
 
-  function syncFruitSprites(state: GameState) {
-    const layer = playLayerRef.current;
-    if (!layer) return;
-    const activeIds = new Set<number>();
-    const scale = renderScale();
-    for (const fruit of state.fruits) {
-      activeIds.add(fruit.id);
-      let sprite = spriteMapRef.current.get(fruit.id);
-      if (!sprite) {
-        sprite = new Sprite(texturesRef.current[fruit.kind]);
-        sprite.anchor.set(0.5);
-        spriteMapRef.current.set(fruit.id, sprite);
-        layer.addChild(sprite);
-      }
-      const screen = worldToScreen(fruit.x, fruit.y);
-      sprite.position.set(screen.x, screen.y);
-      sprite.rotation = fruit.rotation;
-      sprite.scale.set(scale);
-    }
-    for (const [id, sprite] of spriteMapRef.current) {
-      if (activeIds.has(id)) continue;
-      sprite.destroy();
-      spriteMapRef.current.delete(id);
-    }
-  }
 
   function spawnSplat(x: number, y: number, color: number, count: number, size: number) {
     const layer = playLayerRef.current;
@@ -336,8 +312,7 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
       app.canvas.removeEventListener("pointerdown", pointerHandler);
       app.ticker.remove(tick);
 
-      spriteMapRef.current.forEach((sprite) => sprite.destroy());
-      spriteMapRef.current.clear();
+      clearFruitSprites();
       particlesRef.current.forEach((particle) => particle.g.destroy());
       particlesRef.current = [];
     };
@@ -354,8 +329,7 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
       submittedRef.current = false;
       particlesRef.current.forEach((particle) => particle.g.destroy());
       particlesRef.current = [];
-      spriteMapRef.current.forEach((sprite) => sprite.destroy());
-      spriteMapRef.current.clear();
+      clearFruitSprites();
       startedAtRef.current = performance.now();
       playingRef.current = true;
       setFinalScore(null);
