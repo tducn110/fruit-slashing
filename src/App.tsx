@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { TopNav } from "./components/ui/TopNav";
 import { HeroSection } from "./components/ui/HeroSection";
 import { GamePage } from "./components/game/GamePage";
@@ -32,6 +32,7 @@ export default function App() {
   const [muted, setMuted] = useState(false);
   // Controls the exit transition of the loading screen
   const [loadingExiting, setLoadingExiting] = useState(false);
+  const loadingDoneTimerRef = useRef<number | null>(null);
 
   // Sync mute state to audio manager.
   useEffect(() => {
@@ -54,12 +55,24 @@ export default function App() {
   // When loading finishes, start exit transition then go to landing
   const handleLoadingDone = useCallback(() => {
     setLoadingExiting(true);
-    // Wait for the CSS fade-out/slide-up to finish
-    const timer = window.setTimeout(() => {
+
+    if (loadingDoneTimerRef.current !== null) {
+      window.clearTimeout(loadingDoneTimerRef.current);
+    }
+
+    loadingDoneTimerRef.current = window.setTimeout(() => {
       setView("landing");
       setLoadingExiting(false);
+      loadingDoneTimerRef.current = null;
     }, 850);
-    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (loadingDoneTimerRef.current !== null) {
+        window.clearTimeout(loadingDoneTimerRef.current);
+      }
+    };
   }, []);
 
   // "Chơi ngay" -> directly enter game (countdown handled by FruitGame)

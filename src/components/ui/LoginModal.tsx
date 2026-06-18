@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -12,14 +12,19 @@ export function LoginModal({ open, onClose }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState(false);
 
-  // Close when user logs in (user changes from null → object)
-  if (user && open && !successMsg) {
+  // Close when user logs in
+  useEffect(() => {
+    if (!user || !open || successMsg) return;
+
     setSuccessMsg(true);
-    setTimeout(() => {
+
+    const timer = window.setTimeout(() => {
       setSuccessMsg(false);
       onClose();
     }, 1500);
-  }
+
+    return () => window.clearTimeout(timer);
+  }, [user, open, successMsg, onClose]);
 
   if (!open) return null;
 
