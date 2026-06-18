@@ -8,7 +8,7 @@ import { audioManager } from "./utils/audio-manager";
 import { preloadGameResources } from "./utils/game-loader";
 
 import { useAuth } from "./contexts/AuthContext";
-import { useFirebaseStorage } from "./hooks/useFirebaseStorage";
+import { useScoreData } from "./hooks/useScoreData";
 
 type AppView = "loading" | "landing" | "game";
 
@@ -20,11 +20,10 @@ export default function App() {
     leaderboard,
     totalGamesPlayed,
     saveError,
-    verifyingScore,
-    beginGame,
+    savingScore,
     onGameOver,
     refreshLeaderboard,
-  } = useFirebaseStorage();
+  } = useScoreData();
 
   const [view, setView] = useState<AppView>("loading");
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -109,8 +108,7 @@ export default function App() {
           totalGamesPlayed={totalGamesPlayed}
           leaderboard={leaderboard}
           saveError={saveError}
-          verifyingScore={verifyingScore}
-          onGameStart={beginGame}
+          savingScore={savingScore}
           onGameOver={onGameOver}
           onHome={handleHome}
           onRefreshLeaderboard={refreshLeaderboard}
