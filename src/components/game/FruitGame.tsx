@@ -45,6 +45,7 @@ import { useFruitTextures } from "../../features/game/render/useFruitTextures";
 import { useFruitSprites } from "../../features/game/render/useFruitSprites";
 import { useParticleSystem } from "../../features/game/render/useParticleSystem";
 import { useGameFeedback } from "../../features/game/render/useGameFeedback";
+import { useSliceEffects } from "../../features/game/render/useSliceEffects";
 
 const GAME_DURATION_SECONDS = GAME_DURATION_MS / 1000;
 const FRUIT_KINDS: FruitKind[] = ["durian", "lychee", "banana", "dragonfruit", "mango", "peanut", "bomb"];
@@ -66,6 +67,16 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     clearFeedback,
   } = useGameFeedback();
 
+  const { showSliceEffect } = useSliceEffects({
+    playLayerRef,
+    texturesRef,
+    sizeRef,
+    addParticle,
+    triggerBombFeedback,
+    triggerPointFeedback,
+    callbacksRef,
+  });
+
   const trailRef = useRef<TrailPoint[]>([]);
   const coreRef = useRef<GameState | null>(null);
   const startedAtRef = useRef(0);
@@ -78,95 +89,8 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
   const [hud, setHud] = useState<HudState>({ score: 0, lives: 3, combo: 0, time: GAME_DURATION_SECONDS });
   const [countdown, setCountdown] = useState<number | null>(null);
 
-  function renderScale(): number {
-    return Math.min(sizeRef.current.w / WORLD_WIDTH, sizeRef.current.h / WORLD_HEIGHT);
-  }
-
-  function worldToScreen(x: number, y: number) {
-    return {
-      x: (x - WORLD_WIDTH / 2) * renderScale() + sizeRef.current.w / 2,
-      y: (y - WORLD_HEIGHT / 2) * renderScale() + sizeRef.current.h / 2,
-    };
-  }
-
   function syncHud(state: GameState) {
     setHud({ score: state.score, lives: state.lives, combo: state.combo, time: timeLeftSeconds(state) });
-  }
-
-
-  function spawnSplat(x: number, y: number, color: number, count: number, size: number) {
-    const layer = playLayerRef.current;
-    if (!layer) return;
-    for (let index = 0; index < count; index += 1) {
-      const particle = new Sprite(texturesRef.current.circle);
-      particle.anchor.set(0.5);
-      particle.tint = color;
-      const radius = size * (0.4 + Math.random() * 0.9);
-      particle.width = radius * 2;
-      particle.height = radius * 2;
-      particle.position.set(x, y);
-      layer.addChild(particle);
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 100 + Math.random() * 220;
-      const ttl = 0.6 + Math.random() * 0.3;
-      addParticle({
-        g: particle,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 80,
-        rot: 0,
-        vr: 0,
-        life: ttl,
-        ttl,
-        rotates: false,
-      });
-    }
-  }
-
-  function showSliceEffect(result: SliceResult, direction: { dx: number; dy: number }) {
-    const layer = playLayerRef.current;
-    if (!layer) return;
-    const screen = worldToScreen(result.fruit.x, result.fruit.y);
-    if (result.fruit.kind === "bomb") {
-      spawnSplat(screen.x, screen.y, 0xff5a2a, 80, 8);
-      spawnSplat(screen.x, screen.y, 0xffe66a, 40, 6);
-      spawnSplat(screen.x, screen.y, 0x1f1f1f, 30, 10);
-      triggerBombFeedback(screen);
-      if (!callbacksRef.current.muted) callbacksRef.current.onPlayBomb?.();
-      return;
-    }
-
-    const angle = Math.atan2(direction.dy, direction.dx);
-    const perpendicular = angle + Math.PI / 2;
-    const splitSpeed = 220;
-    const scale = renderScale();
-    (["left", "right"] as const).forEach((side, index) => {
-      const g = new Sprite(texturesRef.current[`${result.fruit.kind}_${side}`]);
-      g.anchor.set(0.5);
-      g.position.set(screen.x, screen.y);
-      g.rotation = result.fruit.rotation;
-      g.scale.set(scale);
-      const vr = (Math.random() - 0.5) * 10;
-      layer.addChild(g);
-      addParticle({
-        g,
-        vx: result.fruit.vx * (sizeRef.current.w / WORLD_WIDTH) + Math.cos(perpendicular) * splitSpeed * (index === 0 ? -1 : 1),
-        vy: result.fruit.vy * (sizeRef.current.h / WORLD_HEIGHT) + Math.sin(perpendicular) * splitSpeed * (index === 0 ? -1 : 1) - 80,
-        rot: result.fruit.rotation,
-        vr,
-        life: 1,
-        ttl: 1,
-        rotates: true,
-      });
-    });
-    spawnSplat(screen.x, screen.y, COLORS[result.fruit.kind].flesh, 45, 5);
-    spawnSplat(screen.x, screen.y, COLORS[result.fruit.kind].body, 15, 3);
-    triggerPointFeedback({
-      x: screen.x,
-      y: screen.y,
-      text: result.fruit.kind === "peanut" ? `+${result.points} SIÊU HIẾM!` : `+${result.points}`,
-      color: result.fruit.kind === "peanut" ? "var(--mascot-yellow)" : "var(--primary)",
-    });
-    if (!callbacksRef.current.muted) callbacksRef.current.onPlaySlice?.();
   }
 
   function finishGame() {
