@@ -1,6 +1,6 @@
-import { X } from "lucide-react";
 import type { User } from "firebase/auth";
 import type { ScoreRecord } from "../../lib/firebase";
+import { PanelFrame, AlertBanner, GameButton } from "../ui/primitives";
 
 interface Props {
   leaderboard: ScoreRecord[];
@@ -20,25 +20,12 @@ export function DashboardPanel({
   onClose,
 }: Props) {
   return (
-    <div style={{
-      position: "absolute", top: 12, right: 12,
-      background: "rgba(255,255,255,0.97)",
-      border: "1.5px solid var(--border)",
-      borderRadius: 16,
-      padding: "20px 24px",
-      width: 340,
-      maxHeight: "80vh",
-      overflowY: "auto",
-      boxShadow: "0 12px 32px rgba(42,36,24,0.2)",
-      fontFamily: "var(--font-family)",
-      zIndex: 20,
-    }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <span style={{ fontWeight: 800, fontSize: 15 }}>🏆 Bảng vinh danh toàn cầu</span>
-        <button onClick={onClose} className="game-btn-close">
-          <X size={16} />
-        </button>
-      </div>
+    <PanelFrame
+      title="🏆 Bảng vinh danh toàn cầu"
+      width={340}
+      maxHeight="80vh"
+      onClose={onClose}
+    >
 
       {leaderboard.length === 0 ? (
         <p style={{ fontSize: 13, color: "var(--pencil-gray)", textAlign: "center", padding: "20px 0" }}>
@@ -84,25 +71,16 @@ export function DashboardPanel({
 
       {/* Save error banner */}
       {saveError && (
-        <div style={{
-          marginTop: 12,
-          padding: "10px 14px",
-          borderRadius: 10,
-          background: "color-mix(in srgb, var(--destructive) 8%, transparent)",
-          border: "1px solid color-mix(in srgb, var(--destructive) 25%, transparent)",
-          fontSize: 12,
-          color: "var(--destructive)",
-          lineHeight: 1.5,
-        }}>
+        <AlertBanner variant="error">
           ⚠️ {saveError}
-        </div>
+        </AlertBanner>
       )}
 
       {/* Login prompt for guest users */}
       {!user && (
-        <button
+        <GameButton
           onClick={onLoginPrompt}
-          className="game-btn loginPromptBtn"
+          className="loginPromptBtn"
           style={{
             marginTop: 16, padding: "14px 16px",
             borderRadius: 14, width: "100%",
@@ -117,8 +95,8 @@ export function DashboardPanel({
           <p style={{ margin: 0, fontSize: 12, color: "var(--pencil-gray)", lineHeight: 1.5 }}>
             Điểm của bạn sẽ được lưu vào bảng vinh danh và không bị mất khi thoát game.
           </p>
-        </button>
+        </GameButton>
       )}
-    </div>
+    </PanelFrame>
   );
 }
