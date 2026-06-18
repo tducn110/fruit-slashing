@@ -1,6 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { AuthProvider } from "./app/lib/AuthContext";
-import App from "./app/App.tsx";
+import App from "./app/App";
 import "./styles/index.css";
 
 // Remove static preloader once React mounts

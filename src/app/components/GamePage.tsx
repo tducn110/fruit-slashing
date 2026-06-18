@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { FruitGame } from "./FruitGame";
+import { FruitGame, type GameResult, type GameSession } from "./FruitGame";
 import { Home, Settings, Trophy, Volume2, VolumeX, X } from "lucide-react";
 import type { User } from "firebase/auth";
 import type { ScoreRecord } from "../../lib/firebase";
@@ -14,13 +14,15 @@ interface Props {
   totalGamesPlayed: number;
   leaderboard: ScoreRecord[];
   saveError?: string | null;
-  onGameOver: (score: number) => void;
+  verifyingScore?: boolean;
+  onGameStart: () => Promise<GameSession>;
+  onGameOver: (result: GameResult) => void;
   onHome: () => void;
   onRefreshLeaderboard: () => void;
   onLoginPrompt: () => void;
 }
 
-function rankFor(s: number) {
+export function rankFor(s: number) {
   if (s >= 400) return "Vua Chém 👑";
   if (s >= 250) return "Cao Thủ ⚔️";
   if (s >= 100) return "Lính Mới 🌱";
@@ -36,6 +38,8 @@ export function GamePage({
   totalGamesPlayed,
   leaderboard,
   saveError,
+  verifyingScore,
+  onGameStart,
   onGameOver,
   onHome,
   onRefreshLeaderboard,
@@ -52,8 +56,8 @@ export function GamePage({
   }, [panel, onRefreshLeaderboard]);
 
   // Auto-open dashboard on game over
-  const handleGameOver = useCallback((score: number) => {
-    onGameOver(score);
+  const handleGameOver = useCallback((result: GameResult) => {
+    onGameOver(result);
     setPanel("dashboard");
   }, [onGameOver]);
 
@@ -124,6 +128,7 @@ export function GamePage({
       {/* Game canvas — fills remaining space */}
       <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
         <FruitGame
+          onGameStart={onGameStart}
           onGameOver={handleGameOver}
           muted={muted}
           onPlaySlice={playSlice}
@@ -243,6 +248,12 @@ export function GamePage({
                   })}
                 </tbody>
               </table>
+            )}
+
+            {verifyingScore && (
+              <p style={{ fontSize: 12, color: "#8a7d65", marginTop: 12, textAlign: "center" }}>
+                Đang xác minh replay và cập nhật bảng điểm…
+              </p>
             )}
 
             {/* 🔥 Save error banner */}

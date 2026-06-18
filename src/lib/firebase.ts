@@ -1,4 +1,5 @@
 import { initializeApp } from "firebase/app";
+import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 import {
   getAuth,
   GoogleAuthProvider,
@@ -14,19 +15,19 @@ import {
   setPersistence,
   type User,
 } from "firebase/auth";
+export type { User } from "firebase/auth";
 import {
   getFirestore,
   doc,
-  setDoc,
   getDoc,
   collection,
-  addDoc,
   query,
   orderBy,
   limit,
   getDocs,
   type DocumentData,
 } from "firebase/firestore";
+import { getFunctions } from "firebase/functions";
 
 // ─── Firebase Config ──────────────────────────────────────────────────────────
 const firebaseConfig = {
@@ -41,11 +42,20 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
+const appCheckSiteKey = import.meta.env.VITE_FIREBASE_APP_CHECK_SITE_KEY;
+if (appCheckSiteKey && !import.meta.env.DEV) {
+  initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider(appCheckSiteKey),
+    isTokenAutoRefreshEnabled: true,
+  });
+}
+
 // ─── Services ─────────────────────────────────────────────────────────────────
 export const auth = getAuth(app);
 // Force localStorage persistence — fixes Safari / storage-partitioned browser issues
 setPersistence(auth, browserLocalPersistence);
 export const db = getFirestore(app);
+export const functions = getFunctions(app, "asia-southeast1");
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 
@@ -106,42 +116,6 @@ export interface ScoreRecord {
 }
 
 /** Save a game run to Firestore (runs collection). Also updates user best score. */
-export async function saveRun(
-  uid: string,
-  playerName: string,
-  photoURL: string | null,
-  score: number,
-  playTimeSec: number,
-) {
-  await addDoc(collection(db, "runs"), {
-    uid,
-    playerName,
-    photoURL,
-    score,
-    playTimeSec,
-    createdAt: Date.now(),
-  });
-
-  // Update user profile / best score
-  const userRef = doc(db, "users", uid);
-  const snap = await getDoc(userRef);
-  const existing = snap.exists() ? (snap.data() as DocumentData) : null;
-  const currentBest = existing?.bestScore ?? 0;
-
-  await setDoc(
-    userRef,
-    {
-      displayName: playerName,
-      photoURL: photoURL ?? existing?.photoURL ?? null,
-      bestScore: score > currentBest ? score : currentBest,
-      totalGamesPlayed: (existing?.totalGamesPlayed ?? 0) + 1,
-      updatedAt: Date.now(),
-      createdAt: existing?.createdAt ?? Date.now(),
-    },
-    { merge: true },
-  );
-}
-
 /** Fetch top N scores for the leaderboard. */
 export async function getLeaderboard(topN: number = 10): Promise<ScoreRecord[]> {
   const q = query(collection(db, "runs"), orderBy("score", "desc"), limit(topN));

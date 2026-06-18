@@ -207,10 +207,7 @@ class AudioManager {
       pool = [];
       this.voicePools.set(name, pool);
     }
-    // Clean finished sources
-    const alive = pool.filter((s) => {
-      try { return s.playbackState !== 0; } catch { return false; }
-    });
+    const alive = [...pool];
     // Limit voices
     if (alive.length >= maxVoices) {
       try { alive[0].stop(); } catch {}
@@ -220,6 +217,8 @@ class AudioManager {
     this.voicePools.set(name, alive);
 
     source.onended = () => {
+      const currentPool = this.voicePools.get(name);
+      if (currentPool) this.voicePools.set(name, currentPool.filter((item) => item !== source));
       source.disconnect();
       gain.disconnect();
     };

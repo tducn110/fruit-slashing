@@ -11,7 +11,17 @@ import { useFirebaseStorage } from "./hooks/useFirebaseStorage";
 
 export default function App() {
   const { user, logout: fbLogout } = useAuth();
-  const { bestScore, lastScore, leaderboard, totalGamesPlayed, saveError, onGameOver, refreshLeaderboard } = useFirebaseStorage();
+  const {
+    bestScore,
+    lastScore,
+    leaderboard,
+    totalGamesPlayed,
+    saveError,
+    verifyingScore,
+    beginGame,
+    onGameOver,
+    refreshLeaderboard,
+  } = useFirebaseStorage();
 
   const [view, setView] = useState<"landing" | "loading" | "game">("landing");
   const [showLogin, setShowLogin] = useState(false);
@@ -103,6 +113,8 @@ export default function App() {
           totalGamesPlayed={totalGamesPlayed}
           leaderboard={leaderboard}
           saveError={saveError}
+          verifyingScore={verifyingScore}
+          onGameStart={beginGame}
           onGameOver={onGameOver}
           onHome={handleHome}
           onRefreshLeaderboard={refreshLeaderboard}

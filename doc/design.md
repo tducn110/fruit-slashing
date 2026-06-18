@@ -1,53 +1,27 @@
-# System Design & UI Interaction Document
-Project: Speed Click Game (PixiJS + React)
+# System Design
 
-## 1. Kiến Trúc Toàn Dự Án (Project Architecture)
-Dự án là một sự kết hợp giữa hệ sinh thái **React** (quản lý trạng thái, UI Navigation, Layout) và **PixiJS** (quản lý Game Loop, Rendering WebGL, Physics).
-*   **Vite + React (Frontend Framework)**: Cung cấp môi trường dev siêu tốc, HMR, và dựng các layout bên ngoài game.
-*   **PixiJS v8 (Game Engine)**: Dựng một Canvas độc lập chạy bên trong component `FruitGame.tsx`. Xử lý các logic vật lý, batch rendering và tương tác chuột (Pointer Events).
+## Runtime
 
-## 2. Cấu Trúc Components
-Các giao diện bao quanh game được chia nhỏ thành các Component độc lập trong `src/app/components`:
-1.  `TopNav.tsx`: Chứa Menu điều hướng (`active` spy scrolling) và nút Đăng Nhập.
-2.  `HeroSection.tsx`: Màn hình giới thiệu ban đầu với nút Call-to-action (Bắt Đầu).
-3.  `GamePage.tsx` & `FruitGame.tsx`: Lớp bọc Game, nơi gắn Canvas PixiJS.
-4.  `DashboardSection.tsx`: Hiển thị thông số (Thành tích cao nhất, Lịch sử chơi).
-5.  `Footer.tsx`: Cung cấp thông tin liên hệ / bản quyền.
-6.  `LoginModal.tsx`: Popup Overlay để người dùng thiết lập danh tính.
+React quản lý navigation, authentication, dashboard và modal. PixiJS v8 chỉ render canvas và hiệu ứng. `src/game/core.ts` là nguồn sự thật duy nhất cho spawn, physics, hit detection, combo, lives, timer và score.
 
-## 3. UI/UX: Cải Thiện Độ Phản Hồi Khi Bấm (Click Responsiveness)
-Theo ghi nhận, **nhiều components hiện tại khi bấm vào chưa mang lại cảm giác responsive**. Các nút bấm, thẻ bài (Card) thiếu các phản hồi vi mô (micro-interactions), gây cảm giác game bị đơ hoặc chạm không ăn. 
+Game core chạy fixed-step 60 Hz trong logical world `1000x600`. RNG có seed do server cấp. Pointer được chuẩn hóa về `0..10000`, lấy tối đa 30 mẫu/giây và gắn tick; cùng input log tạo ra cùng kết quả trên browser và Firebase Function.
 
-### a) Vấn đề
-- Các nút (Button) trong Navigation, HeroSection và LoginModal chưa có hiệu ứng lún (scale down) khi click (`:active`).
-- Chưa có hiệu ứng âm thanh nhỏ (SFX) xác nhận hành động click.
-- Hover state quá cơ bản (chỉ đổi màu nhẹ), chưa thu hút sự chú ý.
+## Verified Game Flow
 
-### b) Ý Tưởng & Giải Pháp Triển Khai
-Để game mang lại cảm giác "đã tay" ngay cả ở ngoài màn hình chơi, ta sẽ áp dụng các chuẩn sau:
+1. User đã đăng nhập gọi `startGame`; Function tạo `gameSessions/{uid}` với seed, session ID và expiry.
+2. Client chạy core bằng seed đó và thu input log. Final score từ client chỉ dùng để phản hồi UI.
+3. Client gọi `submitGame` với `sessionId` và input log, không gửi score authoritative.
+4. Function kiểm Auth, App Check, schema/rate/timestamp, replay game và transaction ghi run verified, user stats và trạng thái session.
+5. Firestore rules cấm toàn bộ client writes vào `runs`, `users` và `gameSessions`.
 
-1. **Active Transform (Hiệu ứng nhún)**
-   Tất cả các thẻ `<button>` và thẻ tương tác (Card trong Dashboard) phải có thuộc tính CSS:
-   ```css
-   button {
-     transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease;
-   }
-   button:active {
-     transform: scale(0.95); /* Thu nhỏ 5% khi nhấn */
-   }
-   button:hover {
-     transform: scale(1.02); /* Phình to nhẹ khi di chuột */
-   }
-   ```
+Replay xác minh một input log hợp lệ theo luật game nhưng không thể ngăn bot tạo input hoàn hảo. Chống bot realtime nằm ngoài kiến trúc hiện tại.
 
-2. **Ripple Effect (Hiệu ứng lan tỏa mặt nước)**
-   Cài đặt hoặc tự viết một hook tạo hiệu ứng gợn sóng khi người dùng touch/click vào bề mặt button, đặc biệt ở nút "Bắt đầu chém" và "Chơi lại". Nó cung cấp phản hồi thị giác ngay lập tức ở đúng tọa độ trỏ chuột.
+## Guest Flow
 
-3. **Cải tiến trong Game (PixiJS)**
-   Ngay khi chém trúng hoa quả, thay vì chỉ lóe màu (Particle), màn hình có thể có hiệu ứng **Camera Shake** (rung nhẹ khung hình) trong vài mili-giây đối với các quả Bom, hoặc làm sáng lóe (White Flash) toàn màn hình khi nổ Bom.
+Guest nhận seed local và dùng cùng game core. Không tạo server session, không ghi Firestore và UI ghi rõ điểm không được xếp hạng.
 
-4. **Âm Thanh (Sound Feedback)**
-   Tích hợp gói âm thanh ngắn (UI sounds):
-   - `hover.mp3`: Khi lướt chuột qua menu.
-   - `click.mp3`: Khi xác nhận Login, Bấm chơi lại.
-   - Trải nghiệm sẽ hoàn thiện hơn và không còn cảm giác bị "hẫng" khi tương tác.
+## Collections
+
+- `runs/{runId}`: snapshot tên/avatar, verified score, play time và created time; public read, Admin write.
+- `users/{uid}`: best score và total games; owner read, Admin write.
+- `gameSessions/{uid}`: active/submitted session; client không có quyền truy cập.

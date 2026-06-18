@@ -1,783 +1,504 @@
 import { useEffect, useRef, useState } from "react";
+import { Application, Container, Graphics, Sprite, Texture, Ticker } from "pixi.js";
 import {
-  Application,
-  Container,
-  Graphics,
-  Sprite,
-  Texture,
-  Ticker,
-} from "pixi.js";
-
+  GAME_DURATION_MS,
+  MAX_INPUT_SAMPLES,
+  WORLD_HEIGHT,
+  WORLD_WIDTH,
+  advanceToTick,
+  applyInput,
+  createGame,
+  elapsedTick,
+  normalizePointer,
+  timeLeftSeconds,
+  type GameState,
+  type InputSample,
+  type SliceResult,
+} from "../../game/core";
 import {
   type FruitKind,
-  type Fruit,
   type Particle,
   type TrailPoint,
   COLORS,
-  POINTS,
   RADIUS,
   makeFruit,
   makeHalf,
   drawBackground,
 } from "../utils/fruit-utils";
 
-// ─── Component ────────────────────────────────────────────────────────────────
+export interface GameSession {
+  sessionId: string | null;
+  seed: number;
+}
+
+export interface GameResult {
+  sessionId: string | null;
+  score: number;
+  inputLog: InputSample[];
+}
+
 interface Props {
-  onGameOver?: (score: number) => void;
+  onGameStart?: () => Promise<GameSession>;
+  onGameOver?: (result: GameResult) => void;
   muted?: boolean;
   onPlaySlice?: () => void;
   onPlayBomb?: () => void;
 }
 
-export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }: Props) {
+interface HudState {
+  score: number;
+  lives: number;
+  combo: number;
+  time: number;
+}
+
+const GAME_DURATION_SECONDS = GAME_DURATION_MS / 1000;
+const FRUIT_KINDS: FruitKind[] = ["durian", "lychee", "banana", "dragonfruit", "mango", "peanut", "bomb"];
+
+function localSession(): GameSession {
+  const values = new Uint32Array(1);
+  crypto.getRandomValues(values);
+  return { sessionId: null, seed: values[0] || Date.now() };
+}
+
+export function FruitGame({ onGameStart, onGameOver, muted = false, onPlaySlice, onPlayBomb }: Props) {
+  const callbacksRef = useRef({ onGameStart, onGameOver, muted, onPlaySlice, onPlayBomb });
+  callbacksRef.current = { onGameStart, onGameOver, muted, onPlaySlice, onPlayBomb };
   const wrapRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<Application | null>(null);
-  const stageRef = useRef<Container | null>(null);
-  const trailGRef = useRef<Graphics | null>(null);
-  const fruitsRef = useRef<Fruit[]>([]);
+  const playLayerRef = useRef<Container | null>(null);
+  const trailGraphicsRef = useRef<Graphics | null>(null);
+  const texturesRef = useRef<Record<string, Texture>>({});
+  const spriteMapRef = useRef(new Map<number, Sprite>());
   const particlesRef = useRef<Particle[]>([]);
   const trailRef = useRef<TrailPoint[]>([]);
   const sizeRef = useRef({ w: 800, h: 450 });
-  const texturesRef = useRef<Record<string, Texture>>({});
-
-  // Screen shake
-  const shakeRef = useRef({ active: false, startTime: 0, duration: 0.4, intensity: 8 });
-  // Flash + bomb text
-  const [flashRed, setFlashRed] = useState(false);
-  const [bombTexts, setBombTexts] = useState<{ x: number; y: number; id: number }[]>([]);
-  const bombIdRef = useRef(0);
-  const [pointTexts, setPointTexts] = useState<{ x: number; y: number; id: number; text: string; color: string }[]>([]);
-  const pointIdRef = useRef(0);
-
-  const GAME_DURATION = 180; // 3 phút — requirement §1.1
+  const coreRef = useRef<GameState | null>(null);
+  const sessionRef = useRef<GameSession | null>(null);
+  const inputLogRef = useRef<InputSample[]>([]);
+  const startedAtRef = useRef(0);
   const playingRef = useRef(false);
-  const scoreRef = useRef(0);
-  const livesRef = useRef(3);
-  const comboRef = useRef(0);
-  const comboResetRef = useRef(0);
-  const lastSpawnRef = useRef(0);
-  const timeLeftRef = useRef(GAME_DURATION);
-  const gameStartRef = useRef(0);
+  const submittedRef = useRef(false);
+  const lastLoggedTickRef = useRef(-1);
+  const shakeRef = useRef({ active: false, startedAt: 0 });
 
   const [running, setRunning] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [finalScore, setFinalScore] = useState<number | null>(null);
-  const [hud, setHud] = useState({ score: 0, lives: 3, combo: 0, time: GAME_DURATION });
+  const [hud, setHud] = useState<HudState>({ score: 0, lives: 3, combo: 0, time: GAME_DURATION_SECONDS });
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [flashRed, setFlashRed] = useState(false);
+  const [bombTexts, setBombTexts] = useState<{ x: number; y: number; id: number }[]>([]);
+  const [pointTexts, setPointTexts] = useState<{ x: number; y: number; id: number; text: string; color: string }[]>([]);
+  const effectIdRef = useRef(0);
 
-  // ── Init Pixi once ──────────────────────────────────────────────────────────
+  function worldToScreen(x: number, y: number) {
+    return {
+      x: (x / WORLD_WIDTH) * sizeRef.current.w,
+      y: (y / WORLD_HEIGHT) * sizeRef.current.h,
+    };
+  }
+
+  function renderScale(): number {
+    return Math.min(sizeRef.current.w / WORLD_WIDTH, sizeRef.current.h / WORLD_HEIGHT);
+  }
+
+  function syncHud(state: GameState) {
+    setHud({ score: state.score, lives: state.lives, combo: state.combo, time: timeLeftSeconds(state) });
+  }
+
+  function syncFruitSprites(state: GameState) {
+    const layer = playLayerRef.current;
+    if (!layer) return;
+    const activeIds = new Set<number>();
+    const scale = renderScale();
+    for (const fruit of state.fruits) {
+      activeIds.add(fruit.id);
+      let sprite = spriteMapRef.current.get(fruit.id);
+      if (!sprite) {
+        sprite = new Sprite(texturesRef.current[fruit.kind]);
+        sprite.anchor.set(0.5);
+        spriteMapRef.current.set(fruit.id, sprite);
+        layer.addChild(sprite);
+      }
+      const screen = worldToScreen(fruit.x, fruit.y);
+      sprite.position.set(screen.x, screen.y);
+      sprite.rotation = fruit.rotation;
+      sprite.scale.set(scale);
+    }
+    for (const [id, sprite] of spriteMapRef.current) {
+      if (activeIds.has(id)) continue;
+      sprite.destroy();
+      spriteMapRef.current.delete(id);
+    }
+  }
+
+  function spawnSplat(x: number, y: number, color: number, count: number, size: number) {
+    const layer = playLayerRef.current;
+    if (!layer) return;
+    for (let index = 0; index < count; index += 1) {
+      const particle = new Sprite(texturesRef.current.circle);
+      particle.anchor.set(0.5);
+      particle.tint = color;
+      const radius = size * (0.4 + Math.random() * 0.9);
+      particle.width = radius * 2;
+      particle.height = radius * 2;
+      particle.position.set(x, y);
+      layer.addChild(particle);
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 100 + Math.random() * 220;
+      const ttl = 0.6 + Math.random() * 0.3;
+      particlesRef.current.push({
+        g: particle,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 80,
+        rot: 0,
+        vr: 0,
+        life: ttl,
+        ttl,
+        rotates: false,
+      });
+    }
+  }
+
+  function showSliceEffect(result: SliceResult, direction: { dx: number; dy: number }) {
+    const layer = playLayerRef.current;
+    if (!layer) return;
+    const screen = worldToScreen(result.fruit.x, result.fruit.y);
+    if (result.fruit.kind === "bomb") {
+      spawnSplat(screen.x, screen.y, 0xff5a2a, 80, 8);
+      spawnSplat(screen.x, screen.y, 0xffe66a, 40, 6);
+      spawnSplat(screen.x, screen.y, 0x1f1f1f, 30, 10);
+      shakeRef.current = { active: true, startedAt: performance.now() };
+      setFlashRed(true);
+      setTimeout(() => setFlashRed(false), 100);
+      const id = ++effectIdRef.current;
+      setBombTexts((items) => [...items.slice(-4), { ...screen, id }]);
+      setTimeout(() => setBombTexts((items) => items.filter((item) => item.id !== id)), 800);
+      if (!callbacksRef.current.muted) callbacksRef.current.onPlayBomb?.();
+      return;
+    }
+
+    const angle = Math.atan2(direction.dy, direction.dx);
+    const perpendicular = angle + Math.PI / 2;
+    const splitSpeed = 220;
+    const scale = renderScale();
+    (["left", "right"] as const).forEach((side, index) => {
+      const half = new Sprite(texturesRef.current[`${result.fruit.kind}_${side}`]);
+      half.anchor.set(0.5);
+      half.position.set(screen.x, screen.y);
+      half.rotation = result.fruit.rotation;
+      half.scale.set(scale);
+      layer.addChild(half);
+      particlesRef.current.push({
+        g: half,
+        vx: result.fruit.vx * (sizeRef.current.w / WORLD_WIDTH) + Math.cos(perpendicular) * splitSpeed * (index === 0 ? -1 : 1),
+        vy: result.fruit.vy * (sizeRef.current.h / WORLD_HEIGHT) + Math.sin(perpendicular) * splitSpeed * (index === 0 ? -1 : 1) - 80,
+        rot: result.fruit.rotation,
+        vr: index === 0 ? -4 : 4,
+        life: 1.4,
+        ttl: 1.4,
+        rotates: true,
+      });
+    });
+    spawnSplat(screen.x, screen.y, COLORS[result.fruit.kind].flesh, 45, 5);
+    spawnSplat(screen.x, screen.y, COLORS[result.fruit.kind].body, 15, 3);
+    const id = ++effectIdRef.current;
+    setPointTexts((items) => [...items.slice(-8), {
+      ...screen,
+      id,
+      text: result.fruit.kind === "peanut" ? `+${result.points} SIÊU HIẾM!` : `+${result.points}`,
+      color: result.fruit.kind === "peanut" ? "#ff8c00" : "#e87432",
+    }]);
+    setTimeout(() => setPointTexts((items) => items.filter((item) => item.id !== id)), 800);
+    if (!callbacksRef.current.muted) callbacksRef.current.onPlaySlice?.();
+  }
+
+  function finishGame() {
+    const state = coreRef.current;
+    const session = sessionRef.current;
+    if (!state || !session || submittedRef.current) return;
+    submittedRef.current = true;
+    playingRef.current = false;
+    setRunning(false);
+    setFinalScore(state.score);
+    syncHud(state);
+    callbacksRef.current.onGameOver?.({ sessionId: session.sessionId, score: state.score, inputLog: [...inputLogRef.current] });
+  }
+
+  function handlePointer(clientX: number, clientY: number) {
+    const app = appRef.current;
+    const state = coreRef.current;
+    if (!app) return;
+    const rect = app.canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const screenX = (clientX - rect.left) * (sizeRef.current.w / rect.width);
+    const screenY = (clientY - rect.top) * (sizeRef.current.h / rect.height);
+    const now = performance.now();
+    const previousTrail = trailRef.current.at(-1);
+    trailRef.current.push({ x: screenX, y: screenY, t: now });
+    if (trailRef.current.length > 18) trailRef.current.shift();
+    if (!playingRef.current || !state) return;
+
+    const tick = elapsedTick(now - startedAtRef.current);
+    if (tick - lastLoggedTickRef.current < 2 || inputLogRef.current.length >= MAX_INPUT_SAMPLES) return;
+    const sample = normalizePointer(screenX, screenY, sizeRef.current.w, sizeRef.current.h, tick);
+    lastLoggedTickRef.current = tick;
+    inputLogRef.current.push(sample);
+    const results = applyInput(state, sample);
+    for (const result of results) {
+      showSliceEffect(result, {
+        dx: previousTrail ? screenX - previousTrail.x : 1,
+        dy: previousTrail ? screenY - previousTrail.y : 0,
+      });
+    }
+    if (results.length) {
+      syncFruitSprites(state);
+      syncHud(state);
+    }
+    if (state.ended) finishGame();
+  }
+
+  function tick(ticker: Ticker) {
+    const state = coreRef.current;
+    if (playingRef.current && state) {
+      advanceToTick(state, elapsedTick(performance.now() - startedAtRef.current));
+      syncFruitSprites(state);
+      if (ticker.lastTime % 250 < ticker.deltaMS) syncHud(state);
+      if (state.ended) finishGame();
+    }
+
+    const deltaSeconds = Math.min(0.05, ticker.deltaMS / 1000);
+    for (let index = particlesRef.current.length - 1; index >= 0; index -= 1) {
+      const particle = particlesRef.current[index];
+      particle.vy += 1000 * (particle.rotates ? 1 : 0.5) * deltaSeconds;
+      particle.g.x += particle.vx * deltaSeconds;
+      particle.g.y += particle.vy * deltaSeconds;
+      if (particle.rotates) {
+        particle.rot += particle.vr * deltaSeconds;
+        particle.g.rotation = particle.rot;
+      }
+      particle.life -= deltaSeconds;
+      particle.g.alpha = Math.max(0, particle.life / particle.ttl);
+      if (particle.life <= 0 || particle.g.y > sizeRef.current.h + 100) {
+        particle.g.destroy();
+        particlesRef.current.splice(index, 1);
+      }
+    }
+
+    const layer = playLayerRef.current;
+    if (shakeRef.current.active && layer) {
+      const elapsed = (performance.now() - shakeRef.current.startedAt) / 400;
+      if (elapsed >= 1) {
+        shakeRef.current.active = false;
+        layer.position.set(0, 0);
+      } else {
+        const amount = 8 * (1 - elapsed);
+        layer.position.set((Math.random() - 0.5) * amount * 2, (Math.random() - 0.5) * amount * 2);
+      }
+    }
+
+    const trailGraphics = trailGraphicsRef.current;
+    if (trailGraphics) {
+      trailGraphics.clear();
+      const now = performance.now();
+      trailRef.current = trailRef.current.filter((point) => now - point.t < 220);
+      for (let index = 1; index < trailRef.current.length; index += 1) {
+        const from = trailRef.current[index - 1];
+        const to = trailRef.current[index];
+        const alpha = 1 - (now - to.t) / 220;
+        trailGraphics.moveTo(from.x, from.y).lineTo(to.x, to.y)
+          .stroke({ color: 0xffffff, width: 12 * alpha + 3, alpha: alpha * 0.95, cap: "round" });
+        trailGraphics.moveTo(from.x, from.y).lineTo(to.x, to.y)
+          .stroke({ color: 0xe87432, width: 5 * alpha + 1, alpha, cap: "round" });
+      }
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
     const wrap = wrapRef.current;
     if (!wrap) return;
-
     const app = new Application();
-    const initW = Math.max(320, wrap.clientWidth || 800);
-    const initH = Math.max(200, wrap.clientHeight || 450);
-    sizeRef.current = { w: initW, h: initH };
+    const width = Math.max(320, wrap.clientWidth || 800);
+    const height = Math.max(200, wrap.clientHeight || 450);
+    sizeRef.current = { w: width, h: height };
+    const resizeObserver = new ResizeObserver(() => {
+      if (!appRef.current) return;
+      const nextWidth = Math.max(320, wrap.clientWidth);
+      const nextHeight = Math.max(200, wrap.clientHeight);
+      if (nextWidth === sizeRef.current.w && nextHeight === sizeRef.current.h) return;
+      sizeRef.current = { w: nextWidth, h: nextHeight };
+      appRef.current.renderer.resize(nextWidth, nextHeight);
+      const backgroundLayer = appRef.current.stage.children[0] as Container;
+      backgroundLayer.removeChildren().forEach((child) => child.destroy());
+      const background = new Container();
+      drawBackground(background, nextWidth, nextHeight);
+      backgroundLayer.addChild(new Sprite(appRef.current.renderer.generateTexture(background)));
+      background.destroy({ children: true });
+      if (coreRef.current) syncFruitSprites(coreRef.current);
+    });
 
-    app.init({
-      width: initW, height: initH,
-      background: 0xf5ecd7,
-      antialias: true,
-      resolution: window.devicePixelRatio || 1,
-      autoDensity: true,
-    }).then(() => {
-      if (cancelled) { app.destroy(true); return; }
-      appRef.current = app;
-      wrap.appendChild(app.canvas);
-      app.canvas.style.display = "block";
-      app.canvas.style.width = "100%";
-      app.canvas.style.height = "100%";
-      app.canvas.style.touchAction = "none";
-      app.canvas.style.cursor = "crosshair";
-
-      // Background layer
-      const bgLayer = new Container();
-      app.stage.addChild(bgLayer);
-      
-      const tmpBg = new Container();
-      drawBackground(tmpBg, initW, initH);
-      const bgTex = app.renderer.generateTexture(tmpBg);
-      const bgSprite = new Sprite(bgTex);
-      bgLayer.addChild(bgSprite);
-      tmpBg.destroy({ children: true });
-
-      // Play layer (fruits + particles + halves)
-      const playLayer = new Container();
-      app.stage.addChild(playLayer);
-      stageRef.current = playLayer;
-
-      // Generate textures for optimization
-      const kinds: FruitKind[] = ["durian", "lychee", "banana", "dragonfruit", "mango", "peanut", "bomb"];
-      const tex: Record<string, Texture> = {};
-      
-      const whiteCircle = new Graphics().circle(0, 0, 10).fill(0xffffff);
-      tex["circle"] = app.renderer.generateTexture(whiteCircle);
-      whiteCircle.destroy();
-
-      kinds.forEach(k => {
-        const r = RADIUS[k];
-        const gFull = makeFruit(k, r);
-        tex[k] = app.renderer.generateTexture(gFull);
-        gFull.destroy();
-
-        if (k !== "bomb") {
-          const gLeft = makeHalf(k, r, "left");
-          tex[`${k}_left`] = app.renderer.generateTexture(gLeft);
-          gLeft.destroy();
-          const gRight = makeHalf(k, r, "right");
-          tex[`${k}_right`] = app.renderer.generateTexture(gRight);
-          gRight.destroy();
+    app.init({ width, height, background: 0xf5ecd7, antialias: true, resolution: window.devicePixelRatio || 1, autoDensity: true })
+      .then(() => {
+        if (cancelled) {
+          app.destroy(true);
+          return;
         }
-      });
-      texturesRef.current = tex;
+        appRef.current = app;
+        wrap.appendChild(app.canvas);
+        Object.assign(app.canvas.style, { display: "block", width: "100%", height: "100%", touchAction: "none", cursor: "crosshair" });
 
-      // Trail layer
-      const trailG = new Graphics();
-      app.stage.addChild(trailG);
-      trailGRef.current = trailG;
+        const backgroundLayer = new Container();
+        const background = new Container();
+        drawBackground(background, width, height);
+        backgroundLayer.addChild(new Sprite(app.renderer.generateTexture(background)));
+        background.destroy({ children: true });
+        app.stage.addChild(backgroundLayer);
 
-      // HUD is rendered as HTML overlay (avoids Pixi text texture-pool bug)
+        const playLayer = new Container();
+        app.stage.addChild(playLayer);
+        playLayerRef.current = playLayer;
 
-      // Pointer events
-      const canvas = app.canvas;
-      const onMove = (clientX: number, clientY: number) => {
-        const rect = canvas.getBoundingClientRect();
-        if (rect.width === 0) return;
-        const x = (clientX - rect.left) * (sizeRef.current.w / rect.width);
-        const y = (clientY - rect.top)  * (sizeRef.current.h / rect.height);
-        trailRef.current.push({ x, y, t: performance.now() });
-        if (trailRef.current.length > 18) trailRef.current.shift();
-        if (!playingRef.current) return;
-        const len = trailRef.current.length;
-        if (len < 2) return;
-        const p1 = trailRef.current[len - 2];
-        const p2 = trailRef.current[len - 1];
-        for (const f of fruitsRef.current) {
-          if (f.sliced) continue;
-          const dx = f.g.x - p2.x;
-          const dy = f.g.y - p2.y;
-          if (dx * dx + dy * dy < (f.r + 14) ** 2) {
-            sliceFruit(f, p2.x - p1.x, p2.y - p1.y);
+        const textures: Record<string, Texture> = {};
+        const circle = new Graphics().circle(0, 0, 10).fill(0xffffff);
+        textures.circle = app.renderer.generateTexture(circle);
+        circle.destroy();
+        for (const kind of FRUIT_KINDS) {
+          const full = makeFruit(kind, RADIUS[kind]);
+          textures[kind] = app.renderer.generateTexture(full);
+          full.destroy();
+          if (kind !== "bomb") {
+            for (const side of ["left", "right"] as const) {
+              const half = makeHalf(kind, RADIUS[kind], side);
+              textures[`${kind}_${side}`] = app.renderer.generateTexture(half);
+              half.destroy();
+            }
           }
         }
-      };
-      const handlePointer = (e: PointerEvent) => onMove(e.clientX, e.clientY);
-      canvas.addEventListener("pointermove", handlePointer);
-      canvas.addEventListener("pointerdown", handlePointer);
+        texturesRef.current = textures;
 
-      // Main ticker
-      app.ticker.add(tick);
-
-      // Resize observer
-      ro.observe(wrap);
-
-      // Cleanup attached below uses these references; nothing else to do here
-    }).catch((err) => {
-      console.error("Pixi init failed", err);
-    });
-
-    const ro = new ResizeObserver(() => {
-      if (!appRef.current || !wrap) return;
-      const nw = Math.max(320, wrap.clientWidth);
-      const nh = Math.max(200, wrap.clientHeight);
-      if (nw === sizeRef.current.w && nh === sizeRef.current.h) return;
-      sizeRef.current = { w: nw, h: nh };
-      appRef.current.renderer.resize(nw, nh);
-      const bgLayer = appRef.current.stage.children[0] as Container;
-      bgLayer.removeChildren().forEach(child => child.destroy());
-      const tmpBg = new Container();
-      drawBackground(tmpBg, nw, nh);
-      const bgTex = appRef.current.renderer.generateTexture(tmpBg);
-      bgLayer.addChild(new Sprite(bgTex));
-      tmpBg.destroy({ children: true });
-    });
+        const trailGraphics = new Graphics();
+        app.stage.addChild(trailGraphics);
+        trailGraphicsRef.current = trailGraphics;
+        const pointerHandler = (event: PointerEvent) => handlePointer(event.clientX, event.clientY);
+        app.canvas.addEventListener("pointermove", pointerHandler);
+        app.canvas.addEventListener("pointerdown", pointerHandler);
+        app.ticker.add(tick);
+        resizeObserver.observe(wrap);
+      })
+      .catch((error) => console.error("Pixi init failed", error));
 
     return () => {
       cancelled = true;
-      ro.disconnect();
+      resizeObserver.disconnect();
       app.destroy(true, { children: true });
       appRef.current = null;
-      stageRef.current = null;
-      trailGRef.current = null;
+      playLayerRef.current = null;
+      trailGraphicsRef.current = null;
+      spriteMapRef.current.clear();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Per-frame tick ──────────────────────────────────────────────────────────
-  function tick(ticker: Ticker) {
-    const dt = Math.min(0.05, ticker.deltaMS / 1000);
-    const { w: W, h: H } = sizeRef.current;
-    const gravity = 1000;
-
-    // Spawn & timer
-    if (playingRef.current) {
-      const now = performance.now();
-      if (gameStartRef.current === 0) gameStartRef.current = now;
-      const elapsed = (now - gameStartRef.current) / 1000;
-      const newTime = Math.max(0, GAME_DURATION - Math.floor(elapsed));
-      if (newTime !== timeLeftRef.current) {
-        timeLeftRef.current = newTime;
-        syncHud();
-        if (newTime <= 0) {
-          gameOver();
-          return;
-        }
-      }
-
-      // Progressive difficulty — 5 giai đoạn rõ rệt
-      const t = elapsed; // seconds elapsed
-      // GĐ1: 0–10s  — đơn giản (d: 0.05 → 0.15)
-      // GĐ2: 10–20s — chuyển tiếp (d: 0.15 → 0.35)
-      // GĐ3: 20–40s — phức tạp   (d: 0.35 → 0.65)
-      // GĐ4: 40–80s — giữ nhịp khó (d: 0.65 → 0.78)
-      // GĐ5: 80–180s— khó nhất    (d: 0.78 → 1.0)
-      const difficulty =
-        t < 10  ? 0.05 + (t / 10) * 0.10            // 0.05 → 0.15
-        : t < 20  ? 0.15 + ((t - 10) / 10) * 0.20    // 0.15 → 0.35
-        : t < 40  ? 0.35 + ((t - 20) / 20) * 0.30    // 0.35 → 0.65
-        : t < 80  ? 0.65 + ((t - 40) / 40) * 0.13    // 0.65 → 0.78
-        :           0.78 + ((t - 80) / 100) * 0.22;   // 0.78 → 1.0
-      const d = Math.min(1, Math.max(0, difficulty));
-
-      const spawnEvery = 1100 - d * 680;             // 1100ms → 420ms
-      const fruitsToSpawn = 1 + Math.floor(d * 3.5);  // 1 → 4
-      const bombChance = 0.02 + d * 0.26;             // 2% → 28%
-      const flightSec = 1.35 - d * 0.65;              // 1.35s → 0.7s (faster fall)
-
-      if (now - lastSpawnRef.current > spawnEvery) {
-        lastSpawnRef.current = now;
-        for (let j = 0; j < fruitsToSpawn; j++) {
-          spawnFruit(bombChance, flightSec);
-        }
-      }
-      if (comboRef.current > 0 && now > comboResetRef.current) {
-        comboRef.current = 0;
-        syncHud();
-      }
-    }
-
-    // Fruits
-    for (let i = fruitsRef.current.length - 1; i >= 0; i--) {
-      const f = fruitsRef.current[i];
-      f.vy += gravity * dt;
-      f.g.x += f.vx * dt;
-      f.g.y += f.vy * dt;
-      f.rot += f.vr * dt;
-      f.g.rotation = f.rot;
-      
-      // Screen bounds bouncing for x-axis
-      if (f.g.x < f.r) {
-        f.g.x = f.r;
-        f.vx *= -1;
-      } else if (f.g.x > W - f.r) {
-        f.g.x = W - f.r;
-        f.vx *= -1;
-      }
-
-      if (f.g.y > H + 100) {
-        // No penalty for missing fruit — only bombs hurt
-        f.g.destroy();
-        fruitsRef.current.splice(i, 1);
-      }
-    }
-
-    // Particles (halves + splatter share)
-    for (let i = particlesRef.current.length - 1; i >= 0; i--) {
-      const p = particlesRef.current[i];
-      p.vy += gravity * (p.rotates ? 1 : 0.5) * dt;
-      p.g.x += p.vx * dt;
-      p.g.y += p.vy * dt;
-      if (p.rotates) {
-        p.rot += p.vr * dt;
-        p.g.rotation = p.rot;
-      }
-      
-      // Screen bounds bouncing for x-axis
-      const pr = (p.g as Sprite).width / 2 || 10;
-      if (p.g.x < pr) {
-        p.g.x = pr;
-        p.vx *= -0.8;
-      } else if (p.g.x > W - pr) {
-        p.g.x = W - pr;
-        p.vx *= -0.8;
-      }
-
-      p.life -= dt;
-      p.g.alpha = Math.max(0, p.life / p.ttl);
-      if (p.life <= 0 || p.g.y > H + 100) {
-        p.g.destroy();
-        particlesRef.current.splice(i, 1);
-      }
-    }
-
-    // Screen shake — apply to stage container
-    if (shakeRef.current.active && stageRef.current) {
-      const elapsed = (performance.now() - shakeRef.current.startTime) / 1000;
-      if (elapsed >= shakeRef.current.duration) {
-        shakeRef.current.active = false;
-        stageRef.current.x = 0;
-        stageRef.current.y = 0;
-      } else {
-        const decay = 1 - elapsed / shakeRef.current.duration;
-        const intensity = shakeRef.current.intensity * decay;
-        stageRef.current.x = (Math.random() - 0.5) * intensity * 2;
-        stageRef.current.y = (Math.random() - 0.5) * intensity * 2;
-      }
-    }
-
-    // Trail
-    const tg = trailGRef.current;
-    if (tg) {
-      tg.clear();
-      const now = performance.now();
-      trailRef.current = trailRef.current.filter((p) => now - p.t < 220);
-      if (trailRef.current.length >= 2) {
-        for (let i = 1; i < trailRef.current.length; i++) {
-          const a = trailRef.current[i - 1];
-          const b = trailRef.current[i];
-          const age = (now - b.t) / 220;
-          const al = 1 - age;
-          // Outer white stroke
-          tg.moveTo(a.x, a.y).lineTo(b.x, b.y)
-            .stroke({ color: 0xffffff, width: 12 * al + 3, alpha: al * 0.95, cap: "round", join: "round" });
-          // Inner orange stroke
-          tg.moveTo(a.x, a.y).lineTo(b.x, b.y)
-            .stroke({ color: 0xe87432, width: 5 * al + 1, alpha: al, cap: "round", join: "round" });
-        }
-      }
+  async function start() {
+    if (starting) return;
+    setStarting(true);
+    try {
+      const createSession = callbacksRef.current.onGameStart;
+      const session = createSession ? await createSession() : localSession();
+      sessionRef.current = session;
+      coreRef.current = createGame(session.seed);
+      inputLogRef.current = [];
+      lastLoggedTickRef.current = -1;
+      submittedRef.current = false;
+      particlesRef.current.forEach((particle) => particle.g.destroy());
+      particlesRef.current = [];
+      spriteMapRef.current.forEach((sprite) => sprite.destroy());
+      spriteMapRef.current.clear();
+      startedAtRef.current = performance.now();
+      playingRef.current = true;
+      setFinalScore(null);
+      setRunning(true);
+      setCountdown(null);
+      syncHud(coreRef.current);
+    } finally {
+      setStarting(false);
     }
   }
 
-  // ── Game actions ────────────────────────────────────────────────────────────
-  function spawnFruit(bombChance: number, flightSec: number) {
-    const stage = stageRef.current;
-    if (!stage) return;
-    const { w: W, h: H } = sizeRef.current;
-    const pool: FruitKind[] = ["mango", "mango", "banana", "lychee", "dragonfruit", "durian"];
-    const kind: FruitKind =
-      Math.random() < bombChance ? "bomb"
-      : Math.random() < 0.08 ? "peanut"
-      : pool[Math.floor(Math.random() * pool.length)];
-    const r = RADIUS[kind];
-
-    const g = new Sprite(texturesRef.current[kind]);
-    g.anchor.set(0.5);
-    const startX = Math.max(r, Math.min(W - r, 80 + Math.random() * Math.max(1, W - 160)));
-    g.x = startX;
-    g.y = H + 40;
-    const targetX = Math.max(r, Math.min(W - r, startX + (Math.random() - 0.5) * (W * 0.45)));
-    const vx = (targetX - startX) / flightSec;
-    const peakY = 80 + Math.random() * (H * 0.2);
-    const vy = -Math.sqrt(2 * 1000 * Math.max(50, H - peakY));
-    const vr = (Math.random() - 0.5) * 6;
-    stage.addChild(g);
-    fruitsRef.current.push({ kind, g, vx, vy, rot: 0, vr, r, sliced: false });
-  }
-
-  function sliceFruit(f: Fruit, dx: number, dy: number) {
-    if (f.sliced) return;
-    f.sliced = true;
-    const stage = stageRef.current;
-    if (!stage) return;
-    const angle = Math.atan2(dy, dx);
-
-    if (f.kind === "bomb") {
-      // Explosion — deduct 1 life, reset combo
-      spawnSplat(f.g.x, f.g.y, 0xff5a2a, 80, 8);
-      spawnSplat(f.g.x, f.g.y, 0xffe66a, 40, 6);
-      spawnSplat(f.g.x, f.g.y, 0x1f1f1f, 30, 10);
-      livesRef.current -= 1;
-      comboRef.current = 0;
-      updateHud();
-
-      // 🔥 Screen shake 0.4s
-      shakeRef.current = { active: true, startTime: performance.now(), duration: 0.4, intensity: 8 };
-
-      // 🔴 Flash red 100ms
-      setFlashRed(true);
-      setTimeout(() => setFlashRed(false), 100);
-
-      // 💥 "BÙM!" text
-      const bid = ++bombIdRef.current;
-      // Convert Pixi coords → screen percentage for responsive overlay
-      const wrap = wrapRef.current;
-      if (wrap) {
-        const rect = wrap.getBoundingClientRect();
-        const sx = rect.width > 0 ? f.g.x / (sizeRef.current.w / rect.width) : 0;
-        const sy = rect.height > 0 ? f.g.y / (sizeRef.current.h / rect.height) : 0;
-        setBombTexts((prev) => [...prev.slice(-4), { x: sx, y: sy, id: bid }]);
-        setTimeout(() => setBombTexts((prev) => prev.filter((t) => t.id !== bid)), 800);
-      }
-
-      // 🔊 Bomb SFX
-      if (!muted) onPlayBomb?.();
-
-      if (livesRef.current <= 0) gameOver();
-      f.g.destroy();
-      const idx = fruitsRef.current.indexOf(f);
-      if (idx >= 0) fruitsRef.current.splice(idx, 1);
-      return;
-    }
-
-    const perp = angle + Math.PI / 2;
-    const speed = 220;
-    // halves
-    (["left", "right"] as const).forEach((side, i) => {
-      const half = new Sprite(texturesRef.current[`${f.kind}_${side}`]);
-      half.anchor.set(0.5);
-      half.x = f.g.x;
-      half.y = f.g.y;
-      half.rotation = f.g.rotation;
-      stage.addChild(half);
-      particlesRef.current.push({
-        g: half,
-        vx: f.vx + Math.cos(perp) * speed * (i === 0 ? -1 : 1),
-        vy: f.vy + Math.sin(perp) * speed * (i === 0 ? -1 : 1) - 80,
-        rot: f.g.rotation, vr: (i === 0 ? -4 : 4),
-        life: 1.4, ttl: 1.4, rotates: true,
-      });
-    });
-
-    // Spawn massive amount of flesh particles now that they share shapes/textures
-    spawnSplat(f.g.x, f.g.y, COLORS[f.kind].flesh, 45, 5);
-    spawnSplat(f.g.x, f.g.y, COLORS[f.kind].body, 15, 3);
-
-    comboRef.current += 1;
-    comboResetRef.current = performance.now() + 700;
-    const base = POINTS[f.kind];
-    const mult = comboRef.current >= 5 ? 3 : comboRef.current >= 3 ? 2 : 1;
-    // 🥜 Peanut = ×10 bonus!
-    const peanutBonus = f.kind === "peanut" ? 10 : 1;
-    const pointsEarned = base * mult * peanutBonus;
-    scoreRef.current += pointsEarned;
-    updateHud();
-
-    // Floating text for points
-    const ptId = ++pointIdRef.current;
-    const wrap = wrapRef.current;
-    if (wrap) {
-      const rect = wrap.getBoundingClientRect();
-      const sx = rect.width > 0 ? f.g.x / (sizeRef.current.w / rect.width) : 0;
-      const sy = rect.height > 0 ? f.g.y / (sizeRef.current.h / rect.height) : 0;
-      let text = `+${pointsEarned}`;
-      let color = "#fff";
-      if (peanutBonus > 1) {
-        text = `+${pointsEarned} LẠC LẠC!`;
-        color = "#f0b840";
-      } else if (mult >= 3) {
-        text = `+${pointsEarned} CRITICAL!`;
-        color = "#ff2a2a";
-      } else if (mult >= 2) {
-        text = `+${pointsEarned} COMBO!`;
-        color = "#e87432";
-      }
-      setPointTexts((prev) => [...prev.slice(-8), { x: sx, y: sy, id: ptId, text, color }]);
-      setTimeout(() => setPointTexts((prev) => prev.filter((t) => t.id !== ptId)), 800);
-    }
-
-    // 🔊 Slice SFX
-    if (!muted) onPlaySlice?.();
-
-    f.g.destroy();
-    const idx = fruitsRef.current.indexOf(f);
-    if (idx >= 0) fruitsRef.current.splice(idx, 1);
-  }
-
-  function spawnSplat(x: number, y: number, color: number, count: number, size: number) {
-    const stage = stageRef.current;
-    if (!stage) return;
-    for (let i = 0; i < count; i++) {
-      const g = new Sprite(texturesRef.current["circle"]);
-      const r = size * (0.4 + Math.random() * 0.9);
-      g.anchor.set(0.5);
-      g.tint = color;
-      g.width = r * 2;
-      g.height = r * 2;
-      g.x = x; g.y = y;
-      const a = Math.random() * Math.PI * 2;
-      const sp = 100 + Math.random() * 220;
-      stage.addChild(g);
-      const ttl = 0.6 + Math.random() * 0.3;
-      particlesRef.current.push({
-        g, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 80,
-        rot: 0, vr: 0, life: ttl, ttl, rotates: false,
-      });
-    }
-  }
-
-  function gameOver() {
-    playingRef.current = false;
-    const fs = scoreRef.current;
-    setFinalScore(fs);
-    setRunning(false);
-    onGameOver?.(fs);
-  }
-
-  function syncHud() {
-    setHud({ score: scoreRef.current, lives: livesRef.current, combo: comboRef.current, time: timeLeftRef.current });
-  }
-  const updateHud = syncHud;
-
-  function start() {
-    // reset
-    fruitsRef.current.forEach((f) => f.g.destroy());
-    particlesRef.current.forEach((p) => p.g.destroy());
-    fruitsRef.current = [];
-    particlesRef.current = [];
-    trailRef.current = [];
-    setBombTexts([]);
-    setPointTexts([]);
-    setFlashRed(false);
-    shakeRef.current = { active: false, startTime: 0, duration: 0.4, intensity: 8 };
-    if (stageRef.current) { stageRef.current.x = 0; stageRef.current.y = 0; }
-    scoreRef.current = 0;
-    livesRef.current = 3;
-    comboRef.current = 0;
-    timeLeftRef.current = GAME_DURATION;
-    gameStartRef.current = performance.now();
-    lastSpawnRef.current = performance.now();
-    updateHud();
-    setFinalScore(null);
-    playingRef.current = true;
-    setRunning(true);
-    setCountdown(null);
-  }
-
-  // ⏱ Countdown 3-2-1 before game starts
   function beginCountdown() {
-    setCountdown(3);
+    if (!starting) setCountdown(3);
   }
 
-  // ⏱ Auto-start countdown on first mount (no "Bắt đầu chém" button needed)
   useEffect(() => {
-    if (!running && finalScore === null && countdown === null) {
-      beginCountdown();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!running && finalScore === null && countdown === null) beginCountdown();
   }, []);
 
-  // Run countdown tick
   useEffect(() => {
     if (countdown === null || countdown <= 0) return;
     const timer = setTimeout(() => {
-      if (countdown === 1) {
-        start();
-      } else {
-        setCountdown(countdown - 1);
-      }
+      if (countdown === 1) void start();
+      else setCountdown(countdown - 1);
     }, 700);
     return () => clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [countdown]);
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
-      <div
-        ref={wrapRef}
-        style={{
-          width: "100%", height: "100%",
-          overflow: "hidden",
-          background: "#f5ecd7",
-        }}
-      />
-
-      {/* 🔴 Flash red overlay */}
-      {flashRed && (
-        <div style={{
-          position: "absolute", inset: 0,
-          background: "rgba(255, 30, 30, 0.35)",
-          pointerEvents: "none",
-          zIndex: 5,
-          transition: "opacity 0.1s",
-        }} />
-      )}
-
-      {/* 💥 "BÙM!" floating texts */}
-      {bombTexts.map((bt) => (
-        <div
-          key={bt.id}
-          style={{
-            position: "absolute",
-            left: bt.x,
-            top: bt.y,
-            transform: "translate(-50%, -50%)",
-            fontSize: "clamp(24px, 6vw, 52px)",
-            fontWeight: 900,
-            color: "#ff2a2a",
-            textShadow: "0 4px 16px rgba(255,0,0,0.7), 0 0 40px rgba(255,80,0,0.5)",
-            pointerEvents: "none",
-            zIndex: 10,
-            animation: "bombPop 0.8s ease-out forwards",
-            fontFamily: "Be Vietnam Pro, sans-serif",
-          }}
-        >
-          BÙM!
-        </div>
+      <div ref={wrapRef} style={{ width: "100%", height: "100%", overflow: "hidden", background: "#f5ecd7" }} />
+      {flashRed && <div style={{ position: "absolute", inset: 0, background: "rgba(255,30,30,.35)", pointerEvents: "none", zIndex: 5 }} />}
+      {bombTexts.map((text) => (
+        <div key={text.id} className="bombText" style={{ left: text.x, top: text.y }}>BÙM!</div>
+      ))}
+      {pointTexts.map((text) => (
+        <div key={text.id} className="pointText" style={{ left: text.x, top: text.y, color: text.color }}>{text.text}</div>
       ))}
 
-      {/* 💯 Floating Point texts */}
-      {pointTexts.map((pt) => (
-        <div
-          key={pt.id}
-          style={{
-            position: "absolute",
-            left: pt.x,
-            top: pt.y,
-            transform: "translate(-50%, -50%)",
-            fontSize: "clamp(18px, 4vw, 36px)",
-            fontWeight: 900,
-            color: pt.color,
-            textShadow: "0 2px 4px rgba(42,36,24,0.8), 0 0 8px rgba(0,0,0,0.5), 0 0 20px " + pt.color,
-            pointerEvents: "none",
-            zIndex: 9,
-            animation: "pointPop 0.8s ease-out forwards",
-            fontFamily: "Be Vietnam Pro, sans-serif",
-          }}
-        >
-          {pt.text}
-        </div>
-      ))}
-
-      {/* HTML HUD overlay */}
-      <div style={{
-        position: "absolute", top: 14, left: 20, right: 20,
-        display: "flex", justifyContent: "space-between", alignItems: "flex-start",
-        pointerEvents: "none",
-        fontFamily: "Be Vietnam Pro, sans-serif",
-        zIndex: 8,
-      }}>
+      <div className="gameHud">
         <div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: "#2a2418", textShadow: "0 1px 0 rgba(255,255,255,0.6)" }}>
-            Điểm: {hud.score}
-          </div>
-          {hud.combo >= 2 && (
-            <div style={{
-              fontSize: 18, fontWeight: 800, color: hud.combo >= 5 ? "#ff2a2a" : "#e87432",
-              marginTop: 4,
-              textShadow: "0 2px 4px rgba(42,36,24,0.3), 0 0 10px rgba(255,255,255,0.9)",
-            }}>
-              {hud.combo >= 5 ? "🔥 BẠO KÍCH: Combo ×" : "Combo ×"}{hud.combo}
-              {hud.combo >= 5 ? "  (điểm ×3)" : hud.combo >= 3 ? "  (điểm ×2)" : ""}
-            </div>
-          )}
+          <div style={{ fontSize: 20, fontWeight: 700 }}>Điểm: {hud.score}</div>
+          {hud.combo >= 2 && <div className="comboText">{hud.combo >= 5 ? "BẠO KÍCH: " : ""}Combo ×{hud.combo}</div>}
         </div>
-        {/* Countdown timer — center */}
-        {running && (
-          <div style={{
-            fontSize: 22, fontWeight: 800,
-            color: hud.time <= 15 ? "#c23838" : hud.time <= 30 ? "#e87432" : "#2a2418",
-            textShadow: "0 1px 0 rgba(255,255,255,0.6)",
-            background: "rgba(255,255,255,0.75)",
-            borderRadius: 12,
-            padding: "4px 16px",
-            border: "1.5px solid rgba(138,125,101,0.3)",
-          }}>
-            {String(Math.floor(hud.time / 60)).padStart(2, "0")}:{String(hud.time % 60).padStart(2, "0")}
-          </div>
-        )}
-        <div style={{ fontSize: 24, fontWeight: 700, color: "#c23838", letterSpacing: 2, textShadow: "0 1px 0 rgba(255,255,255,0.6)" }}>
-          {hud.lives > 0 ? "♥".repeat(hud.lives) : "✕"}
-        </div>
+        {running && <div className={`gameTimer ${hud.time <= 15 ? "danger" : ""}`}>{String(Math.floor(hud.time / 60)).padStart(2, "0")}:{String(hud.time % 60).padStart(2, "0")}</div>}
+        <div className="gameLives">{hud.lives > 0 ? "♥".repeat(hud.lives) : "✕"}</div>
       </div>
-      {!running && countdown === null && (
-        <div style={{
-          position: "absolute", inset: 0,
-          display: "grid", placeItems: "center",
-          background: finalScore !== null ? "rgba(245,236,215,0.6)" : "transparent",
-          backdropFilter: finalScore !== null ? "blur(2px)" : "none",
-          borderRadius: 20,
-          pointerEvents: finalScore !== null ? "auto" : "none",
-        }}>
-          {finalScore !== null && (
-            <div style={{ textAlign: "center" }}>
-              <div style={{
-                marginBottom: 18,
-                padding: "18px 28px",
-                borderRadius: 20,
-                background: "rgba(255,255,255,0.9)",
-                border: "1.5px solid rgba(138,125,101,0.4)",
-                boxShadow: "0 10px 30px rgba(42,36,24,0.15)",
-                fontFamily: "Be Vietnam Pro, sans-serif",
-              }}>
-                <div style={{ fontSize: 13, color: "#8a7d65", fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>
-                  Kết thúc
-                </div>
-                <div style={{ fontSize: 36, fontWeight: 800, color: "#e87432", marginTop: 4 }}>
-                  {finalScore} điểm
-                </div>
-                <div style={{ fontSize: 13, color: "#8a7d65", marginTop: 8 }}>
-                  ⏱ {Math.floor((GAME_DURATION - timeLeftRef.current) / 60)} phút {String((GAME_DURATION - timeLeftRef.current) % 60).padStart(2, "0")} giây
-                  {" · "}
-                  {livesRef.current > 0 ? `${livesRef.current} mạng còn` : "Hết mạng"}
-                </div>
-              </div>
-              <button
-                onClick={beginCountdown}
-                style={{
-                  padding: "18px 38px",
-                  background: "linear-gradient(180deg, #f08a48 0%, #e87432 100%)",
-                  color: "#fff",
-                  border: "3px solid #b85a22",
-                  borderRadius: 999,
-                  fontFamily: "Be Vietnam Pro, sans-serif",
-                  fontWeight: 800,
-                  fontSize: 20,
-                  cursor: "pointer",
-                  boxShadow: "0 10px 24px rgba(232,116,50,0.45)",
-                }}
-              >
-                Chơi lại
-              </button>
+
+      {!running && countdown === null && finalScore !== null && (
+        <div className="gameOverOverlay">
+          <div style={{ textAlign: "center" }}>
+            <div className="scoreCard">
+              <div className="scoreLabel">Kết thúc</div>
+              <div className="scoreValue">{finalScore} điểm</div>
+              <div className="scoreMeta">{sessionRef.current?.sessionId ? "Đang xác minh điểm…" : "Chơi khách · điểm không xếp hạng"}</div>
             </div>
-          )}
-        </div>
-      )}
-      {/* ⏱ Countdown overlay */}
-      {countdown !== null && countdown > 0 && (
-        <div style={{
-          position: "absolute", inset: 0,
-          display: "grid", placeItems: "center",
-          background: "rgba(245,236,215,0.75)",
-          backdropFilter: "blur(4px)",
-          zIndex: 50,
-          pointerEvents: "none",
-          fontFamily: "Be Vietnam Pro, sans-serif",
-        }}>
-          <div style={{
-            fontSize: "clamp(80px, 18vw, 160px)",
-            fontWeight: 900,
-            color: "#e87432",
-            textShadow: "0 4px 24px rgba(232,116,50,0.35), 0 2px 8px rgba(42,36,24,0.15)",
-            animation: "countPop 0.6s ease-out",
-            lineHeight: 1,
-          }}>
-            {countdown}
+            <button onClick={beginCountdown} className="replayButton">Chơi lại</button>
           </div>
-          <style>{`
-            @keyframes countPop {
-              0%   { transform: scale(2); opacity: 0; }
-              50%  { transform: scale(0.9); opacity: 1; }
-              100% { transform: scale(1); opacity: 1; }
-            }
-          `}</style>
         </div>
       )}
-      {/* CSS animations */}
+
+      {(countdown !== null || starting) && (
+        <div className="countdownOverlay"><div className="countdownNumber">{starting ? "…" : countdown}</div></div>
+      )}
+
       <style>{`
-        @keyframes bombPop {
-          0%   { opacity: 1; transform: translate(-50%, -50%) scale(0.5); }
-          30%  { opacity: 1; transform: translate(-50%, -50%) scale(1.3); }
-          100% { opacity: 0; transform: translate(-50%, -50%) scale(1.0) translateY(-40px); }
-        }
-        @keyframes pointPop {
-          0%   { opacity: 1; transform: translate(-50%, -50%) scale(0.7); }
-          30%  { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
-          100% { opacity: 0; transform: translate(-50%, -50%) scale(1.0) translateY(-30px); }
-        }
+        .gameHud { position:absolute; top:14px; left:20px; right:20px; display:flex; justify-content:space-between; align-items:flex-start; pointer-events:none; font-family:'Be Vietnam Pro',sans-serif; z-index:8; color:#2a2418; text-shadow:0 1px 0 rgba(255,255,255,.6) }
+        .comboText { font-size:18px; font-weight:800; color:#e87432; margin-top:4px }
+        .gameTimer { font-size:22px; font-weight:800; background:rgba(255,255,255,.75); border-radius:12px; padding:4px 16px; border:1.5px solid rgba(138,125,101,.3) }
+        .gameTimer.danger { color:#c23838 }
+        .gameLives { font-size:24px; font-weight:700; color:#c23838; letter-spacing:2px }
+        .bombText,.pointText { position:absolute; transform:translate(-50%,-50%); pointer-events:none; z-index:10; font-family:'Be Vietnam Pro',sans-serif; font-weight:900; animation:pointPop .8s ease-out forwards }
+        .bombText { font-size:clamp(24px,6vw,52px); color:#ff2a2a; text-shadow:0 4px 16px rgba(255,0,0,.7) }
+        .pointText { font-size:clamp(18px,4vw,36px); text-shadow:0 2px 4px rgba(42,36,24,.8) }
+        .gameOverOverlay,.countdownOverlay { position:absolute; inset:0; display:grid; place-items:center; background:rgba(245,236,215,.72); backdrop-filter:blur(4px); z-index:50; font-family:'Be Vietnam Pro',sans-serif }
+        .scoreCard { margin-bottom:18px; padding:18px 28px; border-radius:20px; background:rgba(255,255,255,.9); border:1.5px solid rgba(138,125,101,.4); box-shadow:0 10px 30px rgba(42,36,24,.15) }
+        .scoreLabel { font-size:13px; color:#8a7d65; font-weight:700; letter-spacing:1px; text-transform:uppercase }
+        .scoreValue { font-size:36px; font-weight:800; color:#e87432; margin-top:4px }
+        .scoreMeta { font-size:13px; color:#8a7d65; margin-top:8px }
+        .replayButton { padding:18px 38px; background:linear-gradient(180deg,#f08a48,#e87432); color:#fff; border:3px solid #b85a22; border-radius:999px; font-family:inherit; font-weight:800; font-size:20px; cursor:pointer; box-shadow:0 10px 24px rgba(232,116,50,.45) }
+        .countdownNumber { font-size:clamp(80px,18vw,160px); font-weight:900; color:#e87432; animation:countPop .6s ease-out }
+        @keyframes countPop { from { transform:scale(2); opacity:0 } to { transform:scale(1); opacity:1 } }
+        @keyframes pointPop { 0% { opacity:1; transform:translate(-50%,-50%) scale(.7) } 100% { opacity:0; transform:translate(-50%,-80%) scale(1) } }
       `}</style>
     </div>
   );
 }
-
-

@@ -1,6 +1,7 @@
 import { Graphics, Container } from "pixi.js";
+import { FRUIT_RULES, type FruitKind } from "../../game/core";
 
-export type FruitKind = "durian" | "lychee" | "banana" | "dragonfruit" | "mango" | "peanut" | "bomb";
+export type { FruitKind } from "../../game/core";
 
 export interface Fruit {
   kind: FruitKind;
@@ -41,8 +42,8 @@ function defaultDrawHalf(g: Graphics, r: number, c: { body: number; edge: number
 
 const FRUIT_REGISTRY: Record<FruitKind, FruitConfig> = {
   durian: {
-    points: 5,
-    radius: 38,
+    points: FRUIT_RULES.durian.points,
+    radius: FRUIT_RULES.durian.radius,
     colors: { body: 0xc8b84a, edge: 0x6b7a1f, flesh: 0xfff5a0 },
     drawFull: (g, r, c) => {
       g.ellipse(0, 0, r * 0.82, r).fill(c.body).stroke({ color: c.edge, width: 2 });
@@ -61,8 +62,8 @@ const FRUIT_REGISTRY: Record<FruitKind, FruitConfig> = {
     drawHalf: defaultDrawHalf
   },
   lychee: {
-    points: 3,
-    radius: 26,
+    points: FRUIT_RULES.lychee.points,
+    radius: FRUIT_RULES.lychee.radius,
     colors: { body: 0xe83050, edge: 0x7a1030, flesh: 0xfff0f4 },
     drawFull: (g, r, c) => {
       g.circle(0, 0, r).fill(c.body).stroke({ color: c.edge, width: 2 });
@@ -77,8 +78,8 @@ const FRUIT_REGISTRY: Record<FruitKind, FruitConfig> = {
     drawHalf: defaultDrawHalf
   },
   banana: {
-    points: 2,
-    radius: 34,
+    points: FRUIT_RULES.banana.points,
+    radius: FRUIT_RULES.banana.radius,
     colors: { body: 0xf5c842, edge: 0xb89020, flesh: 0xfff099 },
     drawFull: (g, r, c) => {
       g.moveTo(-r * 0.7, r * 0.4)
@@ -91,8 +92,8 @@ const FRUIT_REGISTRY: Record<FruitKind, FruitConfig> = {
     drawHalf: defaultDrawHalf
   },
   dragonfruit: {
-    points: 4,
-    radius: 34,
+    points: FRUIT_RULES.dragonfruit.points,
+    radius: FRUIT_RULES.dragonfruit.radius,
     colors: { body: 0xe8537c, edge: 0x7a1f3a, flesh: 0xfff0f4 },
     drawFull: (g, r, c) => {
       g.circle(0, 0, r * 0.92).fill(c.body).stroke({ color: c.edge, width: 2 });
@@ -104,8 +105,8 @@ const FRUIT_REGISTRY: Record<FruitKind, FruitConfig> = {
     drawHalf: defaultDrawHalf
   },
   mango: {
-    points: 2,
-    radius: 34,
+    points: FRUIT_RULES.mango.points,
+    radius: FRUIT_RULES.mango.radius,
     colors: { body: 0xf0a830, edge: 0x8e5a0a, flesh: 0xffe0a0 },
     drawFull: (g, r, c) => {
       g.moveTo(0, -r)
@@ -120,8 +121,8 @@ const FRUIT_REGISTRY: Record<FruitKind, FruitConfig> = {
     drawHalf: defaultDrawHalf
   },
   peanut: {
-    points: 10,
-    radius: 28,
+    points: FRUIT_RULES.peanut.points,
+    radius: FRUIT_RULES.peanut.radius,
     colors: { body: 0xd4a574, edge: 0x8b6914, flesh: 0xfff5e0 },
     drawFull: (g, r, c) => {
       const lobeR = r * 0.58;
@@ -148,8 +149,8 @@ const FRUIT_REGISTRY: Record<FruitKind, FruitConfig> = {
     }
   },
   bomb: {
-    points: 0,
-    radius: 30,
+    points: FRUIT_RULES.bomb.points,
+    radius: FRUIT_RULES.bomb.radius,
     colors: { body: 0x1f1f1f, edge: 0x000000, flesh: 0xff5a2a },
     drawFull: (g, r, c) => {
       g.circle(0, 0, r).fill(c.body).stroke({ color: 0x000, width: 2 });

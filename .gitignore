@@ -3,3 +3,10 @@ dist
 .env
 !.env.example
 .vercel
+.codegraph/
+repomix-output.xml
+test-load.ts
+.firebase/
+firestore-debug.log
+*-debug.log
+functions/lib/

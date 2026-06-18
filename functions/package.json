@@ -1,0 +1,22 @@
+{
+  "name": "chem-lac-functions",
+  "private": true,
+  "main": "lib/index.js",
+  "engines": { "node": "20" },
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=cjs --packages=external --outfile=lib/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "reset:leaderboard": "node scripts/reset-leaderboard.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.6.0",
+    "firebase-functions": "^7.2.5"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1",
+    "@types/node": "^22.15.30",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}
