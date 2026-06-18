@@ -42,10 +42,4 @@ describe("Firestore production rules", () => {
     await assertSucceeds(getDoc(doc(owner, "users", "player-1")));
     await assertFails(getDoc(doc(other, "users", "player-1")));
   });
-
-  it("denies all client access to authoritative sessions", async () => {
-    const player = environment.authenticatedContext("player-1").firestore();
-    await assertFails(getDoc(doc(player, "gameSessions", "player-1")));
-    await assertFails(setDoc(doc(player, "gameSessions", "player-1"), { seed: 1 }));
-  });
 });

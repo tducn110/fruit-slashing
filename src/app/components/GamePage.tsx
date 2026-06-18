@@ -252,7 +252,7 @@ export function GamePage({
 
             {verifyingScore && (
               <p style={{ fontSize: 12, color: "#8a7d65", marginTop: 12, textAlign: "center" }}>
-                Đang xác minh replay và cập nhật bảng điểm…
+                Đang lưu điểm và cập nhật bảng điểm…
               </p>
             )}
 

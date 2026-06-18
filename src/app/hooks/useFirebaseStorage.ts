@@ -4,25 +4,13 @@ import { useAuth } from "../lib/AuthContext";
 import { functions, getLeaderboard, getUserStats, type ScoreRecord } from "../../lib/firebase";
 import type { GameResult, GameSession } from "../components/FruitGame";
 
-interface StartGameResponse {
-  sessionId: string;
-  seed: number;
-  startedAt: number;
-  durationMs: number;
-}
-
 interface SubmitGameResponse {
   score: number;
   rank: string;
   runId: string | null;
 }
 
-const callStartGame = httpsCallable<void, StartGameResponse>(functions, "startGame");
-const callSubmitGame = httpsCallable<Pick<GameResult, "sessionId" | "inputLog">, SubmitGameResponse>(
-  functions,
-  "submitGame",
-  { limitedUseAppCheckTokens: true },
-);
+const callSubmitScore = httpsCallable<Pick<GameResult, "score">, SubmitGameResponse>(functions, "submitScore");
 
 function randomSeed(): number {
   const values = new Uint32Array(1);
@@ -32,11 +20,9 @@ function randomSeed(): number {
 
 function firebaseErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
-  if (message.includes("resource-exhausted")) return "Bạn đang có một ván khác chưa kết thúc.";
   if (message.includes("permission-denied") || message.includes("unauthenticated")) return "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
-  if (message.includes("failed-precondition") || message.includes("deadline-exceeded")) return "Ván chơi không còn hợp lệ để xếp hạng.";
-  if (message.includes("unavailable") || message.includes("network")) return "Không có kết nối tới máy chủ xác minh điểm.";
-  return "Không thể xác minh điểm. Ván này sẽ không được xếp hạng.";
+  if (message.includes("unavailable") || message.includes("network")) return "Không có kết nối tới máy chủ lưu điểm.";
+  return "Không thể lưu điểm lúc này. Ván này sẽ không được xếp hạng.";
 }
 
 export function useFirebaseStorage() {
@@ -74,23 +60,16 @@ export function useFirebaseStorage() {
 
   const beginGame = useCallback(async (): Promise<GameSession> => {
     setSaveError(null);
-    if (!user) return { sessionId: null, seed: randomSeed() };
-    try {
-      const response = await callStartGame();
-      return { sessionId: response.data.sessionId, seed: response.data.seed };
-    } catch (error) {
-      setSaveError(firebaseErrorMessage(error));
-      return { sessionId: null, seed: randomSeed() };
-    }
-  }, [user]);
+    return { seed: randomSeed() };
+  }, []);
 
   const handleGameOver = useCallback(async (result: GameResult) => {
     setLastScore(result.score);
-    if (!user || !result.sessionId) return;
+    if (!user) return;
     setVerifyingScore(true);
     setSaveError(null);
     try {
-      const response = await callSubmitGame({ sessionId: result.sessionId, inputLog: result.inputLog });
+      const response = await callSubmitScore({ score: result.score });
       const verifiedScore = response.data.score;
       setLastScore(verifiedScore);
       setBestScore((current) => Math.max(current, verifiedScore));

@@ -24,7 +24,6 @@ async function deleteCollection(name) {
 }
 
 await deleteCollection("runs");
-await deleteCollection("gameSessions");
 
 const users = await db.collection("users").get();
 for (let index = 0; index < users.docs.length; index += 400) {

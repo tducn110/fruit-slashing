@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { Application, Container, Graphics, Sprite, Texture, Ticker } from "pixi.js";
 import {
   GAME_DURATION_MS,
-  MAX_INPUT_SAMPLES,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   advanceToTick,
@@ -27,14 +26,11 @@ import {
 } from "../utils/fruit-utils";
 
 export interface GameSession {
-  sessionId: string | null;
   seed: number;
 }
 
 export interface GameResult {
-  sessionId: string | null;
   score: number;
-  inputLog: InputSample[];
 }
 
 interface Props {
@@ -58,7 +54,7 @@ const FRUIT_KINDS: FruitKind[] = ["durian", "lychee", "banana", "dragonfruit", "
 function localSession(): GameSession {
   const values = new Uint32Array(1);
   crypto.getRandomValues(values);
-  return { sessionId: null, seed: values[0] || Date.now() };
+  return { seed: values[0] || Date.now() };
 }
 
 export function FruitGame({ onGameStart, onGameOver, muted = false, onPlaySlice, onPlayBomb }: Props) {
@@ -74,12 +70,9 @@ export function FruitGame({ onGameStart, onGameOver, muted = false, onPlaySlice,
   const trailRef = useRef<TrailPoint[]>([]);
   const sizeRef = useRef({ w: 800, h: 450 });
   const coreRef = useRef<GameState | null>(null);
-  const sessionRef = useRef<GameSession | null>(null);
-  const inputLogRef = useRef<InputSample[]>([]);
   const startedAtRef = useRef(0);
   const playingRef = useRef(false);
   const submittedRef = useRef(false);
-  const lastLoggedTickRef = useRef(-1);
   const shakeRef = useRef({ active: false, startedAt: 0 });
 
   const [running, setRunning] = useState(false);
@@ -216,14 +209,13 @@ export function FruitGame({ onGameStart, onGameOver, muted = false, onPlaySlice,
 
   function finishGame() {
     const state = coreRef.current;
-    const session = sessionRef.current;
-    if (!state || !session || submittedRef.current) return;
+    if (!state || submittedRef.current) return;
     submittedRef.current = true;
     playingRef.current = false;
     setRunning(false);
     setFinalScore(state.score);
     syncHud(state);
-    callbacksRef.current.onGameOver?.({ sessionId: session.sessionId, score: state.score, inputLog: [...inputLogRef.current] });
+    callbacksRef.current.onGameOver?.({ score: state.score });
   }
 
   function handlePointer(clientX: number, clientY: number) {
@@ -241,10 +233,7 @@ export function FruitGame({ onGameStart, onGameOver, muted = false, onPlaySlice,
     if (!playingRef.current || !state) return;
 
     const tick = elapsedTick(now - startedAtRef.current);
-    if (tick - lastLoggedTickRef.current < 2 || inputLogRef.current.length >= MAX_INPUT_SAMPLES) return;
     const sample = normalizePointer(screenX, screenY, sizeRef.current.w, sizeRef.current.h, tick);
-    lastLoggedTickRef.current = tick;
-    inputLogRef.current.push(sample);
     const results = applyInput(state, sample);
     for (const result of results) {
       showSliceEffect(result, {
@@ -406,10 +395,7 @@ export function FruitGame({ onGameStart, onGameOver, muted = false, onPlaySlice,
     try {
       const createSession = callbacksRef.current.onGameStart;
       const session = createSession ? await createSession() : localSession();
-      sessionRef.current = session;
       coreRef.current = createGame(session.seed);
-      inputLogRef.current = [];
-      lastLoggedTickRef.current = -1;
       submittedRef.current = false;
       particlesRef.current.forEach((particle) => particle.g.destroy());
       particlesRef.current = [];
@@ -469,7 +455,7 @@ export function FruitGame({ onGameStart, onGameOver, muted = false, onPlaySlice,
             <div className="scoreCard">
               <div className="scoreLabel">Kết thúc</div>
               <div className="scoreValue">{finalScore} điểm</div>
-              <div className="scoreMeta">{sessionRef.current?.sessionId ? "Đang xác minh điểm…" : "Chơi khách · điểm không xếp hạng"}</div>
+              <div className="scoreMeta">Điểm sẽ được gửi nếu bạn đã đăng nhập.</div>
             </div>
             <button onClick={beginCountdown} className="replayButton">Chơi lại</button>
           </div>
