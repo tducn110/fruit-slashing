@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { FruitGame, type GameResult, type GameSession } from "./FruitGame";
+import { FruitGame, type GameResult } from "./FruitGame";
 import { Home, Settings, Trophy } from "lucide-react";
 import type { User } from "firebase/auth";
 import type { ScoreRecord } from "../../lib/firebase";
@@ -16,8 +16,7 @@ interface Props {
   totalGamesPlayed: number;
   leaderboard: ScoreRecord[];
   saveError?: string | null;
-  verifyingScore?: boolean;
-  onGameStart: () => Promise<GameSession>;
+  savingScore?: boolean;
   onGameOver: (result: GameResult) => void;
   onHome: () => void;
   onRefreshLeaderboard: () => void;
@@ -33,8 +32,7 @@ export function GamePage({
   totalGamesPlayed,
   leaderboard,
   saveError,
-  verifyingScore,
-  onGameStart,
+  savingScore,
   onGameOver,
   onHome,
   onRefreshLeaderboard,
@@ -123,7 +121,6 @@ export function GamePage({
       {/* Game canvas — fills remaining space */}
       <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
         <FruitGame
-          onGameStart={onGameStart}
           onGameOver={handleGameOver}
           muted={muted}
           onPlaySlice={playSlice}
@@ -148,7 +145,7 @@ export function GamePage({
           <DashboardPanel
             leaderboard={leaderboard}
             user={user}
-            verifyingScore={verifyingScore}
+            savingScore={savingScore}
             saveError={saveError}
             onLoginPrompt={onLoginPrompt}
             onClose={() => setPanel(null)}

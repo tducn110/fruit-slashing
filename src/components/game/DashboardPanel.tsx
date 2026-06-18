@@ -5,7 +5,7 @@ import type { ScoreRecord } from "../../lib/firebase";
 interface Props {
   leaderboard: ScoreRecord[];
   user: User | null;
-  verifyingScore?: boolean;
+  savingScore?: boolean;
   saveError?: string | null;
   onLoginPrompt: () => void;
   onClose: () => void;
@@ -14,7 +14,7 @@ interface Props {
 export function DashboardPanel({
   leaderboard,
   user,
-  verifyingScore,
+  savingScore,
   saveError,
   onLoginPrompt,
   onClose,
@@ -76,9 +76,9 @@ export function DashboardPanel({
         </table>
       )}
 
-      {verifyingScore && (
+      {savingScore && (
         <p style={{ fontSize: 12, color: "var(--pencil-gray)", marginTop: 12, textAlign: "center" }}>
-          Đang lưu điểm và cập nhật bảng điểm…
+          Đang lưu điểm…
         </p>
       )}
 

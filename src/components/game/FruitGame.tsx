@@ -25,16 +25,11 @@ import {
   drawBackground,
 } from "../../utils/fruit-utils";
 
-export interface GameSession {
-  seed: number;
-}
-
 export interface GameResult {
   score: number;
 }
 
 interface Props {
-  onGameStart?: () => Promise<GameSession>;
   onGameOver?: (result: GameResult) => void;
   muted?: boolean;
   onPlaySlice?: () => void;
@@ -51,15 +46,9 @@ interface HudState {
 const GAME_DURATION_SECONDS = GAME_DURATION_MS / 1000;
 const FRUIT_KINDS: FruitKind[] = ["durian", "lychee", "banana", "dragonfruit", "mango", "peanut", "bomb"];
 
-function localSession(): GameSession {
-  const values = new Uint32Array(1);
-  crypto.getRandomValues(values);
-  return { seed: values[0] || Date.now() };
-}
-
-export function FruitGame({ onGameStart, onGameOver, muted = false, onPlaySlice, onPlayBomb }: Props) {
-  const callbacksRef = useRef({ onGameStart, onGameOver, muted, onPlaySlice, onPlayBomb });
-  callbacksRef.current = { onGameStart, onGameOver, muted, onPlaySlice, onPlayBomb };
+export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }: Props) {
+  const callbacksRef = useRef({ onGameOver, muted, onPlaySlice, onPlayBomb });
+  callbacksRef.current = { onGameOver, muted, onPlaySlice, onPlayBomb };
   const wrapRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<Application | null>(null);
   const playLayerRef = useRef<Container | null>(null);
@@ -393,9 +382,10 @@ export function FruitGame({ onGameStart, onGameOver, muted = false, onPlaySlice,
     if (starting) return;
     setStarting(true);
     try {
-      const createSession = callbacksRef.current.onGameStart;
-      const session = createSession ? await createSession() : localSession();
-      coreRef.current = createGame(session.seed);
+      const values = new Uint32Array(1);
+      crypto.getRandomValues(values);
+      const seed = values[0] || Date.now();
+      coreRef.current = createGame(seed);
       submittedRef.current = false;
       particlesRef.current.forEach((particle) => particle.g.destroy());
       particlesRef.current = [];

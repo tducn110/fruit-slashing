@@ -1,0 +1,3675 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+components/
+  game/
+    DashboardPanel.tsx
+    FruitGame.tsx
+    GamePage.tsx
+    SettingsPanel.tsx
+  ui/
+    HeroBackdrop.tsx
+    HeroSection.tsx
+    LoadingScreen.tsx
+    LoginModal.tsx
+    TopNav.tsx
+contexts/
+  AuthContext.tsx
+game/
+  core.ts
+hooks/
+  useFirebaseStorage.ts
+  useSound.ts
+lib/
+  firebase.ts
+styles/
+  fonts.css
+  game-ui.css
+  index.css
+  loading-screen.css
+  tailwind.css
+  theme.css
+utils/
+  audio-manager.ts
+  fruit-utils.ts
+  game-loader.ts
+App.tsx
+main.tsx
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="components/game/DashboardPanel.tsx">
+import { X } from "lucide-react";
+import type { User } from "firebase/auth";
+import type { ScoreRecord } from "../../lib/firebase";
+
+interface Props {
+  leaderboard: ScoreRecord[];
+  user: User | null;
+  verifyingScore?: boolean;
+  saveError?: string | null;
+  onLoginPrompt: () => void;
+  onClose: () => void;
+}
+
+export function DashboardPanel({
+  leaderboard,
+  user,
+  verifyingScore,
+  saveError,
+  onLoginPrompt,
+  onClose,
+}: Props) {
+  return (
+    <div style={{
+      position: "absolute", top: 12, right: 12,
+      background: "rgba(255,255,255,0.97)",
+      border: "1.5px solid var(--border)",
+      borderRadius: 16,
+      padding: "20px 24px",
+      width: 340,
+      maxHeight: "80vh",
+      overflowY: "auto",
+      boxShadow: "0 12px 32px rgba(42,36,24,0.2)",
+      fontFamily: "var(--font-family)",
+      zIndex: 20,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <span style={{ fontWeight: 800, fontSize: 15 }}>🏆 Bảng vinh danh toàn cầu</span>
+        <button onClick={onClose} className="game-btn-close">
+          <X size={16} />
+        </button>
+      </div>
+
+      {leaderboard.length === 0 ? (
+        <p style={{ fontSize: 13, color: "var(--pencil-gray)", textAlign: "center", padding: "20px 0" }}>
+          Chưa có điểm nào. Hãy là người đầu tiên!
+        </p>
+      ) : (
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <thead>
+            <tr style={{ color: "var(--pencil-gray)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              {["#", "Tên", "Điểm", "Thời gian"].map((h) => (
+                <th key={h} style={{ padding: "4px 6px", textAlign: "left", fontWeight: 700, borderBottom: "1.5px solid var(--paper-warm)" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {leaderboard.map((r, i) => {
+              const isMe = user?.uid === r.uid;
+              const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : String(i + 1);
+              return (
+                <tr key={`${r.uid}-${r.createdAt}`} style={{
+                  background: isMe ? "color-mix(in srgb, var(--primary) 8%, transparent)" : i % 2 === 0 ? "color-mix(in srgb, var(--rice-paper) 50%, transparent)" : "transparent",
+                }}>
+                  <td style={{ padding: "7px 6px", fontWeight: 700 }}>{medal}</td>
+                  <td style={{ padding: "7px 6px", fontWeight: isMe ? 800 : 500, color: isMe ? "var(--primary)" : "var(--ink-dark)" }}>
+                    {r.playerName}{isMe ? " (bạn)" : ""}
+                  </td>
+                  <td style={{ padding: "7px 6px", fontWeight: 700, color: "var(--primary)" }}>{r.score}</td>
+                  <td style={{ padding: "7px 6px", color: "var(--pencil-gray)", fontSize: 11 }}>
+                    {new Date(r.createdAt).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+
+      {verifyingScore && (
+        <p style={{ fontSize: 12, color: "var(--pencil-gray)", marginTop: 12, textAlign: "center" }}>
+          Đang lưu điểm và cập nhật bảng điểm…
+        </p>
+      )}
+
+      {/* Save error banner */}
+      {saveError && (
+        <div style={{
+          marginTop: 12,
+          padding: "10px 14px",
+          borderRadius: 10,
+          background: "color-mix(in srgb, var(--destructive) 8%, transparent)",
+          border: "1px solid color-mix(in srgb, var(--destructive) 25%, transparent)",
+          fontSize: 12,
+          color: "var(--destructive)",
+          lineHeight: 1.5,
+        }}>
+          ⚠️ {saveError}
+        </div>
+      )}
+
+      {/* Login prompt for guest users */}
+      {!user && (
+        <button
+          onClick={onLoginPrompt}
+          className="game-btn loginPromptBtn"
+          style={{
+            marginTop: 16, padding: "14px 16px",
+            borderRadius: 14, width: "100%",
+            background: "linear-gradient(135deg, color-mix(in srgb, var(--mascot-yellow) 15%, transparent), color-mix(in srgb, var(--primary) 10%, transparent))",
+            border: "1.5px dashed color-mix(in srgb, var(--primary) 30%, transparent)",
+            textAlign: "center", cursor: "pointer",
+          }}
+        >
+          <p style={{ margin: "0 0 6px", fontWeight: 700, color: "var(--primary)", fontSize: 14 }}>
+            🔐 Đăng nhập để lưu điểm!
+          </p>
+          <p style={{ margin: 0, fontSize: 12, color: "var(--pencil-gray)", lineHeight: 1.5 }}>
+            Điểm của bạn sẽ được lưu vào bảng vinh danh và không bị mất khi thoát game.
+          </p>
+        </button>
+      )}
+    </div>
+  );
+}
+</file>
+
+<file path="components/game/FruitGame.tsx">
+import { useEffect, useRef, useState } from "react";
+import { Application, Container, Graphics, Sprite, Texture, Ticker } from "pixi.js";
+import {
+  GAME_DURATION_MS,
+  WORLD_HEIGHT,
+  WORLD_WIDTH,
+  advanceToTick,
+  applyInput,
+  createGame,
+  elapsedTick,
+  normalizePointer,
+  timeLeftSeconds,
+  type GameState,
+  type InputSample,
+  type SliceResult,
+} from "../../game/core";
+import {
+  type FruitKind,
+  type Particle,
+  type TrailPoint,
+  COLORS,
+  RADIUS,
+  makeFruit,
+  makeHalf,
+  drawBackground,
+} from "../../utils/fruit-utils";
+
+export interface GameSession {
+  seed: number;
+}
+
+export interface GameResult {
+  score: number;
+}
+
+interface Props {
+  onGameStart?: () => Promise<GameSession>;
+  onGameOver?: (result: GameResult) => void;
+  muted?: boolean;
+  onPlaySlice?: () => void;
+  onPlayBomb?: () => void;
+}
+
+interface HudState {
+  score: number;
+  lives: number;
+  combo: number;
+  time: number;
+}
+
+const GAME_DURATION_SECONDS = GAME_DURATION_MS / 1000;
+const FRUIT_KINDS: FruitKind[] = ["durian", "lychee", "banana", "dragonfruit", "mango", "peanut", "bomb"];
+
+function localSession(): GameSession {
+  const values = new Uint32Array(1);
+  crypto.getRandomValues(values);
+  return { seed: values[0] || Date.now() };
+}
+
+export function FruitGame({ onGameStart, onGameOver, muted = false, onPlaySlice, onPlayBomb }: Props) {
+  const callbacksRef = useRef({ onGameStart, onGameOver, muted, onPlaySlice, onPlayBomb });
+  callbacksRef.current = { onGameStart, onGameOver, muted, onPlaySlice, onPlayBomb };
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const appRef = useRef<Application | null>(null);
+  const playLayerRef = useRef<Container | null>(null);
+  const trailGraphicsRef = useRef<Graphics | null>(null);
+  const texturesRef = useRef<Record<string, Texture>>({});
+  const spriteMapRef = useRef(new Map<number, Sprite>());
+  const particlesRef = useRef<Particle[]>([]);
+  const trailRef = useRef<TrailPoint[]>([]);
+  const sizeRef = useRef({ w: 800, h: 450 });
+  const coreRef = useRef<GameState | null>(null);
+  const startedAtRef = useRef(0);
+  const playingRef = useRef(false);
+  const submittedRef = useRef(false);
+  const shakeRef = useRef({ active: false, startedAt: 0 });
+
+  const [running, setRunning] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [finalScore, setFinalScore] = useState<number | null>(null);
+  const [hud, setHud] = useState<HudState>({ score: 0, lives: 3, combo: 0, time: GAME_DURATION_SECONDS });
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [flashRed, setFlashRed] = useState(false);
+  const [bombTexts, setBombTexts] = useState<{ x: number; y: number; id: number }[]>([]);
+  const [pointTexts, setPointTexts] = useState<{ x: number; y: number; id: number; text: string; color: string }[]>([]);
+  const effectIdRef = useRef(0);
+
+  function worldToScreen(x: number, y: number) {
+    return {
+      x: (x / WORLD_WIDTH) * sizeRef.current.w,
+      y: (y / WORLD_HEIGHT) * sizeRef.current.h,
+    };
+  }
+
+  function renderScale(): number {
+    return Math.min(sizeRef.current.w / WORLD_WIDTH, sizeRef.current.h / WORLD_HEIGHT);
+  }
+
+  function syncHud(state: GameState) {
+    setHud({ score: state.score, lives: state.lives, combo: state.combo, time: timeLeftSeconds(state) });
+  }
+
+  function syncFruitSprites(state: GameState) {
+    const layer = playLayerRef.current;
+    if (!layer) return;
+    const activeIds = new Set<number>();
+    const scale = renderScale();
+    for (const fruit of state.fruits) {
+      activeIds.add(fruit.id);
+      let sprite = spriteMapRef.current.get(fruit.id);
+      if (!sprite) {
+        sprite = new Sprite(texturesRef.current[fruit.kind]);
+        sprite.anchor.set(0.5);
+        spriteMapRef.current.set(fruit.id, sprite);
+        layer.addChild(sprite);
+      }
+      const screen = worldToScreen(fruit.x, fruit.y);
+      sprite.position.set(screen.x, screen.y);
+      sprite.rotation = fruit.rotation;
+      sprite.scale.set(scale);
+    }
+    for (const [id, sprite] of spriteMapRef.current) {
+      if (activeIds.has(id)) continue;
+      sprite.destroy();
+      spriteMapRef.current.delete(id);
+    }
+  }
+
+  function spawnSplat(x: number, y: number, color: number, count: number, size: number) {
+    const layer = playLayerRef.current;
+    if (!layer) return;
+    for (let index = 0; index < count; index += 1) {
+      const particle = new Sprite(texturesRef.current.circle);
+      particle.anchor.set(0.5);
+      particle.tint = color;
+      const radius = size * (0.4 + Math.random() * 0.9);
+      particle.width = radius * 2;
+      particle.height = radius * 2;
+      particle.position.set(x, y);
+      layer.addChild(particle);
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 100 + Math.random() * 220;
+      const ttl = 0.6 + Math.random() * 0.3;
+      particlesRef.current.push({
+        g: particle,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 80,
+        rot: 0,
+        vr: 0,
+        life: ttl,
+        ttl,
+        rotates: false,
+      });
+    }
+  }
+
+  function showSliceEffect(result: SliceResult, direction: { dx: number; dy: number }) {
+    const layer = playLayerRef.current;
+    if (!layer) return;
+    const screen = worldToScreen(result.fruit.x, result.fruit.y);
+    if (result.fruit.kind === "bomb") {
+      spawnSplat(screen.x, screen.y, 0xff5a2a, 80, 8);
+      spawnSplat(screen.x, screen.y, 0xffe66a, 40, 6);
+      spawnSplat(screen.x, screen.y, 0x1f1f1f, 30, 10);
+      shakeRef.current = { active: true, startedAt: performance.now() };
+      setFlashRed(true);
+      setTimeout(() => setFlashRed(false), 100);
+      const id = ++effectIdRef.current;
+      setBombTexts((items) => [...items.slice(-4), { ...screen, id }]);
+      setTimeout(() => setBombTexts((items) => items.filter((item) => item.id !== id)), 800);
+      if (!callbacksRef.current.muted) callbacksRef.current.onPlayBomb?.();
+      return;
+    }
+
+    const angle = Math.atan2(direction.dy, direction.dx);
+    const perpendicular = angle + Math.PI / 2;
+    const splitSpeed = 220;
+    const scale = renderScale();
+    (["left", "right"] as const).forEach((side, index) => {
+      const half = new Sprite(texturesRef.current[`${result.fruit.kind}_${side}`]);
+      half.anchor.set(0.5);
+      half.position.set(screen.x, screen.y);
+      half.rotation = result.fruit.rotation;
+      half.scale.set(scale);
+      layer.addChild(half);
+      particlesRef.current.push({
+        g: half,
+        vx: result.fruit.vx * (sizeRef.current.w / WORLD_WIDTH) + Math.cos(perpendicular) * splitSpeed * (index === 0 ? -1 : 1),
+        vy: result.fruit.vy * (sizeRef.current.h / WORLD_HEIGHT) + Math.sin(perpendicular) * splitSpeed * (index === 0 ? -1 : 1) - 80,
+        rot: result.fruit.rotation,
+        vr: index === 0 ? -4 : 4,
+        life: 1.4,
+        ttl: 1.4,
+        rotates: true,
+      });
+    });
+    spawnSplat(screen.x, screen.y, COLORS[result.fruit.kind].flesh, 45, 5);
+    spawnSplat(screen.x, screen.y, COLORS[result.fruit.kind].body, 15, 3);
+    const id = ++effectIdRef.current;
+    setPointTexts((items) => [...items.slice(-8), {
+      ...screen,
+      id,
+      text: result.fruit.kind === "peanut" ? `+${result.points} SIÊU HIẾM!` : `+${result.points}`,
+      color: result.fruit.kind === "peanut" ? "var(--mascot-yellow)" : "var(--primary)",
+    }]);
+    setTimeout(() => setPointTexts((items) => items.filter((item) => item.id !== id)), 800);
+    if (!callbacksRef.current.muted) callbacksRef.current.onPlaySlice?.();
+  }
+
+  function finishGame() {
+    const state = coreRef.current;
+    if (!state || submittedRef.current) return;
+    submittedRef.current = true;
+    playingRef.current = false;
+    setRunning(false);
+    setFinalScore(state.score);
+    syncHud(state);
+    callbacksRef.current.onGameOver?.({ score: state.score });
+  }
+
+  function handlePointer(clientX: number, clientY: number) {
+    const app = appRef.current;
+    const state = coreRef.current;
+    if (!app) return;
+    const rect = app.canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const screenX = (clientX - rect.left) * (sizeRef.current.w / rect.width);
+    const screenY = (clientY - rect.top) * (sizeRef.current.h / rect.height);
+    const now = performance.now();
+    const previousTrail = trailRef.current.at(-1);
+    trailRef.current.push({ x: screenX, y: screenY, t: now });
+    if (trailRef.current.length > 18) trailRef.current.shift();
+    if (!playingRef.current || !state) return;
+
+    const tick = elapsedTick(now - startedAtRef.current);
+    const sample = normalizePointer(screenX, screenY, sizeRef.current.w, sizeRef.current.h, tick);
+    const results = applyInput(state, sample);
+    for (const result of results) {
+      showSliceEffect(result, {
+        dx: previousTrail ? screenX - previousTrail.x : 1,
+        dy: previousTrail ? screenY - previousTrail.y : 0,
+      });
+    }
+    if (results.length) {
+      syncFruitSprites(state);
+      syncHud(state);
+    }
+    if (state.ended) finishGame();
+  }
+
+  function tick(ticker: Ticker) {
+    const state = coreRef.current;
+    if (playingRef.current && state) {
+      advanceToTick(state, elapsedTick(performance.now() - startedAtRef.current));
+      syncFruitSprites(state);
+      if (ticker.lastTime % 250 < ticker.deltaMS) syncHud(state);
+      if (state.ended) finishGame();
+    }
+
+    const deltaSeconds = Math.min(0.05, ticker.deltaMS / 1000);
+    for (let index = particlesRef.current.length - 1; index >= 0; index -= 1) {
+      const particle = particlesRef.current[index];
+      particle.vy += 1000 * (particle.rotates ? 1 : 0.5) * deltaSeconds;
+      particle.g.x += particle.vx * deltaSeconds;
+      particle.g.y += particle.vy * deltaSeconds;
+      if (particle.rotates) {
+        particle.rot += particle.vr * deltaSeconds;
+        particle.g.rotation = particle.rot;
+      }
+      particle.life -= deltaSeconds;
+      particle.g.alpha = Math.max(0, particle.life / particle.ttl);
+      if (particle.life <= 0 || particle.g.y > sizeRef.current.h + 100) {
+        particle.g.destroy();
+        particlesRef.current.splice(index, 1);
+      }
+    }
+
+    const layer = playLayerRef.current;
+    if (shakeRef.current.active && layer) {
+      const elapsed = (performance.now() - shakeRef.current.startedAt) / 400;
+      if (elapsed >= 1) {
+        shakeRef.current.active = false;
+        layer.position.set(0, 0);
+      } else {
+        const amount = 8 * (1 - elapsed);
+        layer.position.set((Math.random() - 0.5) * amount * 2, (Math.random() - 0.5) * amount * 2);
+      }
+    }
+
+    const trailGraphics = trailGraphicsRef.current;
+    if (trailGraphics) {
+      trailGraphics.clear();
+      const now = performance.now();
+      trailRef.current = trailRef.current.filter((point) => now - point.t < 220);
+      for (let index = 1; index < trailRef.current.length; index += 1) {
+        const from = trailRef.current[index - 1];
+        const to = trailRef.current[index];
+        const alpha = 1 - (now - to.t) / 220;
+        trailGraphics.moveTo(from.x, from.y).lineTo(to.x, to.y)
+          .stroke({ color: 0xffffff, width: 12 * alpha + 3, alpha: alpha * 0.95, cap: "round" });
+        trailGraphics.moveTo(from.x, from.y).lineTo(to.x, to.y)
+          .stroke({ color: 0xe87432, width: 5 * alpha + 1, alpha, cap: "round" });
+      }
+    }
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    const app = new Application();
+    const width = Math.max(320, wrap.clientWidth || 800);
+    const height = Math.max(200, wrap.clientHeight || 450);
+    sizeRef.current = { w: width, h: height };
+    const resizeObserver = new ResizeObserver(() => {
+      if (!appRef.current) return;
+      const nextWidth = Math.max(320, wrap.clientWidth);
+      const nextHeight = Math.max(200, wrap.clientHeight);
+      if (nextWidth === sizeRef.current.w && nextHeight === sizeRef.current.h) return;
+      sizeRef.current = { w: nextWidth, h: nextHeight };
+      appRef.current.renderer.resize(nextWidth, nextHeight);
+      const backgroundLayer = appRef.current.stage.children[0] as Container;
+      backgroundLayer.removeChildren().forEach((child) => child.destroy());
+      const background = new Container();
+      drawBackground(background, nextWidth, nextHeight);
+      backgroundLayer.addChild(new Sprite(appRef.current.renderer.generateTexture(background)));
+      background.destroy({ children: true });
+      if (coreRef.current) syncFruitSprites(coreRef.current);
+    });
+
+    app.init({ width, height, background: 0xf5ecd7, antialias: true, resolution: window.devicePixelRatio || 1, autoDensity: true })
+      .then(() => {
+        if (cancelled) {
+          app.destroy(true);
+          return;
+        }
+        appRef.current = app;
+        wrap.appendChild(app.canvas);
+        Object.assign(app.canvas.style, { display: "block", width: "100%", height: "100%", touchAction: "none", cursor: "crosshair" });
+
+        const backgroundLayer = new Container();
+        const background = new Container();
+        drawBackground(background, width, height);
+        backgroundLayer.addChild(new Sprite(app.renderer.generateTexture(background)));
+        background.destroy({ children: true });
+        app.stage.addChild(backgroundLayer);
+
+        const playLayer = new Container();
+        app.stage.addChild(playLayer);
+        playLayerRef.current = playLayer;
+
+        const textures: Record<string, Texture> = {};
+        const circle = new Graphics().circle(0, 0, 10).fill(0xffffff);
+        textures.circle = app.renderer.generateTexture(circle);
+        circle.destroy();
+        for (const kind of FRUIT_KINDS) {
+          const full = makeFruit(kind, RADIUS[kind]);
+          textures[kind] = app.renderer.generateTexture(full);
+          full.destroy();
+          if (kind !== "bomb") {
+            for (const side of ["left", "right"] as const) {
+              const half = makeHalf(kind, RADIUS[kind], side);
+              textures[`${kind}_${side}`] = app.renderer.generateTexture(half);
+              half.destroy();
+            }
+          }
+        }
+        texturesRef.current = textures;
+
+        const trailGraphics = new Graphics();
+        app.stage.addChild(trailGraphics);
+        trailGraphicsRef.current = trailGraphics;
+        const pointerHandler = (event: PointerEvent) => handlePointer(event.clientX, event.clientY);
+        app.canvas.addEventListener("pointermove", pointerHandler);
+        app.canvas.addEventListener("pointerdown", pointerHandler);
+        app.ticker.add(tick);
+        resizeObserver.observe(wrap);
+      })
+      .catch((error) => console.error("Pixi init failed", error));
+
+    return () => {
+      cancelled = true;
+      resizeObserver.disconnect();
+      app.destroy(true, { children: true });
+      appRef.current = null;
+      playLayerRef.current = null;
+      trailGraphicsRef.current = null;
+      spriteMapRef.current.clear();
+    };
+  }, []);
+
+  async function start() {
+    if (starting) return;
+    setStarting(true);
+    try {
+      const createSession = callbacksRef.current.onGameStart;
+      const session = createSession ? await createSession() : localSession();
+      coreRef.current = createGame(session.seed);
+      submittedRef.current = false;
+      particlesRef.current.forEach((particle) => particle.g.destroy());
+      particlesRef.current = [];
+      spriteMapRef.current.forEach((sprite) => sprite.destroy());
+      spriteMapRef.current.clear();
+      startedAtRef.current = performance.now();
+      playingRef.current = true;
+      setFinalScore(null);
+      setRunning(true);
+      setCountdown(null);
+      syncHud(coreRef.current);
+    } finally {
+      setStarting(false);
+    }
+  }
+
+  function beginCountdown() {
+    if (!starting) setCountdown(3);
+  }
+
+  useEffect(() => {
+    if (!running && finalScore === null && countdown === null) beginCountdown();
+  }, []);
+
+  useEffect(() => {
+    if (countdown === null || countdown <= 0) return;
+    const timer = setTimeout(() => {
+      if (countdown === 1) void start();
+      else setCountdown(countdown - 1);
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [countdown]);
+
+  return (
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+      <div ref={wrapRef} style={{ width: "100%", height: "100%", overflow: "hidden", background: "var(--rice-paper)" }} />
+      {flashRed && <div style={{ position: "absolute", inset: 0, background: "rgba(255,30,30,.35)", pointerEvents: "none", zIndex: 5 }} />}
+      {bombTexts.map((text) => (
+        <div key={text.id} className="bombText" style={{ left: text.x, top: text.y }}>BÙM!</div>
+      ))}
+      {pointTexts.map((text) => (
+        <div key={text.id} className="pointText" style={{ left: text.x, top: text.y, color: text.color }}>{text.text}</div>
+      ))}
+
+      <div className="gameHud">
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>Điểm: {hud.score}</div>
+          {hud.combo >= 2 && <div className="comboText">{hud.combo >= 5 ? "BẠO KÍCH: " : ""}Combo ×{hud.combo}</div>}
+        </div>
+        {running && <div className={`gameTimer ${hud.time <= 15 ? "danger" : ""}`}>{String(Math.floor(hud.time / 60)).padStart(2, "0")}:{String(hud.time % 60).padStart(2, "0")}</div>}
+        <div className="gameLives">{hud.lives > 0 ? "♥".repeat(hud.lives) : "✕"}</div>
+      </div>
+
+      {!running && countdown === null && finalScore !== null && (
+        <div className="gameOverOverlay">
+          <div style={{ textAlign: "center" }}>
+            <div className="scoreCard">
+              <div className="scoreLabel">Kết thúc</div>
+              <div className="scoreValue">{finalScore} điểm</div>
+              <div className="scoreMeta">Điểm sẽ được gửi nếu bạn đã đăng nhập.</div>
+            </div>
+            <button onClick={beginCountdown} className="replayButton">Chơi lại</button>
+          </div>
+        </div>
+      )}
+
+      {(countdown !== null || starting) && (
+        <div className="countdownOverlay"><div className="countdownNumber">{starting ? "…" : countdown}</div></div>
+      )}
+    </div>
+  );
+}
+</file>
+
+<file path="components/game/GamePage.tsx">
+import { useCallback, useEffect, useState } from "react";
+import { FruitGame, type GameResult, type GameSession } from "./FruitGame";
+import { Home, Settings, Trophy } from "lucide-react";
+import type { User } from "firebase/auth";
+import type { ScoreRecord } from "../../lib/firebase";
+import { useGameSound } from "../../hooks/useSound";
+import { DashboardPanel } from "./DashboardPanel";
+import { SettingsPanel } from "./SettingsPanel";
+
+interface Props {
+  muted: boolean;
+  onToggleMute: () => void;
+  user: User | null;
+  bestScore: number;
+  lastScore: number | null;
+  totalGamesPlayed: number;
+  leaderboard: ScoreRecord[];
+  saveError?: string | null;
+  verifyingScore?: boolean;
+  onGameStart: () => Promise<GameSession>;
+  onGameOver: (result: GameResult) => void;
+  onHome: () => void;
+  onRefreshLeaderboard: () => void;
+  onLoginPrompt: () => void;
+}
+
+export function GamePage({
+  muted,
+  onToggleMute,
+  user,
+  bestScore,
+  lastScore,
+  totalGamesPlayed,
+  leaderboard,
+  saveError,
+  verifyingScore,
+  onGameStart,
+  onGameOver,
+  onHome,
+  onRefreshLeaderboard,
+  onLoginPrompt,
+}: Props) {
+  const [panel, setPanel] = useState<null | "settings" | "dashboard">(null);
+
+  // 🎵 Sound — BGM managed by App.tsx, SFX for in-game slicing
+  const { playSlice, playBomb } = useGameSound(muted);
+
+  // Refresh leaderboard when dashboard opens
+  useEffect(() => {
+    if (panel === "dashboard") onRefreshLeaderboard();
+  }, [panel, onRefreshLeaderboard]);
+
+  // Auto-open dashboard on game over
+  const handleGameOver = useCallback((result: GameResult) => {
+    onGameOver(result);
+    setPanel("dashboard");
+  }, [onGameOver]);
+
+  const toggle = (p: "settings" | "dashboard") =>
+    setPanel((prev) => (prev === p ? null : p));
+
+  const btnStyle: React.CSSProperties = {
+    display: "flex", alignItems: "center", gap: 6,
+    padding: "8px 16px", borderRadius: 999,
+    border: "2px solid var(--border)",
+    background: "rgba(255,255,255,0.88)",
+    color: "var(--ink-dark)", fontWeight: 700, fontSize: 13,
+    cursor: "pointer", backdropFilter: "blur(6px)",
+    fontFamily: "var(--font-family)",
+    boxShadow: "0 2px 8px rgba(42,36,24,0.12)",
+  };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0,
+      background: "var(--rice-paper)",
+      display: "flex", flexDirection: "column",
+      zIndex: 100,
+    }}>
+      {/* Top bar */}
+      <div className="gameTopBar" style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "10px 16px",
+        background: "color-mix(in srgb, var(--rice-paper) 92%, transparent)",
+        borderBottom: "1.5px solid var(--border)",
+        backdropFilter: "blur(8px)",
+        zIndex: 10,
+        flexShrink: 0,
+      }}>
+        {/* Left: home */}
+        <button onClick={onHome} className="game-btn" style={btnStyle}>
+          <Home size={15} /> <span className="btnLabel">Trang chủ</span>
+        </button>
+
+        {/* Center: title */}
+        <span className="gameTitle" style={{
+          fontWeight: 800, fontSize: 16, color: "var(--ink-dark)",
+          fontFamily: "var(--font-family)",
+          letterSpacing: 0.5,
+        }}>
+          Chém Lạc <span className="gameSub" style={{ color: "var(--primary)" }}>Vùng Cao</span>
+        </span>
+
+        {/* Right: Settings + Dashboard */}
+        <div className="gameActions" style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={() => toggle("dashboard")}
+            className="game-btn"
+            style={{ ...btnStyle, ...(panel === "dashboard" ? { background: "color-mix(in srgb, var(--primary) 12%, transparent)", borderColor: "var(--primary)" } : {}) }}
+          >
+            <Trophy size={15} /> <span className="btnLabel">Bảng điểm</span>
+          </button>
+          <button
+            onClick={() => toggle("settings")}
+            className="game-btn"
+            style={{ ...btnStyle, ...(panel === "settings" ? { background: "color-mix(in srgb, var(--primary) 12%, transparent)", borderColor: "var(--primary)" } : {}) }}
+          >
+            <Settings size={15} /> Cài đặt
+          </button>
+        </div>
+      </div>
+
+      {/* Game canvas — fills remaining space */}
+      <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+        <FruitGame
+          onGameStart={onGameStart}
+          onGameOver={handleGameOver}
+          muted={muted}
+          onPlaySlice={playSlice}
+          onPlayBomb={playBomb}
+        />
+
+        {/* Settings overlay */}
+        {panel === "settings" && (
+          <SettingsPanel
+            muted={muted}
+            onToggleMute={onToggleMute}
+            bestScore={bestScore}
+            lastScore={lastScore}
+            totalGamesPlayed={totalGamesPlayed}
+            user={user}
+            onClose={() => setPanel(null)}
+          />
+        )}
+
+        {/* Dashboard overlay */}
+        {panel === "dashboard" && (
+          <DashboardPanel
+            leaderboard={leaderboard}
+            user={user}
+            verifyingScore={verifyingScore}
+            saveError={saveError}
+            onLoginPrompt={onLoginPrompt}
+            onClose={() => setPanel(null)}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="components/game/SettingsPanel.tsx">
+import { Volume2, VolumeX, X } from "lucide-react";
+import type { User } from "firebase/auth";
+
+export function rankFor(s: number) {
+  if (s >= 400) return "Vua Chém 👑";
+  if (s >= 250) return "Cao Thủ ⚔️";
+  if (s >= 100) return "Lính Mới 🌱";
+  return "Tập Sự 🌾";
+}
+
+function Row({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 13 }}>
+      <span style={{ color: "color-mix(in srgb, var(--ink-dark) 70%, transparent)" }}>{label}</span>
+      <span style={{ fontWeight: 700, color: "var(--ink-dark)" }}>{value}</span>
+    </div>
+  );
+}
+
+interface Props {
+  muted: boolean;
+  onToggleMute: () => void;
+  bestScore: number;
+  lastScore: number | null;
+  totalGamesPlayed: number;
+  user: User | null;
+  onClose: () => void;
+}
+
+export function SettingsPanel({
+  muted,
+  onToggleMute,
+  bestScore,
+  lastScore,
+  totalGamesPlayed,
+  user,
+  onClose,
+}: Props) {
+  return (
+    <div style={{
+      position: "absolute", top: 12, right: 12,
+      background: "rgba(255,255,255,0.96)",
+      border: "1.5px solid var(--border)",
+      borderRadius: 16,
+      padding: "20px 24px",
+      width: 240,
+      boxShadow: "0 12px 32px rgba(42,36,24,0.2)",
+      fontFamily: "var(--font-family)",
+      zIndex: 20,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <span style={{ fontWeight: 800, fontSize: 15 }}>⚙️ Cài đặt</span>
+        <button onClick={onClose} className="game-btn-close">
+          <X size={16} />
+        </button>
+      </div>
+
+      {/* Mute toggle */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <span style={{ fontSize: 14, color: "color-mix(in srgb, var(--ink-dark) 85%, transparent)" }}>Âm thanh</span>
+        <button
+          onClick={onToggleMute}
+          className="game-btn"
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "6px 14px", borderRadius: 999,
+            background: muted ? "var(--paper-warm)" : "linear-gradient(180deg, color-mix(in srgb, var(--primary) 80%, white), var(--primary))",
+            color: muted ? "var(--pencil-gray)" : "#fff",
+            border: muted ? "1.5px solid var(--secondary-container)" : "1.5px solid color-mix(in srgb, var(--primary) 70%, black)",
+            fontWeight: 700, fontSize: 13, cursor: "pointer",
+          }}
+        >
+          {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+          {muted ? "Bật" : "Tắt"}
+        </button>
+      </div>
+
+      {/* Stats */}
+      <div style={{ borderTop: "1px solid var(--muted)", paddingTop: 14 }}>
+        <div style={{ fontSize: 12, color: "var(--pencil-gray)", fontWeight: 700, letterSpacing: 1, marginBottom: 8 }}>THỐNG KÊ</div>
+        <Row label="Điểm cao nhất" value={bestScore || "—"} />
+        <Row label="Điểm gần nhất" value={lastScore ?? "—"} />
+        <Row label="Tổng lượt chơi" value={totalGamesPlayed} />
+        <Row label="Cấp bậc" value={rankFor(bestScore)} />
+      </div>
+
+      {!user && (
+        <p style={{ fontSize: 12, color: "var(--pencil-gray)", marginTop: 14, lineHeight: 1.5 }}>
+          💡 Đăng nhập để lưu điểm vào bảng vinh danh.
+        </p>
+      )}
+    </div>
+  );
+}
+</file>
+
+<file path="components/ui/HeroBackdrop.tsx">
+export function HeroBackdrop() {
+  return (
+    <svg
+      viewBox="0 0 1600 900"
+      preserveAspectRatio="xMidYMid slice"
+      aria-hidden
+      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
+    >
+      <defs>
+        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--rice-paper)" />
+          <stop offset="60%" stopColor="var(--rice-paper)" />
+          <stop offset="100%" stopColor="var(--paper-warm)" />
+        </linearGradient>
+        <linearGradient id="grass" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--secondary-container)" />
+          <stop offset="100%" stopColor="var(--secondary)" />
+        </linearGradient>
+      </defs>
+
+      <rect width="1600" height="900" fill="url(#sky)" />
+
+      {/* Distant mountains */}
+      <path d="M0,560 C200,520 400,580 700,540 C950,510 1180,580 1600,540 L1600,720 L0,720 Z"
+        fill="var(--muted)" opacity="0.7" />
+      <path d="M0,560 C200,520 400,580 700,540 C950,510 1180,580 1600,540"
+        fill="none" stroke="var(--pencil-gray)" strokeWidth="1.2" opacity="0.35" />
+
+      {/* Mid hills */}
+      <path d="M0,650 C260,620 520,700 820,640 C1100,590 1320,680 1600,630 L1600,800 L0,800 Z"
+        fill="color-mix(in srgb, var(--muted) 80%, var(--pencil-gray))" opacity="0.65" />
+
+      {/* Field strokes (rice paddies) */}
+      {Array.from({ length: 8 }).map((_, i) => (
+        <path key={`field-${i}`}
+          d={`M0,${700 + i * 14} C300,${695 + i * 14} 800,${710 + i * 14} 1600,${698 + i * 14}`}
+          stroke="var(--pencil-gray)" strokeWidth="0.7" fill="none" opacity="0.28" />
+      ))}
+
+      {/* Bamboo / palm strokes */}
+      {Array.from({ length: 18 }).map((_, i) => {
+        const x = (i / 17) * 1600 + (i % 3) * 12;
+        const baseY = 660 + (i % 4) * 10;
+        const h = 110 + (i % 5) * 24;
+        return (
+          <g key={`tree-${i}`} opacity="0.45">
+            <path d={`M${x},${baseY} Q${x + 2},${baseY - h / 2} ${x + (i % 2 ? 4 : -4)},${baseY - h}`}
+              stroke="var(--secondary)" strokeWidth="1.2" fill="none" strokeLinecap="round" />
+            {[0.3, 0.55, 0.8].map((t, k) => (
+              <path key={k}
+                d={`M${x},${baseY - h * t} l${(k % 2 ? -1 : 1) * 14},${-6 - k * 2}`}
+                stroke="var(--secondary)" strokeWidth="1" fill="none" strokeLinecap="round" />
+            ))}
+          </g>
+        );
+      })}
+
+      {/* Heron flock — distant V shapes */}
+      {Array.from({ length: 7 }).map((_, i) => {
+        const x = 200 + i * 160 + (i % 2 ? 30 : 0);
+        const y = 240 + (i % 3) * 50;
+        return (
+          <path key={`bird-${i}`}
+            d={`M${x},${y} l8,-6 l8,6 M${x + 16},${y} l8,-6 l8,6`}
+            stroke="var(--pencil-gray)" strokeWidth="1.2" fill="none" strokeLinecap="round" opacity="0.55" />
+        );
+      })}
+
+      {/* Foreground grass */}
+      <path d="M0,780 C300,750 700,790 1100,760 C1350,745 1500,780 1600,765 L1600,900 L0,900 Z"
+        fill="url(#grass)" />
+      {/* Grass strokes */}
+      {Array.from({ length: 60 }).map((_, i) => {
+        const x = (i / 59) * 1600 + Math.sin(i) * 6;
+        return (
+          <path key={`grass-${i}`}
+            d={`M${x},${800 + (i % 3) * 8} l${(i % 2 ? -1 : 1) * 3},-${10 + (i % 4) * 3}`}
+            stroke="var(--leaf-deep)" strokeWidth="1" fill="none" strokeLinecap="round" opacity="0.55" />
+        );
+      })}
+
+      {/* Kite (small accent top) */}
+      <g transform="translate(280,180) rotate(-12)">
+        <polygon points="0,-30 22,0 0,30 -22,0" fill="color-mix(in srgb, var(--paper-warm) 80%, white)" stroke="var(--pencil-gray)" strokeWidth="1.2" />
+        <line x1="-22" y1="0" x2="22" y2="0" stroke="var(--pencil-gray)" strokeWidth="0.6" />
+        <line x1="0" y1="-30" x2="0" y2="30" stroke="var(--pencil-gray)" strokeWidth="0.6" />
+        <path d="M0,30 q-4,30 6,60 q-12,20 -2,50" stroke="var(--pencil-gray)" strokeWidth="0.6" fill="none" />
+      </g>
+    </svg>
+  );
+}
+</file>
+
+<file path="components/ui/HeroSection.tsx">
+import { HeroBackdrop } from "./HeroBackdrop";
+
+interface Props {
+  onPlay: () => void;
+}
+
+export function HeroSection({ onPlay }: Props) {
+  return (
+    <section
+      id="gioi-thieu"
+      style={{
+        position: "relative",
+        minHeight: "100vh",
+        paddingTop: 80,
+        display: "grid",
+        placeItems: "center",
+        overflow: "hidden",
+      }}
+    >
+      <HeroBackdrop />
+      <div style={{
+        position: "absolute", inset: 0,
+        background: "linear-gradient(180deg, rgba(245,236,215,0.2) 0%, rgba(245,236,215,0.0) 30%, rgba(245,236,215,0.55) 100%)",
+        pointerEvents: "none",
+      }} />
+
+      <div style={{
+        position: "relative",
+        maxWidth: 1100,
+        padding: "60px 32px",
+        display: "grid",
+        gridTemplateColumns: "1fr",
+        gap: 28,
+        textAlign: "center",
+        zIndex: 2,
+      }}>
+        <div className="hero-badge" style={{
+          display: "inline-block",
+          margin: "0 auto",
+          padding: "6px 16px",
+          borderRadius: 999,
+          background: "rgba(255,255,255,0.7)",
+          border: "1.5px solid #8a7d65",
+          fontSize: 12,
+          fontWeight: 700,
+          color: "#8e4e22",
+          letterSpacing: 1.5,
+        }}>
+          MINI GAME · BỘ LẠC ĐẬU PHỘNG
+        </div>
+
+        <h1 className="hero-title" style={{
+          fontSize: "clamp(40px, 7vw, 84px)",
+          fontWeight: 800,
+          lineHeight: 1.05,
+          color: "#2a2418",
+          margin: 0,
+          fontFamily: "Be Vietnam Pro, sans-serif",
+          textShadow: "0 2px 0 rgba(255,255,255,0.6)",
+        }}>
+          Chém Lạc <span style={{ color: "#e87432" }}>Vùng Cao</span>
+        </h1>
+
+        <p className="hero-desc" style={{
+          fontSize: "clamp(15px, 1.6vw, 19px)",
+          color: "#4a4232",
+          maxWidth: 640,
+          margin: "0 auto",
+          lineHeight: 1.65,
+        }}>
+          Chém đậu phộng, dừa, chuối, thanh long và khế bay lên giữa
+          cánh đồng làng quê. Coi chừng quả bom — một nhát thôi là Lạc Lạc
+          giận đó!
+        </p>
+
+        <div className="hero-cta" style={{ display: "flex", gap: 32, justifyContent: "center", alignItems: "center", flexWrap: "wrap", marginTop: 20 }}>
+          <button onClick={onPlay} style={{
+            padding: "16px 36px", borderRadius: 999,
+            background: "linear-gradient(180deg,#f08a48,#e87432)",
+            color: "#fff", border: "3px solid #b85a22",
+            fontWeight: 800, fontSize: 17, cursor: "pointer",
+            boxShadow: "0 10px 24px rgba(232,116,50,0.4)",
+            fontFamily: "Be Vietnam Pro, sans-serif",
+            transition: "transform 0.2s, box-shadow 0.2s",
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.transform = "scale(1.05)";
+            e.currentTarget.style.boxShadow = "0 14px 32px rgba(232,116,50,0.5)";
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.transform = "scale(1)";
+            e.currentTarget.style.boxShadow = "0 10px 24px rgba(232,116,50,0.4)";
+          }}
+          >
+            ▶  Chơi ngay
+          </button>
+
+        </div>
+      </div>
+    </section>
+  );
+}
+</file>
+
+<file path="components/ui/LoadingScreen.tsx">
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+interface Props {
+  progress: number;
+  onDone: () => void;
+  completeDelayMs?: number;
+  exiting?: boolean;
+}
+
+const leafColors = ["#74884f", "#9aac64", "#aebc72", "#d7dfa4", "#f0b840"];
+
+const ambientLeaves = Array.from({ length: 24 }, (_, index) => ({
+  left: (index * 37) % 100,
+  size: 14 + ((index * 11) % 24),
+  fall: 5.1 + ((index * 7) % 50) / 10,
+  sway: 1.4 + ((index * 5) % 18) / 10,
+  delay: ((index * 13) % 60) / 10,
+  drift: (index % 2 === 0 ? 1 : -1) * (22 + ((index * 17) % 92)),
+  rot: (index % 2 === 0 ? 1 : -1) * (170 + ((index * 19) % 260)),
+  swayX: 10 + ((index * 23) % 36),
+  color: leafColors[index % leafColors.length],
+}));
+
+const burstLeaves = Array.from({ length: 42 }, (_, index) => {
+  const angle = (-172 + (344 / 41) * index) * (Math.PI / 180);
+  const distance = 150 + ((index * 29) % 320);
+  return {
+    tx: Math.cos(angle) * distance,
+    ty: Math.sin(angle) * distance - 88 - ((index * 31) % 130),
+    size: 13 + ((index * 17) % 28),
+    rotate: (index % 2 === 0 ? 1 : -1) * (260 + ((index * 37) % 600)),
+    scale: 0.72 + ((index * 7) % 90) / 100,
+    delay: ((index * 3) % 18) / 100,
+    color: leafColors[index % leafColors.length],
+  };
+});
+
+export function LoadingScreen({ progress, onDone, completeDelayMs = 1150, exiting = false }: Props) {
+  const [complete, setComplete] = useState(false);
+  const completedRef = useRef(false);
+  const safeProgress = Math.max(0, Math.min(100, progress));
+
+  useEffect(() => {
+    if (safeProgress < 100 || completedRef.current) return;
+    completedRef.current = true;
+    setComplete(true);
+    const timer = window.setTimeout(onDone, completeDelayMs);
+    return () => window.clearTimeout(timer);
+  }, [completeDelayMs, safeProgress, onDone]);
+
+  const classNames = [
+    "screen-loading",
+    complete ? "is-complete" : "",
+    exiting ? "is-exiting" : "",
+  ].filter(Boolean).join(" ");
+
+  return (
+    <section className={classNames} aria-busy={!complete} aria-label="Đang tải mini-game">
+      <img className="screen-loading-bg" src="/assets/slashing-fruit-loading.svg" alt="" aria-hidden="true" />
+
+      <div className="leaf-layer" aria-hidden="true">
+        {ambientLeaves.map((leaf, index) => (
+          <span key={index} className="ambient-leaf" style={{
+            left: `${leaf.left}%`, "--w": `${leaf.size}px`, "--fall": `${leaf.fall}s`,
+            "--sway": `${leaf.sway}s`, "--delay": `${leaf.delay}s`, "--drift": `${leaf.drift}px`,
+            "--rot": `${leaf.rot}deg`, "--sway-x": `${leaf.swayX}px`, "--leaf-color": leaf.color,
+          } as CSSProperties} />
+        ))}
+      </div>
+      <div className="burst-layer" aria-hidden="true">
+        {burstLeaves.map((leaf, index) => (
+          <span key={index} className="burst-leaf" style={{
+            "--tx": `${leaf.tx}px`, "--ty": `${leaf.ty}px`, "--w": `${leaf.size}px`,
+            "--r": `${leaf.rotate}deg`, "--scale": leaf.scale, "--burst-delay": `${leaf.delay}s`,
+            "--leaf-color": leaf.color,
+          } as CSSProperties} />
+        ))}
+      </div>
+
+      <div className="screen-loading-content">
+        <div className="loading-progress-area">
+          <div className="loading-progress-meta">
+            <span className="loading-status">{complete ? "Hoàn tất!" : "Đang chuẩn bị cánh đồng..."}</span>
+            <span className="loading-percent">{Math.round(safeProgress)}%</span>
+          </div>
+          <div className="loading-progress-shell" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(safeProgress)}>
+            <div className="loading-progress-fill" style={{ width: `${safeProgress}%` }} />
+            <div className="loading-progress-tip" style={{ left: `${safeProgress}%` }} aria-hidden="true"><i /><i /><i /><i /></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+</file>
+
+<file path="components/ui/LoginModal.tsx">
+import { useState } from "react";
+import { X } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
+
+interface Props {
+  open: boolean;
+  onClose: () => void;
+}
+
+export function LoginModal({ open, onClose }: Props) {
+  const { loginWithGoogle, user, error, clearError, loading } = useAuth();
+  const [submitting, setSubmitting] = useState(false);
+  const [successMsg, setSuccessMsg] = useState(false);
+
+  // Close when user logs in (user changes from null → object)
+  if (user && open && !successMsg) {
+    setSuccessMsg(true);
+    setTimeout(() => {
+      setSuccessMsg(false);
+      onClose();
+    }, 1500);
+  }
+
+  if (!open) return null;
+
+  const googleLogin = async () => {
+    clearError();
+    setSubmitting(true);
+    try {
+      await loginWithGoogle();
+    } catch {
+      // error set in context
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const btnDisabled = submitting || loading;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 200,
+        background: "rgba(42,36,24,0.55)",
+        display: "grid", placeItems: "center",
+        padding: 20,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%", maxWidth: 400,
+          background: "#fdf6ea",
+          borderRadius: 24,
+          border: "1.5px solid rgba(138,125,101,0.4)",
+          padding: 32,
+          boxShadow: "0 20px 60px rgba(42,36,24,0.3)",
+          position: "relative",
+          fontFamily: "Be Vietnam Pro, sans-serif",
+        }}
+      >
+        <button type="button" onClick={onClose} className="game-btn-close" style={{
+          position: "absolute", top: 14, right: 14,
+        }}>
+          <X size={18} />
+        </button>
+
+        <div style={{ textAlign: "center", marginBottom: 22 }}>
+          <div style={{
+            width: 52, height: 52, borderRadius: "50%",
+            background: "radial-gradient(circle at 30% 30%, #f8c860, #d99820)",
+            border: "2px solid #2a2418",
+            margin: "0 auto 12px",
+            display: "grid", placeItems: "center",
+            fontWeight: 800, color: "#2a2418",
+          }}>L</div>
+          <h2 style={{ margin: 0, color: "#2a2418", fontWeight: 800 }}>
+            Tham gia Bộ Lạc
+          </h2>
+          <p style={{ margin: "6px 0 0", color: "#8a7d65", fontSize: 13 }}>
+            Đăng nhập để lưu điểm và lên bảng vinh danh
+          </p>
+        </div>
+
+        {/* Error banner */}
+        {error && !successMsg && (
+          <div style={{
+            background: "rgba(186,26,26,0.08)",
+            border: "1px solid rgba(186,26,26,0.25)",
+            borderRadius: 12,
+            padding: "10px 14px",
+            marginBottom: 16,
+            fontSize: 13,
+            color: "#ba1a1a",
+            fontWeight: 600,
+          }}>
+            {error}
+          </div>
+        )}
+
+        {/* Success banner */}
+        {successMsg && (
+          <div style={{
+            background: "rgba(52, 168, 83, 0.15)",
+            border: "1px solid rgba(52, 168, 83, 0.4)",
+            borderRadius: 12,
+            padding: "10px 14px",
+            marginBottom: 16,
+            fontSize: 13,
+            color: "#2b8a3e",
+            fontWeight: 700,
+            textAlign: "center",
+          }}>
+            🎉 Đăng nhập thành công!
+          </div>
+        )}
+
+        {/* Google sign-in button */}
+        <button
+          type="button"
+          onClick={googleLogin}
+          disabled={btnDisabled}
+          className="game-btn"
+          style={{
+            width: "100%",
+            padding: "14px",
+            background: "#fff",
+            color: "#2a2418",
+            border: "1.5px solid rgba(138,125,101,0.4)",
+            borderRadius: 999,
+            fontWeight: 700,
+            fontSize: 14,
+            cursor: btnDisabled ? "wait" : "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 10,
+            opacity: btnDisabled ? 0.6 : 1,
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+          Đăng nhập bằng Google
+        </button>
+
+        <div style={{ display: "flex", alignItems: "center", margin: "16px 0", color: "#8a7d65", fontSize: 12, fontWeight: 700 }}>
+          <span style={{ flex: 1, height: 1, background: "rgba(138,125,101,0.25)" }} />
+          <span style={{ padding: "0 12px" }}>HOẶC</span>
+          <span style={{ flex: 1, height: 1, background: "rgba(138,125,101,0.25)" }} />
+        </div>
+
+        {/* Continue as guest */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="game-btn"
+          style={{
+            width: "100%",
+            padding: "14px",
+            background: "rgba(245,236,215,0.8)",
+            color: "#6b6149",
+            border: "1.5px solid rgba(138,125,101,0.3)",
+            borderRadius: 999,
+            fontWeight: 700,
+            fontSize: 14,
+            cursor: "pointer",
+          }}
+        >
+          👤 Tiếp tục với tài khoản khách
+        </button>
+
+        <p style={{ fontSize: 11, color: "#a89c80", textAlign: "center", marginTop: 14, marginBottom: 0 }}>
+          🔐 Dữ liệu được lưu trên Firebase
+        </p>
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="components/ui/TopNav.tsx">
+import { Volume2, VolumeX } from "lucide-react";
+
+interface Props {
+  onLogin: () => void;
+  user: { name: string; photoURL?: string | null } | null;
+  onLogout: () => void;
+  muted: boolean;
+  onToggleMute: () => void;
+}
+
+export function TopNav({ onLogin, user, onLogout, muted, onToggleMute }: Props) {
+  return (
+    <nav style={{
+      position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      padding: "14px 28px",
+      background: "rgba(245,236,215,0.85)",
+      backdropFilter: "blur(10px)",
+      borderBottom: "1px solid rgba(138,125,101,0.18)",
+      fontFamily: "Be Vietnam Pro, sans-serif",
+    }}>
+      {/* Logo */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{
+          width: 38, height: 38, borderRadius: "50%",
+          background: "radial-gradient(circle at 30% 30%, #f8c860, #d99820)",
+          border: "2px solid #2a2418",
+          display: "grid", placeItems: "center",
+          color: "#2a2418", fontWeight: 800,
+        }}>L</div>
+        <span className="brandName" style={{ fontWeight: 800, color: "#2a2418", letterSpacing: 0.3 }}>
+          Bộ Lạc Đậu Phộng
+        </span>
+      </div>
+
+      {/* Right side */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <button
+          onClick={onToggleMute}
+          aria-label={muted ? "Bật âm thanh" : "Tắt âm thanh"}
+          style={{
+            width: 36, height: 36, borderRadius: "50%",
+            background: "transparent", border: "1.5px solid #8a7d65",
+            color: "#2a2418", cursor: "pointer",
+            display: "grid", placeItems: "center",
+          }}
+        >
+          {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+        </button>
+        <div style={{
+          padding: "6px 12px", borderRadius: 999,
+          border: "1.5px solid #8a7d65", color: "#2a2418",
+          fontSize: 12, fontWeight: 700,
+        }}>VIE</div>
+        {user ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {user.photoURL ? (
+              <img src={user.photoURL} alt={user.name} referrerPolicy="no-referrer"
+                style={{ width: 30, height: 30, borderRadius: "50%", border: "1.5px solid #c8bfa6", objectFit: "cover" }}
+              />
+            ) : (
+              <div style={{
+                width: 30, height: 30, borderRadius: "50%",
+                background: "radial-gradient(circle at 30% 30%, #f8c860, #d99820)",
+                border: "1.5px solid #c8bfa6",
+                display: "grid", placeItems: "center",
+                fontWeight: 800, fontSize: 12, color: "#2a2418",
+              }}>{user.name.charAt(0).toUpperCase()}</div>
+            )}
+            <span style={{ fontSize: 13, color: "#2a2418", fontWeight: 600 }}>
+              {user.name}
+            </span>
+            <button onClick={onLogout} style={pillBtn("ghost")}>Thoát</button>
+          </div>
+        ) : (
+          <button onClick={onLogin} style={pillBtn("solid")}>Đăng nhập</button>
+        )}
+      </div>
+    </nav>
+  );
+}
+
+function pillBtn(variant: "solid" | "ghost"): React.CSSProperties {
+  return variant === "solid"
+    ? {
+        padding: "8px 18px", borderRadius: 999,
+        background: "linear-gradient(180deg,#f08a48,#e87432)",
+        color: "#fff", border: "2px solid #b85a22",
+        fontWeight: 700, fontSize: 13, cursor: "pointer",
+        boxShadow: "0 4px 12px rgba(232,116,50,0.35)",
+      }
+    : {
+        padding: "8px 14px", borderRadius: 999,
+        background: "transparent", color: "#2a2418",
+        border: "1.5px solid #8a7d65",
+        fontWeight: 700, fontSize: 13, cursor: "pointer",
+      };
+}
+</file>
+
+<file path="contexts/AuthContext.tsx">
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { getRedirectResult } from "firebase/auth";
+import {
+  type User,
+  auth,
+  onAuthChange,
+  loginWithGoogle,
+  signUpWithEmail,
+  signInWithEmail,
+  logout as fbLogout,
+} from "../lib/firebase";
+
+interface AuthState {
+  user: User | null;
+  loading: boolean;
+  error: string | null;
+  loginWithGoogle: () => Promise<void>;
+  signUp: (email: string, password: string, displayName: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  clearError: () => void;
+}
+
+const AuthContext = createContext<AuthState>({
+  user: null,
+  loading: true,
+  error: null,
+  loginWithGoogle: async () => {},
+  signUp: async () => {},
+  signIn: async () => {},
+  logout: async () => {},
+  clearError: () => {},
+});
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Handle redirect result (Google OAuth fallback for popup-blockers / in-app browsers)
+    getRedirectResult(auth).catch((err) => {
+      console.error("Redirect auth error:", err);
+      if (err.code === "auth/web-storage-unsupported") {
+        setError("Trình duyệt Ẩn danh (Incognito) đang chặn lưu trữ. Vui lòng tắt chế độ Ẩn danh!");
+      }
+    });
+
+    const unsub = onAuthChange((u) => {
+      setUser(u);
+      setLoading(false);
+    });
+    return unsub;
+  }, []);
+
+  const wrap = async (fn: () => Promise<User | undefined | void>) => {
+    setError(null);
+    try {
+      await fn();
+    } catch (e: any) {
+      const msg: string = e?.message ?? String(e);
+      if (msg.includes("email-already-in-use")) setError("Email này đã được đăng ký.");
+      else if (msg.includes("invalid-email")) setError("Email không hợp lệ.");
+      else if (msg.includes("weak-password") || msg.includes("at least 6 characters"))
+        setError("Mật khẩu quá yếu (tối thiểu 6 ký tự).");
+      else if (msg.includes("invalid-credential") || msg.includes("wrong-password"))
+        setError("Email hoặc mật khẩu không đúng.");
+      else if (msg.includes("popup-closed-by-user"))
+        setError("Bạn đã đóng cửa sổ đăng nhập.");
+      else if (msg.includes("POPUP_TIMEOUT"))
+        setError("Đăng nhập popup bị chặn. Đang thử redirect…");
+      else setError("Có lỗi xảy ra. Vui lòng thử lại.");
+      throw e;
+    }
+  };
+
+  const googleLogin = () => wrap(async () => { await loginWithGoogle(); });
+  const emailSignUp = (email: string, password: string, displayName: string) =>
+    wrap(async () => { await signUpWithEmail(email, password, displayName); });
+  const emailSignIn = (email: string, password: string) =>
+    wrap(async () => { await signInWithEmail(email, password); });
+  const doLogout = () => wrap(async () => { await fbLogout(); });
+  const clearError = () => setError(null);
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        error,
+        loginWithGoogle: googleLogin,
+        signUp: emailSignUp,
+        signIn: emailSignIn,
+        logout: doLogout,
+        clearError,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  return useContext(AuthContext);
+}
+</file>
+
+<file path="game/core.ts">
+export const GAME_DURATION_MS = 180_000;
+export const TICK_RATE = 60;
+export const TICK_MS = 1000 / TICK_RATE;
+export const WORLD_WIDTH = 1000;
+export const WORLD_HEIGHT = 600;
+export const MAX_INPUT_SAMPLES = 6000;
+
+export type FruitKind =
+  | "durian"
+  | "lychee"
+  | "banana"
+  | "dragonfruit"
+  | "mango"
+  | "peanut"
+  | "bomb";
+
+export const FRUIT_RULES: Record<FruitKind, { points: number; radius: number }> = {
+  durian: { points: 5, radius: 38 },
+  lychee: { points: 3, radius: 26 },
+  banana: { points: 2, radius: 34 },
+  dragonfruit: { points: 4, radius: 34 },
+  mango: { points: 2, radius: 34 },
+  peanut: { points: 10, radius: 28 },
+  bomb: { points: 0, radius: 30 },
+};
+
+export interface InputSample {
+  tick: number;
+  /** Normalized integer coordinate in the inclusive range 0..10000. */
+  x: number;
+  /** Normalized integer coordinate in the inclusive range 0..10000. */
+  y: number;
+}
+
+export interface CoreFruit {
+  id: number;
+  kind: FruitKind;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  rotation: number;
+  rotationVelocity: number;
+  radius: number;
+}
+
+export interface SliceResult {
+  fruit: CoreFruit;
+  points: number;
+  combo: number;
+  lives: number;
+}
+
+export interface GameState {
+  seed: number;
+  randomState: number;
+  tick: number;
+  score: number;
+  lives: number;
+  combo: number;
+  comboExpiresAtTick: number;
+  nextSpawnTick: number;
+  nextFruitId: number;
+  ended: boolean;
+  endReason: "timeout" | "lives" | null;
+  fruits: CoreFruit[];
+  lastPointer: { x: number; y: number } | null;
+}
+
+const DURATION_TICKS = Math.round(GAME_DURATION_MS / TICK_MS);
+const GRAVITY = 1000;
+const FRUIT_POOL: FruitKind[] = ["mango", "mango", "banana", "lychee", "dragonfruit", "durian"];
+
+function normalizeSeed(seed: number): number {
+  const value = Number.isFinite(seed) ? seed >>> 0 : 0;
+  return value || 0x6d2b79f5;
+}
+
+function random(state: GameState): number {
+  state.randomState = (state.randomState + 0x6d2b79f5) >>> 0;
+  let value = state.randomState;
+  value = Math.imul(value ^ (value >>> 15), value | 1);
+  value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+  return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+}
+
+export function createGame(seed: number): GameState {
+  const normalized = normalizeSeed(seed);
+  return {
+    seed: normalized,
+    randomState: normalized,
+    tick: 0,
+    score: 0,
+    lives: 3,
+    combo: 0,
+    comboExpiresAtTick: 0,
+    nextSpawnTick: 64,
+    nextFruitId: 1,
+    ended: false,
+    endReason: null,
+    fruits: [],
+    lastPointer: null,
+  };
+}
+
+function difficultyAt(tick: number): number {
+  const seconds = tick / TICK_RATE;
+  const value = seconds < 10
+    ? 0.05 + (seconds / 10) * 0.10
+    : seconds < 20
+      ? 0.15 + ((seconds - 10) / 10) * 0.20
+      : seconds < 40
+        ? 0.35 + ((seconds - 20) / 20) * 0.30
+        : seconds < 80
+          ? 0.65 + ((seconds - 40) / 40) * 0.13
+          : 0.78 + ((seconds - 80) / 100) * 0.22;
+  return Math.max(0, Math.min(1, value));
+}
+
+function spawnFruit(state: GameState, bombChance: number, flightSeconds: number): void {
+  const kind: FruitKind = random(state) < bombChance
+    ? "bomb"
+    : random(state) < 0.08
+      ? "peanut"
+      : FRUIT_POOL[Math.floor(random(state) * FRUIT_POOL.length)];
+  const radius = FRUIT_RULES[kind].radius;
+  const startX = Math.max(radius, Math.min(WORLD_WIDTH - radius, 80 + random(state) * (WORLD_WIDTH - 160)));
+  const targetX = Math.max(
+    radius,
+    Math.min(WORLD_WIDTH - radius, startX + (random(state) - 0.5) * (WORLD_WIDTH * 0.45)),
+  );
+  const peakY = 80 + random(state) * (WORLD_HEIGHT * 0.2);
+
+  state.fruits.push({
+    id: state.nextFruitId++,
+    kind,
+    x: startX,
+    y: WORLD_HEIGHT + 40,
+    vx: (targetX - startX) / flightSeconds,
+    vy: -Math.sqrt(2 * GRAVITY * Math.max(50, WORLD_HEIGHT - peakY)),
+    rotation: 0,
+    rotationVelocity: (random(state) - 0.5) * 6,
+    radius,
+  });
+}
+
+function step(state: GameState): void {
+  if (state.ended) return;
+  state.tick += 1;
+  if (state.tick >= DURATION_TICKS) {
+    state.ended = true;
+    state.endReason = "timeout";
+    return;
+  }
+
+  if (state.combo > 0 && state.tick > state.comboExpiresAtTick) state.combo = 0;
+
+  const difficulty = difficultyAt(state.tick);
+  if (state.tick >= state.nextSpawnTick) {
+    const spawnEveryMs = 1100 - difficulty * 680;
+    const count = 1 + Math.floor(difficulty * 3.5);
+    const bombChance = 0.02 + difficulty * 0.26;
+    const flightSeconds = 1.35 - difficulty * 0.65;
+    for (let index = 0; index < count; index += 1) spawnFruit(state, bombChance, flightSeconds);
+    state.nextSpawnTick = state.tick + Math.max(1, Math.round(spawnEveryMs / TICK_MS));
+  }
+
+  const deltaSeconds = 1 / TICK_RATE;
+  for (const fruit of state.fruits) {
+    fruit.vy += GRAVITY * deltaSeconds;
+    fruit.x += fruit.vx * deltaSeconds;
+    fruit.y += fruit.vy * deltaSeconds;
+    fruit.rotation += fruit.rotationVelocity * deltaSeconds;
+    if (fruit.x < fruit.radius) {
+      fruit.x = fruit.radius;
+      fruit.vx *= -1;
+    } else if (fruit.x > WORLD_WIDTH - fruit.radius) {
+      fruit.x = WORLD_WIDTH - fruit.radius;
+      fruit.vx *= -1;
+    }
+  }
+  state.fruits = state.fruits.filter((fruit) => fruit.y <= WORLD_HEIGHT + 100);
+}
+
+export function advanceToTick(state: GameState, targetTick: number): void {
+  const safeTarget = Math.min(DURATION_TICKS, Math.max(state.tick, Math.floor(targetTick)));
+  while (!state.ended && state.tick < safeTarget) step(state);
+}
+
+export function elapsedTick(elapsedMs: number): number {
+  return Math.max(0, Math.min(DURATION_TICKS, Math.floor(elapsedMs / TICK_MS)));
+}
+
+export function timeLeftSeconds(state: GameState): number {
+  return Math.max(0, Math.ceil((DURATION_TICKS - state.tick) / TICK_RATE));
+}
+
+export function normalizePointer(x: number, y: number, width: number, height: number, tick: number): InputSample {
+  return {
+    tick: Math.max(0, Math.floor(tick)),
+    x: Math.round(Math.max(0, Math.min(1, x / Math.max(1, width))) * 10000),
+    y: Math.round(Math.max(0, Math.min(1, y / Math.max(1, height))) * 10000),
+  };
+}
+
+export function applyInput(state: GameState, sample: InputSample): SliceResult[] {
+  if (state.ended) return [];
+  advanceToTick(state, sample.tick);
+  const point = {
+    x: (sample.x / 10000) * WORLD_WIDTH,
+    y: (sample.y / 10000) * WORLD_HEIGHT,
+  };
+  state.lastPointer = point;
+
+  const results: SliceResult[] = [];
+  for (let index = state.fruits.length - 1; index >= 0; index -= 1) {
+    const fruit = state.fruits[index];
+    const dx = fruit.x - point.x;
+    const dy = fruit.y - point.y;
+    if (dx * dx + dy * dy >= (fruit.radius + 14) ** 2) continue;
+
+    state.fruits.splice(index, 1);
+    if (fruit.kind === "bomb") {
+      state.lives -= 1;
+      state.combo = 0;
+      if (state.lives <= 0) state.ended = true;
+      if (state.lives <= 0) state.endReason = "lives";
+      results.push({ fruit: { ...fruit }, points: 0, combo: state.combo, lives: state.lives });
+      continue;
+    }
+
+    state.combo += 1;
+    state.comboExpiresAtTick = state.tick + Math.round(0.7 * TICK_RATE);
+    const multiplier = state.combo >= 5 ? 3 : state.combo >= 3 ? 2 : 1;
+    const peanutBonus = fruit.kind === "peanut" ? 10 : 1;
+    const points = FRUIT_RULES[fruit.kind].points * multiplier * peanutBonus;
+    state.score += points;
+    results.push({ fruit: { ...fruit }, points, combo: state.combo, lives: state.lives });
+  }
+  return results.reverse();
+}
+
+export function replayGame(seed: number, samples: InputSample[]): GameState {
+  const state = createGame(seed);
+  for (const sample of samples) {
+    if (state.ended) break;
+    applyInput(state, sample);
+  }
+  advanceToTick(state, DURATION_TICKS);
+  return state;
+}
+
+export function isValidInputLog(value: unknown): value is InputSample[] {
+  if (!Array.isArray(value) || value.length > MAX_INPUT_SAMPLES) return false;
+  let previousTick = -1;
+  for (const sample of value) {
+    if (
+      typeof sample !== "object" || sample === null
+      || !Number.isInteger((sample as InputSample).tick)
+      || !Number.isInteger((sample as InputSample).x)
+      || !Number.isInteger((sample as InputSample).y)
+    ) return false;
+    const { tick, x, y } = sample as InputSample;
+    if (
+      tick < previousTick
+      || (previousTick >= 0 && tick - previousTick < 2)
+      || tick > DURATION_TICKS
+      || x < 0 || x > 10000 || y < 0 || y > 10000
+    ) return false;
+    previousTick = tick;
+  }
+  return true;
+}
+
+export function rankFor(score: number): string {
+  if (score >= 400) return "Vua Chém";
+  if (score >= 250) return "Cao Thủ";
+  if (score >= 100) return "Lính Mới";
+  return "Tập Sự";
+}
+</file>
+
+<file path="hooks/useFirebaseStorage.ts">
+import { useCallback, useEffect, useState } from "react";
+import { httpsCallable } from "firebase/functions";
+import { useAuth } from "../contexts/AuthContext";
+import { functions, getLeaderboard, getUserStats, type ScoreRecord } from "../lib/firebase";
+import type { GameResult, GameSession } from "../components/game/FruitGame";
+
+interface SubmitGameResponse {
+  score: number;
+  rank: string;
+  runId: string | null;
+}
+
+const callSubmitScore = httpsCallable<Pick<GameResult, "score">, SubmitGameResponse>(functions, "submitScore");
+
+function randomSeed(): number {
+  const values = new Uint32Array(1);
+  crypto.getRandomValues(values);
+  return values[0] || Date.now();
+}
+
+function firebaseErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.includes("permission-denied") || message.includes("unauthenticated")) return "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.";
+  if (message.includes("unavailable") || message.includes("network")) return "Không có kết nối tới máy chủ lưu điểm.";
+  return "Không thể lưu điểm lúc này. Ván này sẽ không được xếp hạng.";
+}
+
+export function useFirebaseStorage() {
+  const { user, loading: authLoading } = useAuth();
+  const [bestScore, setBestScore] = useState(0);
+  const [lastScore, setLastScore] = useState<number | null>(null);
+  const [leaderboard, setLeaderboard] = useState<ScoreRecord[]>([]);
+  const [totalGamesPlayed, setTotalGamesPlayed] = useState(0);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [verifyingScore, setVerifyingScore] = useState(false);
+
+  const fetchLeaderboard = useCallback(async () => {
+    try {
+      setLeaderboard(await getLeaderboard(10));
+    } catch {
+      // Keep the last successful snapshot while offline.
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchLeaderboard();
+    if (!user) {
+      setBestScore(0);
+      setTotalGamesPlayed(0);
+      setLastScore(null);
+      return;
+    }
+    getUserStats(user.uid)
+      .then((stats) => {
+        setBestScore(stats.bestScore);
+        setTotalGamesPlayed(stats.totalGamesPlayed);
+      })
+      .catch(() => undefined);
+  }, [fetchLeaderboard, user]);
+
+  const beginGame = useCallback(async (): Promise<GameSession> => {
+    setSaveError(null);
+    return { seed: randomSeed() };
+  }, []);
+
+  const handleGameOver = useCallback(async (result: GameResult) => {
+    setLastScore(result.score);
+    if (!user) return;
+    setVerifyingScore(true);
+    setSaveError(null);
+    try {
+      const response = await callSubmitScore({ score: result.score });
+      const verifiedScore = response.data.score;
+      setLastScore(verifiedScore);
+      setBestScore((current) => Math.max(current, verifiedScore));
+      setTotalGamesPlayed((current) => current + 1);
+      await fetchLeaderboard();
+    } catch (error) {
+      setSaveError(firebaseErrorMessage(error));
+    } finally {
+      setVerifyingScore(false);
+    }
+  }, [fetchLeaderboard, user]);
+
+  return {
+    user,
+    authLoading,
+    bestScore,
+    lastScore,
+    totalGamesPlayed,
+    leaderboard,
+    saveError,
+    verifyingScore,
+    beginGame,
+    onGameOver: handleGameOver,
+    refreshLeaderboard: fetchLeaderboard,
+  };
+}
+</file>
+
+<file path="hooks/useSound.ts">
+import { useCallback, useEffect, useRef } from "react";
+import { audioManager } from "../utils/audio-manager";
+
+/**
+ * Game sound hook — quản lý BGM + SFX cho toàn bộ game.
+ * BGM tự động phát khi gọi playBgm (sau user gesture).
+ * SFX slice/bomb dùng polyphonic Web Audio API.
+ *
+ * Usage:
+ *   const { playBgm, stopBgm, playSlice, playBomb } = useGameSound(muted);
+ */
+export function useGameSound(muted: boolean) {
+  const bgmStartedRef = useRef(false);
+
+  // Sync mute state to audio manager
+  useEffect(() => {
+    audioManager.setMuted(muted);
+  }, [muted]);
+
+  const playBgm = useCallback(() => {
+    if (bgmStartedRef.current) return;
+    bgmStartedRef.current = true;
+    audioManager.playBgm(0.7);
+  }, []);
+
+  const stopBgm = useCallback(() => {
+    bgmStartedRef.current = false;
+    audioManager.stopBgm();
+  }, []);
+
+  const playSlice = useCallback(() => {
+    audioManager.playSfx("slice", 0.55, 5);
+  }, []);
+
+  const playBomb = useCallback(() => {
+    audioManager.playSfx("bomb", 0.7, 3);
+  }, []);
+
+  return { playBgm, stopBgm, playSlice, playBomb };
+}
+</file>
+
+<file path="lib/firebase.ts">
+import { initializeApp } from "firebase/app";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
+  signOut,
+  onAuthStateChanged,
+  browserLocalPersistence,
+  setPersistence,
+  type User,
+} from "firebase/auth";
+export type { User } from "firebase/auth";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  collection,
+  query,
+  orderBy,
+  limit,
+  getDocs,
+  type DocumentData,
+} from "firebase/firestore";
+import { getFunctions } from "firebase/functions";
+
+// ─── Firebase Config ──────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+};
+
+const app = initializeApp(firebaseConfig);
+
+// ─── Services ─────────────────────────────────────────────────────────────────
+export const auth = getAuth(app);
+// Force localStorage persistence — fixes Safari / storage-partitioned browser issues
+setPersistence(auth, browserLocalPersistence);
+export const db = getFirestore(app);
+export const functions = getFunctions(app, "asia-southeast1");
+
+// ─── Auth helpers ─────────────────────────────────────────────────────────────
+
+/** Google Sign‑In: popup-first with 12s timeout → redirect fallback (Safari-safe) */
+export async function loginWithGoogle(): Promise<User | undefined> {
+  await auth.authStateReady();
+  const provider = new GoogleAuthProvider();
+
+  try {
+    const result = await Promise.race([
+      signInWithPopup(auth, provider),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("POPUP_TIMEOUT")), 12000),
+      ),
+    ]);
+    return result.user;
+  } catch (error: any) {
+    const reason = error?.message || error?.code || "unknown";
+    console.warn("Popup auth failed (" + reason + "), falling back to redirect...");
+    await signInWithRedirect(auth, provider);
+    return undefined; // redirect happens — execution stops here
+  }
+}
+
+/** Email + Password Sign‑Up (sets displayName) */
+export async function signUpWithEmail(
+  email: string,
+  password: string,
+  displayName: string,
+): Promise<User> {
+  const cred = await createUserWithEmailAndPassword(auth, email, password);
+  await updateProfile(cred.user, { displayName });
+  return cred.user;
+}
+
+/** Email + Password Sign‑In */
+export async function signInWithEmail(email: string, password: string): Promise<User> {
+  const cred = await signInWithEmailAndPassword(auth, email, password);
+  return cred.user;
+}
+
+export async function logout(): Promise<void> {
+  await signOut(auth);
+}
+
+export function onAuthChange(cb: (user: User | null) => void): () => void {
+  return onAuthStateChanged(auth, cb);
+}
+
+// ─── Firestore helpers ────────────────────────────────────────────────────────
+export interface ScoreRecord {
+  uid: string;
+  playerName: string;
+  photoURL: string | null;
+  score: number;
+  playTimeSec: number;
+  createdAt: number;
+}
+
+/** Save a game run to Firestore (runs collection). Also updates user best score. */
+/** Fetch top N scores for the leaderboard. */
+export async function getLeaderboard(topN: number = 10): Promise<ScoreRecord[]> {
+  const q = query(collection(db, "runs"), orderBy("score", "desc"), limit(topN));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => d.data() as ScoreRecord);
+}
+
+/** Fetch user stats (bestScore, totalGamesPlayed) from Firestore. */
+export async function getUserStats(uid: string): Promise<{ bestScore: number; totalGamesPlayed: number }> {
+  const userRef = doc(db, "users", uid);
+  const snap = await getDoc(userRef);
+  if (!snap.exists()) return { bestScore: 0, totalGamesPlayed: 0 };
+  const data = snap.data() as DocumentData;
+  return {
+    bestScore: (data.bestScore as number) ?? 0,
+    totalGamesPlayed: (data.totalGamesPlayed as number) ?? 0,
+  };
+}
+</file>
+
+<file path="styles/fonts.css">
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;700;800&display=swap');
+</file>
+
+<file path="styles/game-ui.css">
+/* ─── Game UI Components ────────────────────────────────────────────────────────── */
+
+/* GamePage responsive top bar */
+@media (max-width: 640px) {
+  .gameTopBar {
+    flex-wrap: nowrap !important;
+    padding: 8px 10px !important;
+    gap: 6px !important;
+  }
+  .gameTopBar .game-btn {
+    padding: 6px 10px !important;
+    font-size: 11px !important;
+    gap: 4px !important;
+  }
+  .btnLabel { display: none !important; }
+  .gameTitle  { font-size: 13px !important; }
+  .gameSub { font-size: 13px !important; }
+  .gameActions { gap: 4px !important; }
+}
+
+.loginPromptBtn:hover p:first-child { text-decoration: underline; }
+.loginPromptBtn:hover {
+  border-color: rgba(232, 116, 50, 0.6) !important;
+  background: rgba(248, 200, 96, 0.2) !important;
+}
+
+/* ─── FruitGame Overlays & HUD ────────────────────────────────────────────────── */
+
+.gameHud {
+  position: absolute;
+  top: 14px;
+  left: 20px;
+  right: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  pointer-events: none;
+  font-family: var(--font-family);
+  z-index: 8;
+  color: var(--ink-dark);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.comboText {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--orange-cta);
+  margin-top: 4px;
+}
+
+.gameTimer {
+  font-size: 22px;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: 12px;
+  padding: 4px 16px;
+  border: 1.5px solid rgba(138, 125, 101, 0.3);
+}
+
+.gameTimer.danger {
+  color: var(--destructive);
+}
+
+.gameLives {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--destructive);
+  letter-spacing: 2px;
+}
+
+.bombText, .pointText {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 10;
+  font-family: var(--font-family);
+  font-weight: 900;
+  animation: pointPop 0.8s ease-out forwards;
+}
+
+.bombText {
+  font-size: clamp(24px, 6vw, 52px);
+  color: var(--destructive);
+  text-shadow: 0 4px 16px rgba(255, 0, 0, 0.7);
+}
+
+.pointText {
+  font-size: clamp(18px, 4vw, 36px);
+  text-shadow: 0 2px 4px rgba(42, 36, 24, 0.8);
+}
+
+.gameOverOverlay, .countdownOverlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(245, 236, 215, 0.72);
+  backdrop-filter: blur(4px);
+  z-index: 50;
+  font-family: var(--font-family);
+}
+
+.scoreCard {
+  margin-bottom: 18px;
+  padding: 18px 28px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1.5px solid rgba(138, 125, 101, 0.4);
+  box-shadow: 0 10px 30px rgba(42, 36, 24, 0.15);
+}
+
+.scoreLabel {
+  font-size: 13px;
+  color: var(--pencil-gray);
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.scoreValue {
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--orange-cta);
+  margin-top: 4px;
+}
+
+.scoreMeta {
+  font-size: 13px;
+  color: var(--pencil-gray);
+  margin-top: 8px;
+}
+
+.replayButton {
+  padding: 18px 38px;
+  background: linear-gradient(180deg, #f08a48, var(--orange-cta));
+  color: #fff;
+  border: 3px solid #b85a22;
+  border-radius: 999px;
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 20px;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(232, 116, 50, 0.45);
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.replayButton:hover {
+  transform: scale(1.03);
+}
+.replayButton:active {
+  transform: scale(0.95);
+}
+
+.countdownNumber {
+  font-size: clamp(80px, 18vw, 160px);
+  font-weight: 900;
+  color: var(--orange-cta);
+  animation: countPop 0.6s ease-out;
+}
+
+@keyframes countPop {
+  from { transform: scale(2); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes pointPop {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(0.7); }
+  100% { opacity: 0; transform: translate(-50%, -80%) scale(1); }
+}
+
+/* Global App Styles */
+html { scroll-behavior: smooth; }
+body { margin: 0; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--paper-warm, #efe3c4); }
+::-webkit-scrollbar-thumb { background: #c8bfa6; border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--pencil-gray, #a89c80); }
+
+/* Landing page entrance animation */
+.landing-enter {
+  animation: landingReveal 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes landingReveal {
+  0% { opacity: 0; transform: translateY(24px) scale(0.97); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Hero animations */
+@keyframes mascotBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+@keyframes waveLeft {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(15deg); }
+}
+
+.hero-badge {
+  animation: heroSlideUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+}
+.hero-title {
+  animation: heroSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both;
+}
+.hero-desc {
+  animation: heroSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.4s both;
+}
+.hero-cta {
+  animation: heroCTAPop 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.6s both;
+}
+
+@keyframes heroSlideUp {
+  0% { opacity: 0; transform: translateY(36px); filter: blur(4px); }
+  100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+@keyframes heroCTAPop {
+  0% { opacity: 0; transform: translateY(28px) scale(0.85); }
+  60% { opacity: 1; transform: translateY(-4px) scale(1.03); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* TopNav */
+@media (max-width: 640px) { .brandName { display: none; } }
+</file>
+
+<file path="styles/index.css">
+@import "./fonts.css";
+@import "./tailwind.css";
+@import "./theme.css";
+@import "./game-ui.css";
+@import "./loading-screen.css";
+</file>
+
+<file path="styles/loading-screen.css">
+.screen-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  overflow: hidden;
+  isolation: isolate;
+  color: var(--ink-dark);
+  background:
+    radial-gradient(ellipse at 18% 20%, rgba(255, 255, 255, 0.64), transparent 34%),
+    radial-gradient(ellipse at 82% 74%, rgba(215, 223, 164, 0.22), transparent 31%),
+    radial-gradient(ellipse at 52% 52%, rgba(255, 250, 236, 0.28), transparent 42%),
+    linear-gradient(180deg, #f8f1df 0%, #efe2c1 100%);
+  background:
+    radial-gradient(ellipse at 18% 20%, rgba(255, 255, 255, 0.64), transparent 34%),
+    radial-gradient(ellipse at 82% 74%, color-mix(in srgb, var(--secondary-container) 40%, transparent), transparent 31%),
+    radial-gradient(ellipse at 52% 52%, color-mix(in srgb, var(--rice-paper) 40%, transparent), transparent 42%),
+    linear-gradient(180deg, color-mix(in srgb, var(--rice-paper) 80%, white) 0%, var(--paper-warm) 100%);
+  font-family: var(--font-family);
+}
+
+.screen-loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 54%, rgba(255,255,255,.44), transparent 36%);
+  opacity: 0;
+  transform: scale(.92);
+  transition: opacity 520ms ease, transform 900ms cubic-bezier(.18,.8,.22,1);
+}
+.screen-loading.is-complete::after {
+  opacity: 1;
+  transform: scale(1.16);
+}
+.screen-loading-bg {
+  position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: cover;
+  transition: transform 1300ms cubic-bezier(.18,.8,.22,1), filter 1300ms ease;
+}
+.screen-loading.is-complete .screen-loading-bg {
+  transform: scale(1.045);
+  filter: saturate(1.08) brightness(1.04);
+}
+.screen-loading-wash {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(247,239,217,.72) 0%, rgba(247,239,217,.18) 42%, rgba(247,239,217,.04) 100%),
+    radial-gradient(circle at 50% 100%, rgba(130,148,87,.12), transparent 34%),
+    radial-gradient(circle at 5% 20%, rgba(240,184,64,.08), transparent 26%);
+}
+.leaf-layer, .burst-layer { position: absolute; inset: 0; z-index: 4; pointer-events: none; overflow: hidden; }
+.screen-loading-content {
+  position: relative; z-index: 5; min-height: 100vh; min-height: 100dvh;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  padding: clamp(28px, 5vw, 72px); box-sizing: border-box;
+}
+.loading-copy { max-width: 560px; padding-top: clamp(8px, 4vh, 44px); }
+.loading-eyebrow { margin: 0 0 14px; color: var(--orange-cta); font-size: 12px; font-weight: 900; letter-spacing: 5px; text-transform: uppercase; }
+.loading-title-row { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
+.loading-logo {
+  flex: 0 0 auto; width: 56px; height: 56px; display: grid; place-items: center;
+  border-radius: 999px;
+  background: radial-gradient(circle at 34% 26%, #ffd976 0%, #f0b840 52%, #d99820 100%);
+  background: radial-gradient(circle at 34% 26%, color-mix(in srgb, var(--mascot-yellow) 80%, white) 0%, var(--mascot-yellow) 52%, color-mix(in srgb, var(--mascot-yellow) 80%, black) 100%);
+  border: 2px solid rgba(142,78,34,.44);
+  border: 2px solid color-mix(in srgb, var(--earth-brown) 44%, transparent);
+  box-shadow: 0 8px 0 rgba(142,78,34,.1), 0 14px 28px rgba(240,184,64,.2), inset 0 2px 0 rgba(255,255,255,.45);
+  box-shadow: 0 8px 0 color-mix(in srgb, var(--earth-brown) 10%, transparent), 0 14px 28px color-mix(in srgb, var(--mascot-yellow) 20%, transparent), inset 0 2px 0 rgba(255,255,255,.45);
+  color: #fffaf0; font-size: 30px; font-weight: 1000;
+  text-shadow: 1px 1px 0 rgba(42,36,24,.78), -1px 1px 0 rgba(42,36,24,.78), 1px -1px 0 rgba(42,36,24,.78), -1px -1px 0 rgba(42,36,24,.78);
+  text-shadow: 1px 1px 0 color-mix(in srgb, var(--ink-dark) 78%, transparent), -1px 1px 0 color-mix(in srgb, var(--ink-dark) 78%, transparent), 1px -1px 0 color-mix(in srgb, var(--ink-dark) 78%, transparent), -1px -1px 0 color-mix(in srgb, var(--ink-dark) 78%, transparent);
+  transform: rotate(-8deg);
+}
+.loading-title { margin: 0; font-size: clamp(44px, 7vw, 88px); line-height: .94; font-weight: 1000; letter-spacing: -2.6px; color: var(--ink-dark); text-shadow: 0 3px 0 rgba(255,255,255,.68); }
+.loading-subtitle { margin: 0; max-width: 500px; color: #5c5140; color: color-mix(in srgb, var(--ink-dark) 70%, transparent); font-size: clamp(15px,1.6vw,18px); line-height: 1.75; font-weight: 600; }
+.loading-progress-area { width: min(760px, 100%); margin: 0 auto; padding-bottom: clamp(18px,4vh,48px); }
+.screen-loading.is-complete .loading-progress-area {
+  animation: loading-panel-settle 900ms cubic-bezier(.18,.8,.22,1) both;
+}
+.loading-progress-meta { display: flex; justify-content: space-between; align-items: end; gap: 16px; padding: 0 12px 12px; }
+.loading-status { color: var(--ink-dark); font-size: clamp(12px,1.4vw,15px); font-weight: 900; letter-spacing: 1.8px; text-transform: uppercase; text-shadow: 0 2px 0 rgba(255,255,255,.55); }
+.loading-percent { min-width: 54px; color: var(--leaf-deep); font-size: clamp(16px,2vw,22px); font-weight: 1000; text-align: right; text-shadow: 0 2px 0 rgba(255,255,255,.45); }
+.loading-progress-shell {
+  position: relative; height: clamp(24px,3.2vw,34px); padding: 4px; border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255,255,255,.78), rgba(239,227,196,.76));
+  border: 1px solid rgba(138,125,101,.24);
+  box-shadow: 0 16px 38px rgba(130,148,87,.12), 0 6px 0 rgba(138,125,101,.07), inset 0 1px 0 rgba(255,255,255,.8);
+  overflow: visible;
+}
+.loading-progress-shell::before { content: ""; position: absolute; inset: -7px; border-radius: inherit; border: 1px solid rgba(255,255,255,.38); pointer-events: none; }
+.loading-progress-fill {
+  position: relative; height: 100%; width: 0; border-radius: 999px; overflow: hidden;
+  background: linear-gradient(180deg, rgba(255,255,255,.62) 0%, rgba(255,255,255,0) 48%), linear-gradient(90deg,#87965b 0%,#a8b66e 42%,#d7dfa4 76%,#f0b840 100%);
+  box-shadow: 0 0 22px rgba(154,172,100,.28), inset 0 -3px 0 rgba(130,148,87,.18);
+  transition: width 100ms linear;
+}
+.loading-progress-fill::after { content: ""; position: absolute; inset: 0; width: 38%; background: linear-gradient(90deg,transparent,rgba(255,255,255,.34),transparent); transform: translateX(-100%); animation: loading-shine 1.35s ease-in-out infinite; }
+.loading-progress-tip { position: absolute; top: 50%; width: 68px; height: 58px; transform: translate(-24px,-62%); transition: left 100ms linear; pointer-events: none; filter: drop-shadow(0 8px 9px rgba(42,36,24,.14)); }
+.loading-progress-tip i {
+  position: absolute; left: 28px; top: 16px; width: 19px; height: 34px; border-radius: 17px 4px 17px 4px;
+  background: linear-gradient(145deg,rgba(255,255,255,.34),transparent 48%),#9aac64;
+  border: 1px solid rgba(116,136,79,.32); transform-origin: 50% 94%; animation: sprout-bob .9s ease-in-out infinite;
+}
+.loading-progress-tip i:nth-child(1) { background-color: #74884f; transform: rotate(-58deg); }
+.loading-progress-tip i:nth-child(2) { background-color: #9aac64; transform: rotate(-24deg); animation-delay: .1s; }
+.loading-progress-tip i:nth-child(3) { background-color: #b4c077; transform: rotate(18deg); animation-delay: .2s; }
+.loading-progress-tip i:nth-child(4) { background-color: #d7dfa4; transform: rotate(54deg); animation-delay: .3s; }
+.loading-complete-pill {
+  position: absolute; left: 50%; bottom: clamp(68px,10vh,110px); z-index: 8;
+  display: inline-flex; align-items: center; justify-content: center; min-height: 46px; padding: 12px 22px;
+  border-radius: 999px; color: #fffaf0; font-size: 14px; font-weight: 1000; letter-spacing: .7px;
+  background: linear-gradient(180deg,#f39b58 0%,#e87432 100%); border: 1px solid rgba(184,90,34,.32);
+  box-shadow: 0 18px 40px rgba(232,116,50,.25), inset 0 1px 0 rgba(255,255,255,.35);
+  opacity: 0; transform: translate(-50%,18px) scale(.92);
+  transition: opacity 240ms ease, transform 320ms cubic-bezier(.18,.8,.22,1); pointer-events: none;
+}
+.screen-loading.is-complete .loading-complete-pill { opacity: 1; transform: translate(-50%,0) scale(1); }
+.ambient-leaf, .burst-leaf {
+  position: absolute; width: var(--w,24px); height: calc(var(--w,24px) * .46); border-radius: 100% 0 100% 0;
+  background: linear-gradient(145deg,rgba(255,255,255,.34),transparent 48%),var(--leaf-color,#9aac64);
+  border: 1px solid rgba(116,136,79,.28); filter: drop-shadow(0 4px 4px rgba(42,36,24,.1));
+}
+.ambient-leaf::after, .burst-leaf::after { content: ""; position: absolute; left: 18%; top: 48%; width: 68%; height: 1px; border-radius: 999px; background: rgba(42,36,24,.18); transform: rotate(-10deg); }
+.ambient-leaf { top: -60px; opacity: 0; animation: leaf-fall var(--fall,6s) linear infinite, leaf-sway var(--sway,2s) ease-in-out infinite; animation-delay: var(--delay,0s), calc(var(--delay,0s) * .35); }
+.burst-leaf { left: 50%; top: 58%; opacity: 0; transform: translate(-50%,-50%) scale(.4) rotate(0); }
+.screen-loading.is-complete .burst-leaf { animation: leaf-burst 1160ms cubic-bezier(.18,.72,.22,1) forwards; animation-delay: var(--burst-delay,0s); }
+
+@keyframes loading-shine { 0% { transform: translateX(-120%); } 58%, 100% { transform: translateX(280%); } }
+@keyframes sprout-bob { 0%, 100% { margin-top: 0; } 50% { margin-top: -5px; } }
+@keyframes leaf-fall {
+  0% { top: -62px; opacity: 0; transform: translateX(0) rotate(0); }
+  10%, 84% { opacity: .72; }
+  100% { top: calc(100% + 68px); opacity: 0; transform: translateX(var(--drift,46px)) rotate(var(--rot,260deg)); }
+}
+@keyframes leaf-sway { 0%, 100% { margin-left: calc(var(--sway-x,22px) * -.5); } 50% { margin-left: var(--sway-x,22px); } }
+@keyframes leaf-burst {
+  0% { opacity: 0; transform: translate(-50%,-50%) scale(.36) rotate(0); }
+  10% { opacity: 1; }
+  76% { opacity: .9; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--tx,0px)),calc(-50% + var(--ty,-180px))) scale(var(--scale,1)) rotate(var(--r,360deg)); }
+}
+@keyframes loading-panel-settle {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  42% { opacity: 1; transform: translateY(-8px) scale(1.012); }
+  100% { opacity: .28; transform: translateY(18px) scale(.985); }
+}
+
+/* ── Exit transition: loading → landing ───────────────────────── */
+.screen-loading.is-exiting {
+  animation: loadingExit 850ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.screen-loading.is-exiting .screen-loading-bg {
+  transition: transform 850ms cubic-bezier(0.4, 0, 0.2, 1), opacity 700ms ease;
+  transform: scale(1.12);
+  opacity: 0.3;
+}
+.screen-loading.is-exiting .screen-loading-content {
+  animation: loadingContentExit 600ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.screen-loading.is-exiting .loading-complete-pill {
+  animation: loadingPillExit 500ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.screen-loading.is-exiting .leaf-layer,
+.screen-loading.is-exiting .burst-layer {
+  transition: opacity 500ms ease;
+  opacity: 0;
+}
+
+@keyframes loadingExit {
+  0% { opacity: 1; transform: scale(1); filter: blur(0); }
+  60% { opacity: 0.6; transform: scale(1.03); filter: blur(2px); }
+  100% { opacity: 0; transform: scale(1.06); filter: blur(8px); }
+}
+@keyframes loadingContentExit {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-40px); }
+}
+@keyframes loadingPillExit {
+  0% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -20px) scale(0.9); }
+}
+
+@media (max-width: 720px) {
+  .screen-loading-content { padding: 28px 20px; }
+  .loading-copy { padding-top: 22px; }
+  .loading-title-row { align-items: flex-start; }
+  .loading-logo { width: 48px; height: 48px; font-size: 26px; }
+  .loading-title { font-size: 42px; }
+  .loading-subtitle { font-size: 15px; }
+  .loading-progress-area { padding-bottom: 72px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ambient-leaf, .burst-leaf, .loading-progress-fill::after, .loading-progress-tip i { animation: none !important; }
+  .ambient-leaf { top: 30%; opacity: .28; }
+}
+</file>
+
+<file path="styles/tailwind.css">
+@import 'tailwindcss' source(none);
+@source '../**/*.{js,ts,jsx,tsx}';
+
+@import 'tw-animate-css';
+</file>
+
+<file path="styles/theme.css">
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-size: 16px;
+  --font-family: 'Be Vietnam Pro', sans-serif;
+
+  /* Bộ Lạc Đậu Phộng — Vietnamese Countryside Palette */
+  --primary: #e87432;          /* orange CTA */
+  --primary-foreground: #ffffff;
+  --primary-container: #f0b840; /* mascot yellow */
+  --secondary: #6b8e3d;         /* bamboo green */
+  --secondary-foreground: #ffffff;
+  --secondary-container: #c8d68a;
+  --rice-paper: #f5ecd7;
+  --paper-warm: #efe3c4;
+  --ink-dark: #2a2418;
+  --mascot-yellow: #f0b840;
+  --orange-cta: #e87432;
+  --bamboo-green: #6b8e3d;
+  --leaf-deep: #4c6630;
+  --earth-brown: #8e4e22;
+  --pencil-gray: #8a7d65;
+  --outline: #8a7d65;
+
+  --background: #f5ecd7;
+  --foreground: #2a2418;
+  --card: #fdf6ea;
+  --card-foreground: #091d2e;
+  --popover: #fdf6ea;
+  --popover-foreground: #091d2e;
+  --muted: #e8dfc7;
+  --muted-foreground: #74796c;
+  --accent: #d5b747;
+  --accent-foreground: #091d2e;
+  --destructive: #ba1a1a;
+  --destructive-foreground: #ffffff;
+  --border: rgba(116, 121, 108, 0.3);
+  --input: transparent;
+  --input-background: #efe6d0;
+  --switch-background: #a8c686;
+  --font-weight-medium: 700;
+  --font-weight-normal: 400;
+  --ring: #4c6630;
+  --chart-1: #4c6630;
+  --chart-2: #8e4e22;
+  --chart-3: #d5b747;
+  --chart-4: #64b4c3;
+  --chart-5: #a8c686;
+  --radius: 0.75rem;
+  --sidebar: #f5ecd7;
+  --sidebar-foreground: #091d2e;
+  --sidebar-primary: #4c6630;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #a8c686;
+  --sidebar-accent-foreground: #091d2e;
+  --sidebar-border: rgba(116, 121, 108, 0.3);
+  --sidebar-ring: #4c6630;
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.145 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.145 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.396 0.141 25.723);
+  --destructive-foreground: oklch(0.637 0.237 25.331);
+  --border: oklch(0.269 0 0);
+  --input: oklch(0.269 0 0);
+  --ring: oklch(0.439 0 0);
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.269 0 0);
+  --sidebar-ring: oklch(0.439 0 0);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /**
+  * Default typography styles for HTML elements (h1-h4, p, label, button, input).
+  * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
+  */
+
+  html {
+    font-size: var(--font-size);
+    font-family: var(--font-family);
+  }
+
+  h1 {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h2 {
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h3 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h4 {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  label {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  button {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+    transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  button:hover:not(:disabled) {
+    transform: scale(1.02);
+  }
+  button:active:not(:disabled) {
+    transform: scale(0.95);
+  }
+
+  input {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-normal);
+    line-height: 1.5;
+  }
+}
+
+/* ─── Game Button Primitives (design.md §3) ─────────────────────────────────── */
+.game-btn {
+  border-radius: 9999px;
+  font-family: 'Be Vietnam Pro', sans-serif;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+.game-btn:hover:not(:disabled) {
+  transform: scale(1.03);
+}
+.game-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.game-btn-primary {
+  background: linear-gradient(180deg, #f08a48 0%, #e87432 100%);
+  color: #fff;
+  border: 3px solid #b85a22;
+  box-shadow: 0 10px 24px rgba(232, 116, 50, 0.45);
+}
+.game-btn-primary:hover:not(:disabled) {
+  box-shadow: 0 14px 32px rgba(232, 116, 50, 0.6);
+}
+
+.game-btn-close {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: transparent; border: none; cursor: pointer;
+  color: #8a7d65;
+  display: grid; place-items: center;
+  transition: background 0.15s, transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.game-btn-close:hover { background: rgba(138, 125, 101, 0.1); transform: scale(1.1); }
+.game-btn-close:active { transform: scale(0.9); }
+
+.game-btn-link {
+  background: transparent; border: none; color: #e87432;
+  font-weight: 700; cursor: pointer; padding: 0;
+  font-family: inherit; font-size: inherit;
+  transition: opacity 0.15s;
+}
+.game-btn-link:hover { opacity: 0.75; }
+
+/* Ripple effect */
+@keyframes btn-ripple {
+  0%   { transform: scale(0); opacity: 0.5; }
+  100% { transform: scale(4); opacity: 0; }
+}
+.ripple {
+  position: relative;
+  overflow: hidden;
+}
+.ripple::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+  width: 60px; height: 60px;
+  top: 50%; left: 50%;
+  transform: scale(0);
+  pointer-events: none;
+}
+.ripple:active::after {
+  animation: btn-ripple 0.5s ease-out;
+}
+</file>
+
+<file path="utils/audio-manager.ts">
+/**
+ * Audio Manager — Web Audio API singleton.
+ * Manages BGM (loop), SFX slice (polyphonic), SFX bomb.
+ * All buffers are preloaded before game starts.
+ */
+
+type SfxName = "bgm" | "slice" | "bomb";
+
+interface AudioBuffers {
+  bgm: AudioBuffer | null;
+  slice: AudioBuffer | null;
+  bomb: AudioBuffer | null;
+}
+
+class AudioManager {
+  private ctx: AudioContext | null = null;
+  private buffers: AudioBuffers = { bgm: null, slice: null, bomb: null };
+  private bgmSource: AudioBufferSourceNode | null = null;
+  private bgmGain: GainNode | null = null;
+  private _muted = false;
+  private _loaded = false;
+  private _bgmPlaying = false;
+
+  /** Unlock AudioContext (must be called from user gesture) */
+  async unlock(): Promise<void> {
+    if (!this.ctx) {
+      this.ctx = new AudioContext();
+    }
+    if (this.ctx.state === "suspended") {
+      await this.ctx.resume();
+    }
+  }
+
+  get muted() { return this._muted; }
+  get loaded() { return this._loaded; }
+  get bgmPlaying() { return this._bgmPlaying; }
+
+  /**
+   * Preload all audio buffers. Returns progress 0-1 via onProgress.
+   * `basePath` should point to the folder containing audio files, e.g. "/assets/".
+   */
+  async preloadAll(
+    basePath: string,
+    onProgress?: (ratio: number) => void
+  ): Promise<void> {
+    // Ensure context exists
+    if (!this.ctx) {
+      this.ctx = new AudioContext();
+    }
+
+    const files: { name: SfxName; url: string }[] = [
+      { name: "bgm", url: `${basePath}moavii-we-are.mp3` },
+      { name: "slice", url: `${basePath}666herohero-slash-21834.mp3` },
+      { name: "bomb", url: `${basePath}bomb.mp3` },
+    ];
+
+    let loaded = 0;
+    const total = files.length;
+
+    const loadOne = async (name: SfxName, url: string): Promise<void> => {
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const arrayBuf = await resp.arrayBuffer();
+        const audioBuf = await this.ctx!.decodeAudioData(arrayBuf);
+        this.buffers[name] = audioBuf;
+      } catch (err) {
+        console.warn(`[AudioManager] Failed to load ${name}:`, err);
+        // Continue without this sound
+      }
+      loaded++;
+      onProgress?.(loaded / total);
+    };
+
+    await Promise.all(files.map((f) => loadOne(f.name, f.url)));
+    this._loaded = true;
+  }
+
+  /**
+   * Preload only the BGM file (for landing page auto-play).
+   * Returns true if loaded successfully.
+   */
+  async preloadBgmOnly(basePath: string): Promise<boolean> {
+    if (!this.ctx) this.ctx = new AudioContext();
+    try {
+      const resp = await fetch(`${basePath}moavii-we-are.mp3`);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const arrayBuf = await resp.arrayBuffer();
+      this.buffers.bgm = await this.ctx!.decodeAudioData(arrayBuf);
+      return true;
+    } catch (err) {
+      console.warn("[AudioManager] Failed to preload BGM:", err);
+      return false;
+    }
+  }
+
+  /**
+   * Try to auto-play BGM on page load. If browser blocks AudioContext
+   * (autoplay policy), waits for first user interaction then plays.
+   * Call this when landing page mounts — no extra click needed.
+   */
+  tryAutoPlayBgm(basePath: string): void {
+    const doPlay = async () => {
+      if (this._bgmPlaying) return;
+      if (!this.ctx) this.ctx = new AudioContext();
+
+      if (this.ctx.state === "suspended") {
+        try { await this.ctx.resume(); } catch {}
+      }
+
+      if (!this.buffers.bgm) {
+        const ok = await this.preloadBgmOnly(basePath);
+        if (!ok) return;
+      }
+
+      if (this.ctx.state === "running") {
+        this.playBgm(0.7);
+      }
+    };
+
+    // Try immediately (may work if user already interacted with site before)
+    doPlay();
+
+    // If blocked by autoplay policy, wait for first user interaction
+    const resumeOnInteraction = async () => {
+      if (this._bgmPlaying) { cleanup(); return; }
+      if (!this.ctx) this.ctx = new AudioContext();
+      if (this.ctx.state === "suspended") {
+        try { await this.ctx.resume(); } catch {}
+      }
+      if (!this.buffers.bgm) {
+        await this.preloadBgmOnly(basePath);
+      }
+      if (this.ctx.state === "running" && !this._bgmPlaying) {
+        this.playBgm(0.7);
+      }
+      cleanup();
+    };
+
+    const cleanup = () => {
+      document.removeEventListener("click", resumeOnInteraction);
+      document.removeEventListener("touchstart", resumeOnInteraction);
+      document.removeEventListener("keydown", resumeOnInteraction);
+    };
+
+    document.addEventListener("click", resumeOnInteraction, { once: true });
+    document.addEventListener("touchstart", resumeOnInteraction, { once: true });
+    document.addEventListener("keydown", resumeOnInteraction, { once: true });
+  }
+
+  /** Play BGM in a loop at given volume (0-1). */
+  playBgm(volume = 0.3): void {
+    if (!this.ctx || !this.buffers.bgm) return;
+    this.stopBgm();
+
+    const source = this.ctx.createBufferSource();
+    source.buffer = this.buffers.bgm;
+    source.loop = true;
+
+    const gain = this.ctx.createGain();
+    gain.gain.value = this._muted ? 0 : Math.max(0, Math.min(1, volume));
+
+    source.connect(gain).connect(this.ctx.destination);
+    source.start(0);
+
+    this.bgmSource = source;
+    this.bgmGain = gain;
+    this._bgmPlaying = true;
+  }
+
+  stopBgm(): void {
+    if (this.bgmSource) {
+      try { this.bgmSource.stop(); } catch {}
+      this.bgmSource.disconnect();
+      this.bgmSource = null;
+    }
+    if (this.bgmGain) {
+      this.bgmGain.disconnect();
+      this.bgmGain = null;
+    }
+    this._bgmPlaying = false;
+  }
+
+  /**
+   * Play a one-shot SFX. Uses pool of up to `maxVoices` simultaneous sources.
+   */
+  private voicePools: Map<SfxName, AudioBufferSourceNode[]> = new Map();
+
+  playSfx(name: SfxName, volume = 0.6, maxVoices = 5): void {
+    if (!this.ctx || !this.buffers[name]) return;
+    if (this._muted && name !== "bomb") return;
+    // Bomb still plays even when muted? No — respect mute
+    if (this._muted) return;
+
+    const buf = this.buffers[name]!;
+    const source = this.ctx.createBufferSource();
+    source.buffer = buf;
+
+    const gain = this.ctx.createGain();
+    gain.gain.value = Math.max(0, Math.min(1, volume));
+
+    source.connect(gain).connect(this.ctx.destination);
+
+    // Manage voice pool
+    let pool = this.voicePools.get(name);
+    if (!pool) {
+      pool = [];
+      this.voicePools.set(name, pool);
+    }
+    const alive = [...pool];
+    // Limit voices
+    if (alive.length >= maxVoices) {
+      try { alive[0].stop(); } catch {}
+      alive.shift();
+    }
+    alive.push(source);
+    this.voicePools.set(name, alive);
+
+    source.onended = () => {
+      const currentPool = this.voicePools.get(name);
+      if (currentPool) this.voicePools.set(name, currentPool.filter((item) => item !== source));
+      source.disconnect();
+      gain.disconnect();
+    };
+
+    source.start(0);
+  }
+
+  /** Toggle mute on/off */
+  setMuted(m: boolean): void {
+    this._muted = m;
+    if (this.bgmGain) {
+      this.bgmGain.gain.value = m ? 0 : 0.7;
+    }
+  }
+
+  /** Change BGM volume dynamically (0-1). Does not restart the track. */
+  setBgmVolume(volume: number): void {
+    if (this.bgmGain) {
+      this.bgmGain.gain.value = this._muted ? 0 : Math.max(0, Math.min(1, volume));
+    }
+  }
+
+  /** Destroy all audio resources */
+  destroy(): void {
+    this.stopBgm();
+    this.voicePools.forEach((pool) =>
+      pool.forEach((s) => {
+        try { s.stop(); } catch {}
+        s.disconnect();
+      })
+    );
+    this.voicePools.clear();
+    if (this.ctx) {
+      this.ctx.close().catch(() => {});
+      this.ctx = null;
+    }
+    this.buffers = { bgm: null, slice: null, bomb: null };
+    this._loaded = false;
+  }
+}
+
+/** Global singleton */
+export const audioManager = new AudioManager();
+</file>
+
+<file path="utils/fruit-utils.ts">
+import { Graphics, Container } from "pixi.js";
+import { FRUIT_RULES, type FruitKind } from "../game/core";
+
+export type { FruitKind } from "../game/core";
+
+export const GAME_COLORS = {
+  ricePaper: 0xf5ecd7,
+  inkDark: 0x2a2418,
+  orangeCta: 0xe87432,
+  bambooGreen: 0x6b8e3d,
+  bambooSoft: 0xc8d68a,
+  hillLight: 0xe6d8b2,
+  hillDark: 0xd8c896,
+  birdGray: 0x8a7d65,
+} as const;
+
+export interface Fruit {
+  kind: FruitKind;
+  g: Container;
+  vx: number; vy: number;
+  rot: number; vr: number;
+  r: number;
+  sliced: boolean;
+}
+
+export interface Particle {
+  g: Container;
+  vx: number; vy: number;
+  rot: number; vr: number;
+  life: number;
+  ttl: number;
+  rotates: boolean;
+}
+
+export interface TrailPoint { x: number; y: number; t: number; }
+
+export interface FruitConfig {
+  points: number;
+  radius: number;
+  colors: { body: number; edge: number; flesh: number };
+  drawFull: (g: Graphics, r: number, colors: { body: number; edge: number; flesh: number }) => void;
+  drawHalf: (g: Graphics, r: number, colors: { body: number; edge: number; flesh: number }, side: "left" | "right") => void;
+}
+
+function defaultDrawHalf(g: Graphics, r: number, c: { body: number; edge: number; flesh: number }, side: "left" | "right") {
+  const sign = side === "left" ? -1 : 1;
+  g.moveTo(0, -r);
+  g.bezierCurveTo(sign * r * 1.1, -r, sign * r * 1.1, r, 0, r);
+  g.lineTo(0, -r);
+  g.fill(c.body).stroke({ color: c.edge, width: 2 });
+  g.rect(sign === -1 ? -3 : 0, -r, 3, r * 2).fill(c.flesh);
+}
+
+const FRUIT_REGISTRY: Record<FruitKind, FruitConfig> = {
+  durian: {
+    points: FRUIT_RULES.durian.points,
+    radius: FRUIT_RULES.durian.radius,
+    colors: { body: 0xc8b84a, edge: 0x6b7a1f, flesh: 0xfff5a0 },
+    drawFull: (g, r, c) => {
+      g.ellipse(0, 0, r * 0.82, r).fill(c.body).stroke({ color: c.edge, width: 2 });
+      const spikeCount = 16;
+      for (let i = 0; i < spikeCount; i++) {
+        const a = (i / spikeCount) * Math.PI * 2;
+        const bx = Math.cos(a) * r * 0.78;
+        const by = Math.sin(a) * r * 0.95;
+        const tx = Math.cos(a) * (r * 1.18);
+        const ty = Math.sin(a) * (r * 1.38);
+        g.moveTo(bx, by).lineTo(tx, ty).stroke({ color: c.edge, width: 1.8, cap: "round" });
+      }
+      g.rect(-r * 0.07, -r * 1.38, r * 0.14, r * 0.28).fill(0x5a3a10);
+      g.ellipse(-r * 0.25, -r * 0.35, r * 0.22, r * 0.13).fill({ color: 0xffffff, alpha: 0.22 });
+    },
+    drawHalf: defaultDrawHalf
+  },
+  lychee: {
+    points: FRUIT_RULES.lychee.points,
+    radius: FRUIT_RULES.lychee.radius,
+    colors: { body: 0xe83050, edge: 0x7a1030, flesh: 0xfff0f4 },
+    drawFull: (g, r, c) => {
+      g.circle(0, 0, r).fill(c.body).stroke({ color: c.edge, width: 2 });
+      const bumpCount = 12;
+      for (let i = 0; i < bumpCount; i++) {
+        const a = (i / bumpCount) * Math.PI * 2;
+        g.circle(Math.cos(a) * r * 0.74, Math.sin(a) * r * 0.74, r * 0.11).fill({ color: c.edge, alpha: 0.35 });
+      }
+      g.circle(-r * 0.32, -r * 0.32, r * 0.2).fill({ color: 0xffffff, alpha: 0.28 });
+      g.circle(0, -r * 0.9, r * 0.12).fill(0x5a3a10);
+    },
+    drawHalf: defaultDrawHalf
+  },
+  banana: {
+    points: FRUIT_RULES.banana.points,
+    radius: FRUIT_RULES.banana.radius,
+    colors: { body: 0xf5c842, edge: 0xb89020, flesh: 0xfff099 },
+    drawFull: (g, r, c) => {
+      g.moveTo(-r * 0.7, r * 0.4)
+        .quadraticCurveTo(-r * 0.5, -r * 0.95, r * 0.75, -r * 0.4)
+        .quadraticCurveTo(r * 0.45, r * 0.05, r * 0.55, r * 0.55)
+        .quadraticCurveTo(-r * 0.15, r * 0.1, -r * 0.7, r * 0.4)
+        .fill(c.body).stroke({ color: c.edge, width: 2 });
+      g.circle(-r * 0.65, r * 0.42, r * 0.1).fill(c.edge);
+    },
+    drawHalf: defaultDrawHalf
+  },
+  dragonfruit: {
+    points: FRUIT_RULES.dragonfruit.points,
+    radius: FRUIT_RULES.dragonfruit.radius,
+    colors: { body: 0xe8537c, edge: 0x7a1f3a, flesh: 0xfff0f4 },
+    drawFull: (g, r, c) => {
+      g.circle(0, 0, r * 0.92).fill(c.body).stroke({ color: c.edge, width: 2 });
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        g.ellipse(Math.cos(a) * r * 0.7, Math.sin(a) * r * 0.7, r * 0.22, r * 0.1).fill(0x8fc24a);
+      }
+    },
+    drawHalf: defaultDrawHalf
+  },
+  mango: {
+    points: FRUIT_RULES.mango.points,
+    radius: FRUIT_RULES.mango.radius,
+    colors: { body: 0xf0a830, edge: 0x8e5a0a, flesh: 0xffe0a0 },
+    drawFull: (g, r, c) => {
+      g.moveTo(0, -r)
+        .bezierCurveTo(r * 0.6, -r * 0.8, r * 0.95, -r * 0.1, r * 0.8, r * 0.55)
+        .bezierCurveTo(r * 0.55, r, -r * 0.55, r, -r * 0.8, r * 0.55)
+        .bezierCurveTo(-r * 0.95, -r * 0.1, -r * 0.6, -r * 0.8, 0, -r)
+        .fill(c.body).stroke({ color: c.edge, width: 2 });
+      g.ellipse(r * 0.25, -r * 0.2, r * 0.38, r * 0.28).fill({ color: 0xe84030, alpha: 0.28 });
+      g.ellipse(-r * 0.28, -r * 0.3, r * 0.2, r * 0.12).fill({ color: 0xffffff, alpha: 0.25 });
+      g.rect(-r * 0.06, -r * 1.15, r * 0.12, r * 0.22).fill(0x5a3a10);
+    },
+    drawHalf: defaultDrawHalf
+  },
+  peanut: {
+    points: FRUIT_RULES.peanut.points,
+    radius: FRUIT_RULES.peanut.radius,
+    colors: { body: 0xd4a574, edge: 0x8b6914, flesh: 0xfff5e0 },
+    drawFull: (g, r, c) => {
+      const lobeR = r * 0.58;
+      const offset = r * 0.48;
+      g.circle(0, -offset, lobeR).fill(c.body).stroke({ color: c.edge, width: 2 });
+      g.circle(0, offset, lobeR).fill(c.body).stroke({ color: c.edge, width: 2 });
+      g.ellipse(0, 0, r * 0.42, r * 0.55).fill(c.body).stroke({ color: c.edge, width: 1.5 });
+      g.moveTo(-r * 0.4, -r * 0.15).quadraticCurveTo(0, 0, -r * 0.4, r * 0.15)
+        .stroke({ color: c.edge, width: 1.2, alpha: 0.5, cap: "round" });
+      g.moveTo(r * 0.4, -r * 0.15).quadraticCurveTo(0, 0, r * 0.4, r * 0.15)
+        .stroke({ color: c.edge, width: 1.2, alpha: 0.5, cap: "round" });
+      for (let i = 0; i < 5; i++) {
+        const ay = -r * 0.7 + i * r * 0.35;
+        g.moveTo(-r * 0.45, ay).lineTo(r * 0.45, ay)
+          .stroke({ color: c.edge, width: 0.6, alpha: 0.3 });
+      }
+      g.ellipse(-r * 0.18, -r * 0.5, r * 0.14, r * 0.1)
+        .fill({ color: 0xffffff, alpha: 0.2 });
+    },
+    drawHalf: (g, r, c, side) => {
+      const sign = side === "left" ? -1 : 1;
+      g.ellipse(0, 0, r * 0.42, r * 0.95).fill(c.flesh).stroke({ color: c.edge, width: 1.5 });
+      g.rect(sign === -1 ? -2 : 0, -r * 0.95, 2, r * 1.9).fill(c.edge);
+    }
+  },
+  bomb: {
+    points: FRUIT_RULES.bomb.points,
+    radius: FRUIT_RULES.bomb.radius,
+    colors: { body: 0x1f1f1f, edge: 0x000000, flesh: 0xff5a2a },
+    drawFull: (g, r, c) => {
+      g.circle(0, 0, r).fill(c.body).stroke({ color: 0x000, width: 2 });
+      g.circle(-r * 0.3, -r * 0.3, r * 0.18).fill({ color: 0xffffff, alpha: 0.22 });
+      g.rect(-r * 0.12, -r * 1.25, r * 0.24, r * 0.3).fill(0x6b4a2a);
+      g.circle(0, -r * 1.35, r * 0.16).fill(0xffaa22);
+      g.circle(0, -r * 1.35, r * 0.09).fill(0xffe66a);
+    },
+    drawHalf: () => {}
+  }
+};
+
+// Maintaining export compatibility for old components that rely on COLORS, POINTS, RADIUS
+export const COLORS = Object.fromEntries(Object.entries(FRUIT_REGISTRY).map(([k, v]) => [k, v.colors])) as Record<FruitKind, { body: number; edge: number; flesh: number }>;
+export const POINTS = Object.fromEntries(Object.entries(FRUIT_REGISTRY).map(([k, v]) => [k, v.points])) as Record<FruitKind, number>;
+export const RADIUS = Object.fromEntries(Object.entries(FRUIT_REGISTRY).map(([k, v]) => [k, v.radius])) as Record<FruitKind, number>;
+
+// Factory function
+export function makeFruit(kind: FruitKind, r: number): Graphics {
+  const g = new Graphics();
+  const config = FRUIT_REGISTRY[kind];
+  if (config) config.drawFull(g, r, config.colors);
+  return g;
+}
+
+export function makeHalf(kind: FruitKind, r: number, side: "left" | "right"): Graphics {
+  const g = new Graphics();
+  const config = FRUIT_REGISTRY[kind];
+  if (config) config.drawHalf(g, r, config.colors, side);
+  return g;
+}
+
+export function drawBackground(c: Container, W: number, H: number) {
+  const sky = new Graphics();
+  sky.rect(0, 0, W, H).fill(GAME_COLORS.ricePaper);
+  c.addChild(sky);
+
+  const hills = new Graphics();
+  hills.moveTo(0, H * 0.62)
+    .bezierCurveTo(W * 0.2, H * 0.55, W * 0.5, H * 0.68, W, H * 0.6)
+    .lineTo(W, H).lineTo(0, H).closePath()
+    .fill({ color: GAME_COLORS.hillLight, alpha: 0.75 });
+  hills.moveTo(0, H * 0.72)
+    .bezierCurveTo(W * 0.3, H * 0.65, W * 0.7, H * 0.78, W, H * 0.7)
+    .lineTo(W, H).lineTo(0, H).closePath()
+    .fill({ color: GAME_COLORS.hillDark, alpha: 0.8 });
+  c.addChild(hills);
+
+  const grass = new Graphics();
+  grass.moveTo(0, H * 0.85)
+    .bezierCurveTo(W * 0.3, H * 0.8, W * 0.7, H * 0.9, W, H * 0.85)
+    .lineTo(W, H).lineTo(0, H).closePath()
+    .fill(GAME_COLORS.bambooSoft);
+  grass.rect(0, H * 0.94, W, H * 0.06).fill(GAME_COLORS.bambooGreen);
+  c.addChild(grass);
+
+  const bamboo = new Graphics();
+  for (let i = 0; i < 14; i++) {
+    const x = (i / 13) * W + (i % 2 === 0 ? 8 : -8);
+    const baseY = H * 0.65 + (i % 3) * 8;
+    const h = 60 + (i % 4) * 14;
+    bamboo.moveTo(x, baseY).quadraticCurveTo(x + 2, baseY - h / 2, x + (i % 2 ? 3 : -3), baseY - h)
+      .stroke({ color: GAME_COLORS.bambooGreen, width: 1.4, alpha: 0.5, cap: "round" });
+  }
+  c.addChild(bamboo);
+
+  const birds = new Graphics();
+  for (let i = 0; i < 4; i++) {
+    const x = 100 + i * (W / 5);
+    const y = 80 + (i % 2) * 26;
+    birds.moveTo(x, y).lineTo(x + 6, y - 4).lineTo(x + 12, y)
+      .stroke({ color: GAME_COLORS.birdGray, width: 1.2, alpha: 0.55, cap: "round" });
+    birds.moveTo(x + 12, y).lineTo(x + 18, y - 4).lineTo(x + 24, y)
+      .stroke({ color: GAME_COLORS.birdGray, width: 1.2, alpha: 0.55, cap: "round" });
+  }
+  c.addChild(birds);
+}
+</file>
+
+<file path="utils/game-loader.ts">
+import { Application } from "pixi.js";
+import { audioManager } from "./audio-manager";
+
+type ProgressCallback = (progress: number) => void;
+
+const AUDIO_WEIGHT = 0.7;
+const IMAGE_WEIGHT = 0.1;
+const PIXI_WEIGHT = 0.15;
+const FONT_WEIGHT = 0.05;
+const MIN_LOADING_MS = 1200;
+let preloadPromise: Promise<void> | null = null;
+
+async function preloadFont(): Promise<void> {
+  if (!("fonts" in document)) return;
+  await Promise.all([
+    document.fonts.load('400 16px "Be Vietnam Pro"'),
+    document.fonts.load('700 16px "Be Vietnam Pro"'),
+    document.fonts.load('800 16px "Be Vietnam Pro"'),
+  ]);
+  await document.fonts.ready;
+}
+
+async function preloadImage(src: string): Promise<void> {
+  const image = new Image();
+  image.src = src;
+  await image.decode();
+}
+
+async function warmUpPixiRenderer(): Promise<void> {
+  const app = new Application();
+  await app.init({ width: 1, height: 1, backgroundAlpha: 0, antialias: true, resolution: 1 });
+  app.destroy(true, { children: true });
+}
+
+/** Preloads every network/runtime dependency needed before the first app screen. */
+export function preloadGameResources(onProgress: ProgressCallback): Promise<void> {
+  if (preloadPromise) return preloadPromise;
+  const startedAt = performance.now();
+
+  let audioProgress = 0;
+  let imageReady = 0;
+  let pixiReady = 0;
+  let fontReady = 0;
+  const report = () => onProgress(Math.min(94, Math.round(
+    (audioProgress * AUDIO_WEIGHT + imageReady * IMAGE_WEIGHT + pixiReady * PIXI_WEIGHT + fontReady * FONT_WEIGHT) * 100,
+  )));
+
+  onProgress(0);
+  preloadPromise = Promise.all([
+    audioManager.preloadAll("/assets/", (ratio) => {
+      audioProgress = ratio;
+      report();
+    }),
+    preloadImage("/assets/slashing-fruit-loading.svg").then(() => {
+      imageReady = 1;
+      report();
+    }),
+    warmUpPixiRenderer().then(() => {
+      pixiReady = 1;
+      report();
+    }),
+    preloadFont().then(() => {
+      fontReady = 1;
+      report();
+    }),
+  ]).then(async () => {
+    const remaining = MIN_LOADING_MS - (performance.now() - startedAt);
+    if (remaining > 0) {
+      await new Promise((resolve) => window.setTimeout(resolve, remaining));
+    }
+    onProgress(100);
+  }).catch((error) => {
+    preloadPromise = null;
+    throw error;
+  });
+
+  return preloadPromise;
+}
+</file>
+
+<file path="App.tsx">
+import { useState, useCallback, useEffect } from "react";
+import { TopNav } from "./components/ui/TopNav";
+import { HeroSection } from "./components/ui/HeroSection";
+import { GamePage } from "./components/game/GamePage";
+import { LoadingScreen } from "./components/ui/LoadingScreen";
+import { LoginModal } from "./components/ui/LoginModal";
+import { audioManager } from "./utils/audio-manager";
+import { preloadGameResources } from "./utils/game-loader";
+
+import { useAuth } from "./contexts/AuthContext";
+import { useFirebaseStorage } from "./hooks/useFirebaseStorage";
+
+type AppView = "loading" | "landing" | "game";
+
+export default function App() {
+  const { user, logout: fbLogout } = useAuth();
+  const {
+    bestScore,
+    lastScore,
+    leaderboard,
+    totalGamesPlayed,
+    saveError,
+    verifyingScore,
+    beginGame,
+    onGameOver,
+    refreshLeaderboard,
+  } = useFirebaseStorage();
+
+  const [view, setView] = useState<AppView>("loading");
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [resourcesReady, setResourcesReady] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+  const [muted, setMuted] = useState(false);
+  // Controls the exit transition of the loading screen
+  const [loadingExiting, setLoadingExiting] = useState(false);
+
+  // Sync mute state to audio manager.
+  useEffect(() => {
+    audioManager.setMuted(muted);
+  }, [muted]);
+
+  // Bootstrap once: audio decoding, web fonts and a Pixi renderer preflight.
+  useEffect(() => {
+    let active = true;
+    void preloadGameResources((progress) => {
+      if (active) setLoadingProgress(progress);
+    }).then(() => {
+      if (active) setResourcesReady(true);
+    }).catch((error) => {
+      console.error("Game resource preload failed", error);
+    });
+    return () => { active = false; };
+  }, []);
+
+  // When loading finishes, start exit transition then go to landing
+  const handleLoadingDone = useCallback(() => {
+    setLoadingExiting(true);
+    // Wait for the CSS fade-out/slide-up to finish
+    const timer = window.setTimeout(() => {
+      setView("landing");
+      setLoadingExiting(false);
+    }, 850);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  // "Chơi ngay" -> directly enter game (countdown handled by FruitGame)
+  const handlePlay = useCallback(async () => {
+    try {
+      await audioManager.unlock();
+      if (!audioManager.bgmPlaying) {
+        audioManager.playBgm(0.2);
+      } else {
+        audioManager.setBgmVolume(0.2);
+      }
+    } catch (error) {
+      console.warn("Audio unlock failed", error);
+    }
+    setView("game");
+  }, []);
+
+  const handleHome = useCallback(() => {
+    audioManager.setBgmVolume(0.7);
+    refreshLeaderboard();
+    setView("landing");
+  }, [refreshLeaderboard]);
+
+  // Loading view — waits for all resources
+  if (view === "loading") {
+    return (
+      <LoadingScreen
+        progress={resourcesReady ? 100 : loadingProgress}
+        onDone={handleLoadingDone}
+        completeDelayMs={1150}
+        exiting={loadingExiting}
+      />
+    );
+  }
+
+  // Game view — full screen, dashboard panel opens on demand inside GamePage
+  if (view === "game") {
+    return (
+      <>
+        <GamePage
+          muted={muted}
+          onToggleMute={() => setMuted((m) => !m)}
+          user={user}
+          bestScore={bestScore}
+          lastScore={lastScore}
+          totalGamesPlayed={totalGamesPlayed}
+          leaderboard={leaderboard}
+          saveError={saveError}
+          verifyingScore={verifyingScore}
+          onGameStart={beginGame}
+          onGameOver={onGameOver}
+          onHome={handleHome}
+          onRefreshLeaderboard={refreshLeaderboard}
+          onLoginPrompt={() => setShowLogin(true)}
+        />
+        <LoginModal open={showLogin} onClose={() => setShowLogin(false)} />
+      </>
+    );
+  }
+
+  // Landing view — just nav + hero, no dashboard/footer sections
+  const userDisplay = user ? { name: user.displayName ?? "Người chơi", photoURL: user.photoURL } : null;
+
+  return (
+    <div
+      className="landing-enter"
+      style={{
+        minHeight: "100vh",
+        background: "#f5ecd7",
+        fontFamily: "'Be Vietnam Pro', sans-serif",
+        color: "#2a2418",
+      }}
+    >
+      <TopNav
+        onLogin={() => setShowLogin(true)}
+        user={userDisplay}
+        onLogout={fbLogout}
+        muted={muted}
+        onToggleMute={() => setMuted((m) => !m)}
+      />
+
+      <HeroSection onPlay={handlePlay} />
+
+      <LoginModal open={showLogin} onClose={() => setShowLogin(false)} />
+    </div>
+  );
+}
+</file>
+
+<file path="main.tsx">
+import { createRoot } from "react-dom/client";
+import { AuthProvider } from "./contexts/AuthContext";
+import App from "./App";
+import "./styles/index.css";
+
+// Remove static preloader once React mounts
+const preloader = document.getElementById("preloader");
+if (preloader) {
+  preloader.classList.add("hide");
+  setTimeout(() => preloader.remove(), 400);
+}
+
+createRoot(document.getElementById("root")!).render(
+  <AuthProvider>
+    <App />
+  </AuthProvider>,
+);
+</file>
+
+</files>

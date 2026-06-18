@@ -3,7 +3,6 @@ export const TICK_RATE = 60;
 export const TICK_MS = 1000 / TICK_RATE;
 export const WORLD_WIDTH = 1000;
 export const WORLD_HEIGHT = 600;
-export const MAX_INPUT_SAMPLES = 6000;
 
 export type FruitKind =
   | "durian"
@@ -238,38 +237,6 @@ export function applyInput(state: GameState, sample: InputSample): SliceResult[]
     results.push({ fruit: { ...fruit }, points, combo: state.combo, lives: state.lives });
   }
   return results.reverse();
-}
-
-export function replayGame(seed: number, samples: InputSample[]): GameState {
-  const state = createGame(seed);
-  for (const sample of samples) {
-    if (state.ended) break;
-    applyInput(state, sample);
-  }
-  advanceToTick(state, DURATION_TICKS);
-  return state;
-}
-
-export function isValidInputLog(value: unknown): value is InputSample[] {
-  if (!Array.isArray(value) || value.length > MAX_INPUT_SAMPLES) return false;
-  let previousTick = -1;
-  for (const sample of value) {
-    if (
-      typeof sample !== "object" || sample === null
-      || !Number.isInteger((sample as InputSample).tick)
-      || !Number.isInteger((sample as InputSample).x)
-      || !Number.isInteger((sample as InputSample).y)
-    ) return false;
-    const { tick, x, y } = sample as InputSample;
-    if (
-      tick < previousTick
-      || (previousTick >= 0 && tick - previousTick < 2)
-      || tick > DURATION_TICKS
-      || x < 0 || x > 10000 || y < 0 || y > 10000
-    ) return false;
-    previousTick = tick;
-  }
-  return true;
 }
 
 export function rankFor(score: number): string {

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { httpsCallable } from "firebase/functions";
 import { useAuth } from "../contexts/AuthContext";
 import { functions, getLeaderboard, getUserStats, type ScoreRecord } from "../lib/firebase";
-import type { GameResult, GameSession } from "../components/game/FruitGame";
+import type { GameResult } from "../components/game/FruitGame";
 
 interface SubmitGameResponse {
   score: number;
@@ -12,11 +12,7 @@ interface SubmitGameResponse {
 
 const callSubmitScore = httpsCallable<Pick<GameResult, "score">, SubmitGameResponse>(functions, "submitScore");
 
-function randomSeed(): number {
-  const values = new Uint32Array(1);
-  crypto.getRandomValues(values);
-  return values[0] || Date.now();
-}
+
 
 function firebaseErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
@@ -25,14 +21,14 @@ function firebaseErrorMessage(error: unknown): string {
   return "Không thể lưu điểm lúc này. Ván này sẽ không được xếp hạng.";
 }
 
-export function useFirebaseStorage() {
+export function useScoreData() {
   const { user, loading: authLoading } = useAuth();
   const [bestScore, setBestScore] = useState(0);
   const [lastScore, setLastScore] = useState<number | null>(null);
   const [leaderboard, setLeaderboard] = useState<ScoreRecord[]>([]);
   const [totalGamesPlayed, setTotalGamesPlayed] = useState(0);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [verifyingScore, setVerifyingScore] = useState(false);
+  const [savingScore, setSavingScore] = useState(false);
 
   const fetchLeaderboard = useCallback(async () => {
     try {
@@ -58,15 +54,10 @@ export function useFirebaseStorage() {
       .catch(() => undefined);
   }, [fetchLeaderboard, user]);
 
-  const beginGame = useCallback(async (): Promise<GameSession> => {
-    setSaveError(null);
-    return { seed: randomSeed() };
-  }, []);
-
   const handleGameOver = useCallback(async (result: GameResult) => {
     setLastScore(result.score);
     if (!user) return;
-    setVerifyingScore(true);
+    setSavingScore(true);
     setSaveError(null);
     try {
       const response = await callSubmitScore({ score: result.score });
@@ -78,7 +69,7 @@ export function useFirebaseStorage() {
     } catch (error) {
       setSaveError(firebaseErrorMessage(error));
     } finally {
-      setVerifyingScore(false);
+      setSavingScore(false);
     }
   }, [fetchLeaderboard, user]);
 
@@ -90,8 +81,7 @@ export function useFirebaseStorage() {
     totalGamesPlayed,
     leaderboard,
     saveError,
-    verifyingScore,
-    beginGame,
+    savingScore,
     onGameOver: handleGameOver,
     refreshLeaderboard: fetchLeaderboard,
   };
