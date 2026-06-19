@@ -1,4 +1,5 @@
 import { HeroBackdrop } from "./HeroBackdrop";
+import { HeroPeanutAnimation } from "./HeroPeanutAnimation";
 
 interface Props {
   onPlay: () => void;
@@ -18,6 +19,7 @@ export function HeroSection({ onPlay }: Props) {
       }}
     >
       <HeroBackdrop />
+      <HeroPeanutAnimation />
       <div style={{
         position: "absolute", inset: 0,
         background: "linear-gradient(180deg, rgba(245,236,215,0.2) 0%, rgba(245,236,215,0.0) 30%, rgba(245,236,215,0.55) 100%)",

@@ -4,6 +4,25 @@ export const TICK_MS = 1000 / TICK_RATE;
 export const WORLD_WIDTH = 1000;
 export const WORLD_HEIGHT = 600;
 
+export interface GameConfig {
+  hitboxScale: number;
+  spawnInterval: number;
+  peakYBase: number;
+  peakYRange: number;
+  spawnYOffset: number;
+}
+
+export function getGameConfig(viewportWidth: number): GameConfig {
+  const isMobile = viewportWidth <= 640;
+  return {
+    hitboxScale: isMobile ? 1.45 : 1.3,
+    spawnInterval: isMobile ? 0.98 : 1.0,
+    peakYBase: isMobile ? 40 : 80,
+    peakYRange: isMobile ? 0.12 : 0.2,
+    spawnYOffset: isMobile ? -100 : 40,
+  };
+}
+
 export type FruitKind =
   | "durian"
   | "lychee"
@@ -41,6 +60,10 @@ export interface CoreFruit {
   rotation: number;
   rotationVelocity: number;
   radius: number;
+  spawnY?: number;
+  targetPeakY?: number;
+  minYReached?: number;
+  spawnVelocityY?: number;
 }
 
 export interface SliceResult {
@@ -64,11 +87,14 @@ export interface GameState {
   endReason: "timeout" | "lives" | null;
   fruits: CoreFruit[];
   lastPointer: { x: number; y: number } | null;
+  config: GameConfig;
 }
 
 const DURATION_TICKS = Math.round(GAME_DURATION_MS / TICK_MS);
-const GRAVITY = 1000;
+const GRAVITY = 2200;
 const FRUIT_POOL: FruitKind[] = ["mango", "mango", "banana", "lychee", "dragonfruit", "durian"];
+const TRAJECTORY_DEBUG = typeof window !== "undefined"
+  && new URLSearchParams(window.location.search).has("fruitDebug");
 
 function normalizeSeed(seed: number): number {
   const value = Number.isFinite(seed) ? seed >>> 0 : 0;
@@ -83,8 +109,29 @@ function random(state: GameState): number {
   return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
 }
 
-export function createGame(seed: number): GameState {
+function logFruitTrajectory(reason: "spawn" | "slice" | "despawn", fruit: CoreFruit): void {
+  if (!TRAJECTORY_DEBUG) return;
+  console.debug("[fruit-trajectory]", reason, {
+    id: fruit.id,
+    kind: fruit.kind,
+    spawnY: fruit.spawnY,
+    targetPeakY: fruit.targetPeakY,
+    initialVelocityY: fruit.spawnVelocityY,
+    gravity: GRAVITY,
+    minYReached: fruit.minYReached,
+    currentY: fruit.y,
+  });
+}
+
+export function createGame(seed: number, config?: GameConfig): GameState {
   const normalized = normalizeSeed(seed);
+  const defaultConfig: GameConfig = {
+    hitboxScale: 1.3,
+    spawnInterval: 1.0,
+    peakYBase: 80,
+    peakYRange: 0.2,
+    spawnYOffset: 40,
+  };
   return {
     seed: normalized,
     randomState: normalized,
@@ -99,6 +146,7 @@ export function createGame(seed: number): GameState {
     endReason: null,
     fruits: [],
     lastPointer: null,
+    config: config ?? defaultConfig,
   };
 }
 
@@ -128,19 +176,27 @@ function spawnFruit(state: GameState, bombChance: number, flightSeconds: number)
     radius,
     Math.min(WORLD_WIDTH - radius, startX + (random(state) - 0.5) * (WORLD_WIDTH * 0.45)),
   );
-  const peakY = 80 + random(state) * (WORLD_HEIGHT * 0.2);
+  const peakY = state.config.peakYBase + random(state) * (WORLD_HEIGHT * state.config.peakYRange);
+  const spawnY = WORLD_HEIGHT + state.config.spawnYOffset;
+  const initialVelocityY = -Math.sqrt(2 * GRAVITY * Math.max(50, spawnY - peakY));
 
-  state.fruits.push({
+  const fruit: CoreFruit = {
     id: state.nextFruitId++,
     kind,
     x: startX,
-    y: WORLD_HEIGHT + 40,
+    y: spawnY,
     vx: (targetX - startX) / flightSeconds,
-    vy: -Math.sqrt(2 * GRAVITY * Math.max(50, WORLD_HEIGHT - peakY)),
+    vy: initialVelocityY,
     rotation: 0,
     rotationVelocity: (random(state) - 0.5) * 6,
     radius,
-  });
+    spawnY,
+    targetPeakY: peakY,
+    minYReached: spawnY,
+    spawnVelocityY: initialVelocityY,
+  };
+  state.fruits.push(fruit);
+  logFruitTrajectory("spawn", fruit);
 }
 
 function step(state: GameState): void {
@@ -166,9 +222,10 @@ function step(state: GameState): void {
 
   const deltaSeconds = 1 / TICK_RATE;
   for (const fruit of state.fruits) {
-    fruit.vy += GRAVITY * deltaSeconds;
     fruit.x += fruit.vx * deltaSeconds;
-    fruit.y += fruit.vy * deltaSeconds;
+    fruit.y += fruit.vy * deltaSeconds + 0.5 * GRAVITY * deltaSeconds * deltaSeconds;
+    fruit.vy += GRAVITY * deltaSeconds;
+    fruit.minYReached = Math.min(fruit.minYReached ?? fruit.y, fruit.y);
     fruit.rotation += fruit.rotationVelocity * deltaSeconds;
     if (fruit.x < fruit.radius) {
       fruit.x = fruit.radius;
@@ -178,7 +235,11 @@ function step(state: GameState): void {
       fruit.vx *= -1;
     }
   }
-  state.fruits = state.fruits.filter((fruit) => fruit.y <= WORLD_HEIGHT + 100);
+  state.fruits = state.fruits.filter((fruit) => {
+    const active = fruit.y <= WORLD_HEIGHT + 100;
+    if (!active) logFruitTrajectory("despawn", fruit);
+    return active;
+  });
 }
 
 export function advanceToTick(state: GameState, targetTick: number): void {
@@ -202,7 +263,45 @@ export function normalizePointer(x: number, y: number, width: number, height: nu
   };
 }
 
-export function applyInput(state: GameState, sample: InputSample): SliceResult[] {
+export function screenToWorld(x: number, y: number, width: number, height: number) {
+  const renderScale = Math.min(
+    Math.max(1, width) / WORLD_WIDTH,
+    Math.max(1, height) / WORLD_HEIGHT,
+  );
+  return {
+    x: (x - width / 2) / renderScale + WORLD_WIDTH / 2,
+    y: (y - height / 2) / renderScale + WORLD_HEIGHT / 2,
+  };
+}
+
+function distancePointToSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number): number {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const lengthSquared = dx * dx + dy * dy;
+
+  if (lengthSquared === 0) {
+    const dpx = px - x1;
+    const dpy = py - y1;
+    return Math.sqrt(dpx * dpx + dpy * dpy);
+  }
+
+  let t = ((px - x1) * dx + (py - y1) * dy) / lengthSquared;
+  t = Math.max(0, Math.min(1, t));
+
+  const closestX = x1 + t * dx;
+  const closestY = y1 + t * dy;
+  const dpx = px - closestX;
+  const dpy = py - closestY;
+
+  return Math.sqrt(dpx * dpx + dpy * dpy);
+}
+
+export interface TrailSegment {
+  x: number;
+  y: number;
+}
+
+export function applyInput(state: GameState, sample: InputSample, trail: TrailSegment[] = [], config?: GameConfig): SliceResult[] {
   if (state.ended) return [];
   advanceToTick(state, sample.tick);
   const point = {
@@ -211,13 +310,37 @@ export function applyInput(state: GameState, sample: InputSample): SliceResult[]
   };
   state.lastPointer = point;
 
+  const hitboxScale = config?.hitboxScale ?? 1.1;
+  const checkSegments = trail.length >= 2 ? trail.slice(-10) : [];
+
   const results: SliceResult[] = [];
   for (let index = state.fruits.length - 1; index >= 0; index -= 1) {
     const fruit = state.fruits[index];
+    const hitRadius = fruit.radius * hitboxScale;
+
+    let hit = false;
+
     const dx = fruit.x - point.x;
     const dy = fruit.y - point.y;
-    if (dx * dx + dy * dy >= (fruit.radius + 14) ** 2) continue;
+    if (dx * dx + dy * dy < hitRadius * hitRadius) {
+      hit = true;
+    }
 
+    if (!hit && checkSegments.length >= 2) {
+      for (let i = 1; i < checkSegments.length; i++) {
+        const seg1 = checkSegments[i - 1];
+        const seg2 = checkSegments[i];
+        const dist = distancePointToSegment(fruit.x, fruit.y, seg1.x, seg1.y, seg2.x, seg2.y);
+        if (dist < hitRadius) {
+          hit = true;
+          break;
+        }
+      }
+    }
+
+    if (!hit) continue;
+
+    logFruitTrajectory("slice", fruit);
     state.fruits.splice(index, 1);
     if (fruit.kind === "bomb") {
       state.lives -= 1;

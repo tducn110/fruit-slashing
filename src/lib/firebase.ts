@@ -24,9 +24,9 @@ import {
   orderBy,
   limit,
   getDocs,
+  runTransaction,
   type DocumentData,
 } from "firebase/firestore";
-import { getFunctions } from "firebase/functions";
 
 // ─── Firebase Config ──────────────────────────────────────────────────────────
 const firebaseConfig = {
@@ -46,7 +46,6 @@ export const auth = getAuth(app);
 // Force localStorage persistence — fixes Safari / storage-partitioned browser issues
 setPersistence(auth, browserLocalPersistence);
 export const db = getFirestore(app);
-export const functions = getFunctions(app, "asia-southeast1");
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 
@@ -106,7 +105,44 @@ export interface ScoreRecord {
   createdAt: number;
 }
 
-/** Save a game run to Firestore (runs collection). Also updates user best score. */
+export async function saveScore(user: User, rawScore: number): Promise<number> {
+  if (!Number.isInteger(rawScore) || rawScore < 0) throw new Error("Invalid score");
+
+  const score = Math.min(rawScore, 9999);
+  const now = Date.now();
+  const userRef = doc(db, "users", user.uid);
+  const runRef = doc(collection(db, "runs"));
+  const playerName = user.displayName || user.email || "Người chơi";
+
+  await runTransaction(db, async (transaction) => {
+    const userSnapshot = await transaction.get(userRef);
+    const current = userSnapshot.data();
+
+    if (score > 0) {
+      transaction.set(runRef, {
+        uid: user.uid,
+        playerName,
+        photoURL: user.photoURL,
+        score,
+        playTimeSec: 180,
+        verified: false,
+        createdAt: now,
+      });
+    }
+
+    transaction.set(userRef, {
+      displayName: playerName,
+      photoURL: user.photoURL,
+      bestScore: Math.max(typeof current?.bestScore === "number" ? current.bestScore : 0, score),
+      totalGamesPlayed: (typeof current?.totalGamesPlayed === "number" ? current.totalGamesPlayed : 0) + 1,
+      createdAt: current?.createdAt ?? now,
+      updatedAt: now,
+    }, { merge: true });
+  });
+
+  return score;
+}
+
 /** Fetch top N scores for the leaderboard. */
 export async function getLeaderboard(topN: number = 10): Promise<ScoreRecord[]> {
   const q = query(collection(db, "runs"), orderBy("score", "desc"), limit(topN));

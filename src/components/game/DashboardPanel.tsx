@@ -50,7 +50,7 @@ export function DashboardPanel({
                 }}>
                   <td style={{ padding: "7px 6px", fontWeight: 700 }}>{medal}</td>
                   <td style={{ padding: "7px 6px", fontWeight: isMe ? 800 : 500, color: isMe ? "var(--primary)" : "var(--ink-dark)" }}>
-                    {r.playerName}{isMe ? " (bạn)" : ""}
+                    {r.playerName || "Người chơi"}{isMe ? " (bạn)" : ""}
                   </td>
                   <td style={{ padding: "7px 6px", fontWeight: 700, color: "var(--primary)" }}>{r.score}</td>
                   <td style={{ padding: "7px 6px", color: "var(--pencil-gray)", fontSize: 11 }}>
