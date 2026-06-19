@@ -105,7 +105,11 @@ export interface ScoreRecord {
   createdAt: number;
 }
 
-export async function saveScore(user: User, rawScore: number): Promise<number> {
+export async function saveScore(
+  user: User,
+  rawScore: number,
+  playTimeSec: number
+): Promise<number> {
   if (!Number.isInteger(rawScore) || rawScore < 0) throw new Error("Invalid score");
 
   const score = Math.min(rawScore, 9999);
@@ -113,6 +117,7 @@ export async function saveScore(user: User, rawScore: number): Promise<number> {
   const userRef = doc(db, "users", user.uid);
   const runRef = doc(collection(db, "runs"));
   const playerName = user.displayName || user.email || "Người chơi";
+  const safePlayTimeSec = Math.max(0, Math.min(180, Math.round(playTimeSec)));
 
   await runTransaction(db, async (transaction) => {
     const userSnapshot = await transaction.get(userRef);
@@ -124,7 +129,7 @@ export async function saveScore(user: User, rawScore: number): Promise<number> {
         playerName,
         photoURL: user.photoURL,
         score,
-        playTimeSec: 180,
+        playTimeSec: safePlayTimeSec,
         verified: false,
         createdAt: now,
       });

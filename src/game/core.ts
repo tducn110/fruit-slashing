@@ -10,6 +10,7 @@ export interface GameConfig {
   peakYBase: number;
   peakYRange: number;
   spawnYOffset: number;
+  debugTrajectory?: boolean;
 }
 
 export function getGameConfig(viewportWidth: number): GameConfig {
@@ -93,8 +94,6 @@ export interface GameState {
 const DURATION_TICKS = Math.round(GAME_DURATION_MS / TICK_MS);
 const GRAVITY = 2200;
 const FRUIT_POOL: FruitKind[] = ["mango", "mango", "banana", "lychee", "dragonfruit", "durian"];
-const TRAJECTORY_DEBUG = typeof window !== "undefined"
-  && new URLSearchParams(window.location.search).has("fruitDebug");
 
 function normalizeSeed(seed: number): number {
   const value = Number.isFinite(seed) ? seed >>> 0 : 0;
@@ -109,8 +108,8 @@ function random(state: GameState): number {
   return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
 }
 
-function logFruitTrajectory(reason: "spawn" | "slice" | "despawn", fruit: CoreFruit): void {
-  if (!TRAJECTORY_DEBUG) return;
+function logFruitTrajectory(state: GameState, reason: "spawn" | "slice" | "despawn", fruit: CoreFruit): void {
+  if (!state.config.debugTrajectory) return;
   console.debug("[fruit-trajectory]", reason, {
     id: fruit.id,
     kind: fruit.kind,
@@ -196,7 +195,7 @@ function spawnFruit(state: GameState, bombChance: number, flightSeconds: number)
     spawnVelocityY: initialVelocityY,
   };
   state.fruits.push(fruit);
-  logFruitTrajectory("spawn", fruit);
+  logFruitTrajectory(state, "spawn", fruit);
 }
 
 function step(state: GameState): void {
@@ -212,7 +211,7 @@ function step(state: GameState): void {
 
   const difficulty = difficultyAt(state.tick);
   if (state.tick >= state.nextSpawnTick) {
-    const spawnEveryMs = 1100 - difficulty * 680;
+    const spawnEveryMs = (1100 - difficulty * 680) * state.config.spawnInterval;
     const count = 1 + Math.floor(difficulty * 3.5);
     const bombChance = 0.02 + difficulty * 0.26;
     const flightSeconds = 1.35 - difficulty * 0.65;
@@ -237,7 +236,7 @@ function step(state: GameState): void {
   }
   state.fruits = state.fruits.filter((fruit) => {
     const active = fruit.y <= WORLD_HEIGHT + 100;
-    if (!active) logFruitTrajectory("despawn", fruit);
+    if (!active) logFruitTrajectory(state, "despawn", fruit);
     return active;
   });
 }
@@ -340,7 +339,7 @@ export function applyInput(state: GameState, sample: InputSample, trail: TrailSe
 
     if (!hit) continue;
 
-    logFruitTrajectory("slice", fruit);
+    logFruitTrajectory(state, "slice", fruit);
     state.fruits.splice(index, 1);
     if (fruit.kind === "bomb") {
       state.lives -= 1;

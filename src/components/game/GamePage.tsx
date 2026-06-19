@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { FruitGame, type GameResult } from "./FruitGame";
+import { FruitGame } from "./FruitGame";
+import type { GameResult } from "../../game/types";
 import { Home, Settings, Trophy } from "lucide-react";
 import type { User } from "firebase/auth";
 import type { ScoreRecord } from "../../lib/firebase";

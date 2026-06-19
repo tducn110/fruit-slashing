@@ -1,71 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { getLeaderboard, getUserStats, saveScore, type ScoreRecord } from "../lib/firebase";
-import type { GameResult } from "../components/game/FruitGame";
-
-const LOCAL_SCORES_KEY = "fruit-game-scores";
-
-interface LocalScore {
-  uid: string;
-  playerName: string;
-  photoURL: string | null;
-  score: number;
-  playTimeSec: number;
-  createdAt: number;
-}
-
-function saveLocalScore(localScore: LocalScore): LocalScore | null {
-  if (!Number.isFinite(localScore.score) || localScore.score < 0) {
-    console.error("Invalid local fallback score:", localScore.score);
-    return null;
-  }
-
-  try {
-    const stored = localStorage.getItem(LOCAL_SCORES_KEY);
-    const parsed = stored ? JSON.parse(stored) : [];
-    const scores: LocalScore[] = Array.isArray(parsed) ? parsed : [];
-    scores.push(localScore);
-    scores.sort((a, b) => b.score - a.score);
-    const trimmedScores = scores.slice(0, 100);
-    localStorage.setItem(LOCAL_SCORES_KEY, JSON.stringify(trimmedScores));
-    if (import.meta.env.DEV) {
-      console.log("[ScoreData] saved local fallback score", localScore);
-    }
-    return localScore;
-  } catch (error) {
-    console.error("Failed to save score to localStorage:", error);
-    try {
-      const fallbackScores = [localScore];
-      localStorage.setItem(LOCAL_SCORES_KEY, JSON.stringify(fallbackScores));
-      if (import.meta.env.DEV) {
-        console.log("[ScoreData] saved local fallback score", localScore);
-      }
-      return localScore;
-    } catch (storageError) {
-      console.error("Failed to reset corrupt local scores:", storageError);
-    }
-    return null;
-  }
-}
-
-function getLocalScores(): ScoreRecord[] {
-  try {
-    const stored = localStorage.getItem(LOCAL_SCORES_KEY);
-    if (!stored) return [];
-    const parsed = JSON.parse(stored);
-    const scores: LocalScore[] = Array.isArray(parsed) ? parsed : [];
-    return scores.map((s) => ({
-      uid: s.uid,
-      playerName: s.playerName,
-      photoURL: s.photoURL,
-      score: s.score,
-      playTimeSec: s.playTimeSec,
-      createdAt: s.createdAt,
-    }));
-  } catch {
-    return [];
-  }
-}
+import type { GameResult } from "../game/types";
+import {
+  getLocalScores,
+  saveLocalScore,
+  type LocalScore,
+} from "../lib/localScores";
 
 function firebaseErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
@@ -92,19 +33,28 @@ export function useScoreData() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
     void fetchLeaderboard();
     if (!user) {
-      setBestScore(0);
-      setTotalGamesPlayed(0);
+      const localScores = getLocalScores();
+      setBestScore(localScores[0]?.score ?? 0);
+      setTotalGamesPlayed(localScores.length);
       setLastScore(null);
       return;
     }
+
     getUserStats(user.uid)
       .then((stats) => {
+        if (cancelled) return;
         setBestScore(stats.bestScore);
         setTotalGamesPlayed(stats.totalGamesPlayed);
       })
       .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
   }, [fetchLeaderboard, user]);
 
   const handleGameOver = useCallback(async (result: GameResult) => {
@@ -121,7 +71,7 @@ export function useScoreData() {
       playerName: user?.displayName || "Người chơi",
       photoURL: user?.photoURL || null,
       score: result.score,
-      playTimeSec: 180,
+      playTimeSec: result.playTimeSec,
       createdAt: Date.now(),
     };
 
@@ -137,7 +87,7 @@ export function useScoreData() {
         return;
       }
 
-      const verifiedScore = await saveScore(user, result.score);
+      const verifiedScore = await saveScore(user, result.score, result.playTimeSec);
 
       if (!Number.isFinite(verifiedScore) || verifiedScore < 0) {
         throw new Error("Invalid score returned from server");

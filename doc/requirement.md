@@ -38,7 +38,9 @@ Toàn bộ phong cách thiết kế, giao diện, đồ họa in-game và âm th
   - Tiếng UI tick, hover và nổ bom rộn ràng.
 
 ## 4. Công nghệ triển khai (Tech Stack)
-- **Game Engine:** **PixiJS** (Đảm nhiệm Canvas, Rendering 60FPS, Sprite Batching, Logic Vật lý và Vòng lặp Game).
+- **Game Engine:**
+  - **core.ts:** Đảm nhiệm gameplay, physics deterministic, quản lý điểm và hitbox.
+  - **PixiJS:** Đảm nhiệm Canvas, Rendering 60FPS, Sprite Batching, nhận Input và tạo hiệu ứng (effects).
 - **UI & Trạng thái:** **React + Vite** (Đảm nhiệm các Overlay, Menu, HUD, Popup Đăng nhập, Bảng xếp hạng).
 - **Database/Auth:** **Firebase** (Firestore & Auth) để xử lý logic Backend tạm thời trước khi cắm vào hệ thống API của Wink.
 - **Architecture:** Tiếp tục duy trì và mở rộng cấu trúc **Component-based Strategy Pattern** đã được chuẩn hóa để dễ dàng cấu hình thêm các loại mục tiêu/nhân vật mới từ Bộ Lạc Đậu Phộng.

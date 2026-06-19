@@ -12,6 +12,7 @@ import {
   screenToWorld,
   timeLeftSeconds,
   getGameConfig,
+  TICK_RATE,
   type GameState,
   type InputSample,
   type SliceResult,
@@ -27,10 +28,7 @@ import {
   makeHalf,
   drawBackground,
 } from "../../utils/fruit-utils";
-
-export interface GameResult {
-  score: number;
-}
+import type { GameResult } from "../../game/types";
 
 interface Props {
   onGameOver?: (result: GameResult) => void;
@@ -106,7 +104,14 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     setRunning(false);
     setFinalScore(state.score);
     syncHud(state);
-    callbacksRef.current.onGameOver?.({ score: state.score });
+
+    const playTimeSec = Math.min(180, Math.floor(state.tick / TICK_RATE));
+    const result: GameResult = {
+      score: state.score,
+      playTimeSec,
+      endReason: state.endReason ?? undefined,
+    };
+    callbacksRef.current.onGameOver?.(result);
   }
 
   function handlePointer(clientX: number, clientY: number) {
@@ -239,7 +244,13 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
       const values = new Uint32Array(1);
       crypto.getRandomValues(values);
       const seed = values[0] || Date.now();
-      const config = getGameConfig(sizeRef.current.w);
+      const debugTrajectory =
+        typeof window !== "undefined" &&
+        new URLSearchParams(window.location.search).has("fruitDebug");
+      const config = {
+        ...getGameConfig(sizeRef.current.w),
+        debugTrajectory,
+      };
       console.log('[FruitGame] viewport width:', sizeRef.current.w, 'config:', config);
       coreRef.current = createGame(seed, config);
       submittedRef.current = false;
