@@ -5,6 +5,7 @@ import { drawBackground } from "../../../utils/fruit-utils";
 export function usePixiApp() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<Application | null>(null);
+  const backgroundLayerRef = useRef<Container | null>(null);
   const playLayerRef = useRef<Container | null>(null);
   const trailGraphicsRef = useRef<Graphics | null>(null);
   const sizeRef = useRef({ w: 800, h: 450 });
@@ -20,40 +21,69 @@ export function usePixiApp() {
     const height = Math.max(200, wrap.clientHeight || 450);
     sizeRef.current = { w: width, h: height };
 
+    // DPR/resolution safety: Cap window.devicePixelRatio at 2
+    const resolution = Math.min(window.devicePixelRatio || 1, 2);
+
     const resizeObserver = new ResizeObserver(() => {
-      if (!appRef.current) return;
+      if (cancelled || !appRef.current) return;
       const nextWidth = Math.max(320, wrap.clientWidth);
       const nextHeight = Math.max(200, wrap.clientHeight);
       if (nextWidth === sizeRef.current.w && nextHeight === sizeRef.current.h) return;
       sizeRef.current = { w: nextWidth, h: nextHeight };
       appRef.current.renderer.resize(nextWidth, nextHeight);
       
-      const backgroundLayer = appRef.current.stage.children[0] as Container;
-      if (backgroundLayer) {
-        backgroundLayer.removeChildren().forEach((child) => child.destroy());
+      const backgroundLayer = backgroundLayerRef.current;
+      if (backgroundLayer && appRef.current) {
+        // Clean up old background textures to prevent memory leaks on resize
+        backgroundLayer.children.forEach((child) => {
+          if (child instanceof Sprite && child.texture) {
+            child.texture.destroy(true);
+          }
+          child.destroy({ children: true });
+        });
+        backgroundLayer.removeChildren();
+
         const background = new Container();
         drawBackground(background, nextWidth, nextHeight);
-        backgroundLayer.addChild(new Sprite(appRef.current.renderer.generateTexture(background)));
+        const texture = appRef.current.renderer.generateTexture(background);
+        const sprite = new Sprite(texture);
+        backgroundLayer.addChild(sprite);
         background.destroy({ children: true });
       }
     });
 
-    app.init({ width, height, background: 0xf5ecd7, antialias: true, resolution: window.devicePixelRatio || 1, autoDensity: true })
+    app.init({
+      width,
+      height,
+      background: 0xf5ecd7,
+      antialias: true,
+      resolution,
+      autoDensity: true
+    })
       .then(() => {
         if (cancelled) {
-          app.destroy(true);
+          app.destroy({ removeView: true });
           return;
         }
         appRef.current = app;
         wrap.appendChild(app.canvas);
-        Object.assign(app.canvas.style, { display: "block", width: "100%", height: "100%", touchAction: "none", cursor: "crosshair" });
+        Object.assign(app.canvas.style, {
+          display: "block",
+          width: "100%",
+          height: "100%",
+          touchAction: "none",
+          cursor: "crosshair"
+        });
 
         const backgroundLayer = new Container();
         const background = new Container();
         drawBackground(background, width, height);
-        backgroundLayer.addChild(new Sprite(app.renderer.generateTexture(background)));
+        const texture = app.renderer.generateTexture(background);
+        const sprite = new Sprite(texture);
+        backgroundLayer.addChild(sprite);
         background.destroy({ children: true });
         app.stage.addChild(backgroundLayer);
+        backgroundLayerRef.current = backgroundLayer;
 
         const playLayer = new Container();
         app.stage.addChild(playLayer);
@@ -71,8 +101,21 @@ export function usePixiApp() {
     return () => {
       cancelled = true;
       resizeObserver.disconnect();
-      app.destroy(true, { children: true });
+
+      // Clean up background texture resources to prevent memory leaks on unmount
+      const bgLayer = backgroundLayerRef.current;
+      if (bgLayer) {
+        bgLayer.children.forEach((child) => {
+          if (child instanceof Sprite && child.texture) {
+            child.texture.destroy(true);
+          }
+        });
+      }
+
+      app.stage.destroy({ children: true });
+      app.destroy({ removeView: true });
       appRef.current = null;
+      backgroundLayerRef.current = null;
       playLayerRef.current = null;
       trailGraphicsRef.current = null;
       setReady(false);
