@@ -60,7 +60,7 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
   callbacksRef.current = { onGameOver, muted, onPlaySlice, onPlayBomb };
   const { wrapRef, appRef, sizeRef, playLayerRef, trailGraphicsRef, ready } = usePixiApp();
   const { texturesRef, texturesReady } = useFruitTextures({ appRef, appReady: ready });
-  const { syncFruitSprites, clearFruitSprites } = useFruitSprites({ playLayerRef, texturesRef, sizeRef });
+  const { syncFruitSprites, clearFruitSprites } = useFruitSprites({ playLayerRef, texturesRef, texturesReady, sizeRef });
   const { addParticle, updateParticles, clearParticles } = useParticleSystem();
   const {
     flashRed,
