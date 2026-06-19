@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Application, Container, Graphics, Sprite, Texture, Ticker } from "pixi.js";
 import {
   GAME_DURATION_MS,
@@ -31,6 +31,7 @@ import {
 import type { GameResult } from "../../game/types";
 import { useGameSession } from "../../features/game/runtime/useGameSession";
 import { useSlashTrail } from "../../features/game/input/useSlashTrail";
+import { useGamePointerInput } from "../../features/game/input/useGamePointerInput";
 
 interface Props {
   onGameOver?: (result: GameResult) => void;
@@ -121,42 +122,14 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     syncHud(state);
   }
 
-  function handlePointer(clientX: number, clientY: number) {
-    if (destroyedRef.current) return;
-    const app = appRef.current;
+  const handleSliceResult = useCallback((
+    results: SliceResult[],
+    previousTrail: TrailPoint | undefined,
+    screenX: number,
+    screenY: number
+  ) => {
     const state = coreRef.current;
-    if (!app || !app.canvas) return;
-    const rect = app.canvas.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-    const screenX = (clientX - rect.left) * (sizeRef.current.w / rect.width);
-    const screenY = (clientY - rect.top) * (sizeRef.current.h / rect.height);
-    const now = performance.now();
-    const previousTrail = trailPointsRef.current.at(-1);
-    addTrailPoint({ x: screenX, y: screenY, t: now });
-    if (!playingRef.current || !state) return;
-
-    const tick = elapsedTick(now - startedAtRef.current);
-    const worldPoint = screenToWorld(
-      screenX,
-      screenY,
-      sizeRef.current.w,
-      sizeRef.current.h,
-    );
-    const sample = normalizePointer(
-      worldPoint.x,
-      worldPoint.y,
-      WORLD_WIDTH,
-      WORLD_HEIGHT,
-      tick,
-    );
-
-    const trailSegments: TrailSegment[] = trailPointsRef.current.map((p) =>
-      screenToWorld(p.x, p.y, sizeRef.current.w, sizeRef.current.h),
-    );
-
-    const config = getGameConfig(sizeRef.current.w);
-    const results = applyInput(state, sample, trailSegments, config);
-
+    if (!state) return;
     for (const result of results) {
       showSliceEffect(result, {
         dx: previousTrail ? screenX - previousTrail.x : 1,
@@ -168,7 +141,19 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
       syncHud(state);
     }
     if (state.ended) finishGame();
-  }
+  }, [showSliceEffect, syncFruitSprites, syncHud, finishGame]);
+
+  useGamePointerInput({
+    canvasRef,
+    gameStateRef: coreRef,
+    playingRef,
+    startedAtRef,
+    sizeRef,
+    addTrailPoint,
+    clearTrail,
+    trailPointsRef,
+    onSliceResult: handleSliceResult,
+  });
 
   function tick(ticker: Ticker) {
     if (destroyedRef.current) return;
@@ -200,10 +185,6 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     });
     resizeObserver.observe(wrapRef.current);
 
-    const pointerHandler = (event: PointerEvent) => handlePointer(event.clientX, event.clientY);
-    app.canvas.addEventListener("pointermove", pointerHandler);
-    app.canvas.addEventListener("pointerdown", pointerHandler);
-
     app.ticker.add(tick);
 
     if (!playingRef.current && !countdown) {
@@ -213,12 +194,6 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     return () => {
       destroyedRef.current = true;
       resizeObserver.disconnect();
-
-      const canvas = canvasRef.current;
-      if (canvas) {
-        canvas.removeEventListener("pointermove", pointerHandler);
-        canvas.removeEventListener("pointerdown", pointerHandler);
-      }
 
       if (app?.ticker) {
         app.ticker.remove(tick);
