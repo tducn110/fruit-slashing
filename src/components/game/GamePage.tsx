@@ -104,14 +104,14 @@ export function GamePage({
           <button
             onClick={() => toggle("dashboard")}
             className="game-btn"
-            style={{ ...btnStyle, ...(panel === "dashboard" ? { background: "color-mix(in srgb, var(--primary) 12%, transparent)", borderColor: "var(--primary)" } : {}) }}
+            style={{ ...btnStyle, ...(panel === "dashboard" ? { background: "color-mix(in srgb, var(--primary) 12%, transparent)", border: "2px solid var(--primary)" } : {}) }}
           >
             <Trophy size={15} /> <span className="btnLabel">Bảng điểm</span>
           </button>
           <button
             onClick={() => toggle("settings")}
             className="game-btn"
-            style={{ ...btnStyle, ...(panel === "settings" ? { background: "color-mix(in srgb, var(--primary) 12%, transparent)", borderColor: "var(--primary)" } : {}) }}
+            style={{ ...btnStyle, ...(panel === "settings" ? { background: "color-mix(in srgb, var(--primary) 12%, transparent)", border: "2px solid var(--primary)" } : {}) }}
           >
             <Settings size={15} /> Cài đặt
           </button>

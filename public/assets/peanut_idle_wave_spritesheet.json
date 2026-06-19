@@ -1,0 +1,200 @@
+{
+  "frames": {
+    "peanut_idle_wave_00.png": {
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "w": 384,
+        "h": 512
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 384,
+        "h": 512
+      },
+      "sourceSize": {
+        "w": 384,
+        "h": 512
+      }
+    },
+    "peanut_idle_wave_01.png": {
+      "frame": {
+        "x": 384,
+        "y": 0,
+        "w": 384,
+        "h": 512
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 384,
+        "h": 512
+      },
+      "sourceSize": {
+        "w": 384,
+        "h": 512
+      }
+    },
+    "peanut_idle_wave_02.png": {
+      "frame": {
+        "x": 768,
+        "y": 0,
+        "w": 384,
+        "h": 512
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 384,
+        "h": 512
+      },
+      "sourceSize": {
+        "w": 384,
+        "h": 512
+      }
+    },
+    "peanut_idle_wave_03.png": {
+      "frame": {
+        "x": 1152,
+        "y": 0,
+        "w": 384,
+        "h": 512
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 384,
+        "h": 512
+      },
+      "sourceSize": {
+        "w": 384,
+        "h": 512
+      }
+    },
+    "peanut_idle_wave_04.png": {
+      "frame": {
+        "x": 0,
+        "y": 512,
+        "w": 384,
+        "h": 512
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 384,
+        "h": 512
+      },
+      "sourceSize": {
+        "w": 384,
+        "h": 512
+      }
+    },
+    "peanut_idle_wave_05.png": {
+      "frame": {
+        "x": 384,
+        "y": 512,
+        "w": 384,
+        "h": 512
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 384,
+        "h": 512
+      },
+      "sourceSize": {
+        "w": 384,
+        "h": 512
+      }
+    },
+    "peanut_idle_wave_06.png": {
+      "frame": {
+        "x": 768,
+        "y": 512,
+        "w": 384,
+        "h": 512
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 384,
+        "h": 512
+      },
+      "sourceSize": {
+        "w": 384,
+        "h": 512
+      }
+    },
+    "peanut_idle_wave_07.png": {
+      "frame": {
+        "x": 1152,
+        "y": 512,
+        "w": 384,
+        "h": 512
+      },
+      "rotated": false,
+      "trimmed": false,
+      "spriteSourceSize": {
+        "x": 0,
+        "y": 0,
+        "w": 384,
+        "h": 512
+      },
+      "sourceSize": {
+        "w": 384,
+        "h": 512
+      }
+    }
+  },
+  "animations": {
+    "idle_wave": [
+      "peanut_idle_wave_00.png",
+      "peanut_idle_wave_01.png",
+      "peanut_idle_wave_00.png",
+      "peanut_idle_wave_04.png",
+      "peanut_idle_wave_05.png",
+      "peanut_idle_wave_04.png",
+      "peanut_idle_wave_06.png",
+      "peanut_idle_wave_07.png",
+      "peanut_idle_wave_06.png",
+      "peanut_idle_wave_03.png"
+    ],
+    "blink": [
+      "peanut_idle_wave_00.png",
+      "peanut_idle_wave_01.png",
+      "peanut_idle_wave_02.png",
+      "peanut_idle_wave_01.png",
+      "peanut_idle_wave_00.png"
+    ]
+  },
+  "meta": {
+    "image": "peanut_idle_wave_spritesheet.png",
+    "format": "RGBA8888",
+    "size": {
+      "w": 1536,
+      "h": 1024
+    },
+    "scale": "1",
+    "grid": {
+      "columns": 4,
+      "rows": 2,
+      "frameWidth": 384,
+      "frameHeight": 512
+    }
+  }
+}

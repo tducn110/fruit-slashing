@@ -16,6 +16,17 @@
   .gameTitle  { font-size: 13px !important; }
   .gameSub { font-size: 13px !important; }
   .gameActions { gap: 4px !important; }
+
+  .gameHud {
+    top: 48px !important;
+    left: 12px !important;
+    right: 12px !important;
+    font-size: 0.9em !important;
+  }
+  .gameHud > div {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
 }
 
 .loginPromptBtn:hover p:first-child { text-decoration: underline; }

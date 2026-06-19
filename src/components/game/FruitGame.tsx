@@ -9,10 +9,13 @@ import {
   createGame,
   elapsedTick,
   normalizePointer,
+  screenToWorld,
   timeLeftSeconds,
+  getGameConfig,
   type GameState,
   type InputSample,
   type SliceResult,
+  type TrailSegment,
 } from "../../game/core";
 import {
   type FruitKind,
@@ -82,6 +85,8 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
   const startedAtRef = useRef(0);
   const playingRef = useRef(false);
   const submittedRef = useRef(false);
+  const destroyedRef = useRef(false);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [running, setRunning] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -105,9 +110,10 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
   }
 
   function handlePointer(clientX: number, clientY: number) {
+    if (destroyedRef.current) return;
     const app = appRef.current;
     const state = coreRef.current;
-    if (!app) return;
+    if (!app || !app.canvas) return;
     const rect = app.canvas.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
     const screenX = (clientX - rect.left) * (sizeRef.current.w / rect.width);
@@ -119,8 +125,27 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     if (!playingRef.current || !state) return;
 
     const tick = elapsedTick(now - startedAtRef.current);
-    const sample = normalizePointer(screenX, screenY, sizeRef.current.w, sizeRef.current.h, tick);
-    const results = applyInput(state, sample);
+    const worldPoint = screenToWorld(
+      screenX,
+      screenY,
+      sizeRef.current.w,
+      sizeRef.current.h,
+    );
+    const sample = normalizePointer(
+      worldPoint.x,
+      worldPoint.y,
+      WORLD_WIDTH,
+      WORLD_HEIGHT,
+      tick,
+    );
+
+    const trailSegments: TrailSegment[] = trailRef.current.map((p) =>
+      screenToWorld(p.x, p.y, sizeRef.current.w, sizeRef.current.h),
+    );
+
+    const config = getGameConfig(sizeRef.current.w);
+    const results = applyInput(state, sample, trailSegments, config);
+
     for (const result of results) {
       showSliceEffect(result, {
         dx: previousTrail ? screenX - previousTrail.x : 1,
@@ -135,6 +160,7 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
   }
 
   function tick(ticker: Ticker) {
+    if (destroyedRef.current) return;
     const state = coreRef.current;
     if (playingRef.current && state) {
       advanceToTick(state, elapsedTick(performance.now() - startedAtRef.current));
@@ -151,15 +177,15 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     if (trailGraphics) {
       trailGraphics.clear();
       const now = performance.now();
-      trailRef.current = trailRef.current.filter((point) => now - point.t < 220);
+      trailRef.current = trailRef.current.filter((point) => now - point.t < 320);
       for (let index = 1; index < trailRef.current.length; index += 1) {
         const from = trailRef.current[index - 1];
         const to = trailRef.current[index];
-        const alpha = 1 - (now - to.t) / 220;
+        const alpha = 1 - (now - to.t) / 320;
         trailGraphics.moveTo(from.x, from.y).lineTo(to.x, to.y)
-          .stroke({ color: 0xffffff, width: 12 * alpha + 3, alpha: alpha * 0.95, cap: "round" });
+          .stroke({ color: 0xffffff, width: 18 * alpha + 5, alpha: alpha * 0.95, cap: "round" });
         trailGraphics.moveTo(from.x, from.y).lineTo(to.x, to.y)
-          .stroke({ color: 0xe87432, width: 5 * alpha + 1, alpha, cap: "round" });
+          .stroke({ color: 0xe87432, width: 7 * alpha + 2, alpha, cap: "round" });
       }
     }
   }
@@ -167,7 +193,11 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
   useEffect(() => {
     if (!ready || !texturesReady || !appRef.current || !wrapRef.current) return;
     const app = appRef.current;
-    
+    if (!app.canvas) return;
+
+    destroyedRef.current = false;
+    canvasRef.current = app.canvas;
+
     const resizeObserver = new ResizeObserver(() => {
       if (coreRef.current) syncFruitSprites(coreRef.current);
     });
@@ -184,10 +214,18 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     }
 
     return () => {
+      destroyedRef.current = true;
       resizeObserver.disconnect();
-      app.canvas.removeEventListener("pointermove", pointerHandler);
-      app.canvas.removeEventListener("pointerdown", pointerHandler);
-      app.ticker.remove(tick);
+
+      const canvas = canvasRef.current;
+      if (canvas) {
+        canvas.removeEventListener("pointermove", pointerHandler);
+        canvas.removeEventListener("pointerdown", pointerHandler);
+      }
+
+      if (app?.ticker) {
+        app.ticker.remove(tick);
+      }
 
       clearFruitSprites();
       clearParticles();
@@ -201,7 +239,9 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
       const values = new Uint32Array(1);
       crypto.getRandomValues(values);
       const seed = values[0] || Date.now();
-      coreRef.current = createGame(seed);
+      const config = getGameConfig(sizeRef.current.w);
+      console.log('[FruitGame] viewport width:', sizeRef.current.w, 'config:', config);
+      coreRef.current = createGame(seed, config);
       submittedRef.current = false;
       clearParticles();
       clearFeedback();

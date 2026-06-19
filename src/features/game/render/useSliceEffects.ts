@@ -1,4 +1,4 @@
-import { type Container, Sprite, type Texture } from "pixi.js";
+import { type Container, Graphics, Sprite, type Texture } from "pixi.js";
 import { type SliceResult, WORLD_WIDTH, WORLD_HEIGHT } from "../../../game/core";
 import { type Particle, COLORS } from "../../../utils/fruit-utils";
 
@@ -83,6 +83,25 @@ export function useSliceEffects({
     const perpendicular = angle + Math.PI / 2;
     const splitSpeed = 220;
     const scale = renderScale();
+    const slashLength = Math.max(120, result.fruit.radius * scale * 4.2);
+    const slash = new Graphics();
+    slash.moveTo(-slashLength / 2, 0).lineTo(slashLength / 2, 0)
+      .stroke({ color: 0xffffff, width: 16, alpha: 0.9, cap: "round" });
+    slash.moveTo(-slashLength / 2, 0).lineTo(slashLength / 2, 0)
+      .stroke({ color: 0xe87432, width: 7, alpha: 1, cap: "round" });
+    slash.position.set(screen.x, screen.y);
+    slash.rotation = angle;
+    layer.addChild(slash);
+    addParticle({
+      g: slash,
+      vx: 0,
+      vy: 0,
+      rot: angle,
+      vr: 0,
+      life: 0.2,
+      ttl: 0.2,
+      rotates: false,
+    });
     (["left", "right"] as const).forEach((side, index) => {
       const g = new Sprite(texturesRef.current[`${result.fruit.kind}_${side}`]);
       g.anchor.set(0.5);

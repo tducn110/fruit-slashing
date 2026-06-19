@@ -1,18 +1,71 @@
 import { useCallback, useEffect, useState } from "react";
-import { httpsCallable } from "firebase/functions";
 import { useAuth } from "../contexts/AuthContext";
-import { functions, getLeaderboard, getUserStats, type ScoreRecord } from "../lib/firebase";
+import { getLeaderboard, getUserStats, saveScore, type ScoreRecord } from "../lib/firebase";
 import type { GameResult } from "../components/game/FruitGame";
 
-interface SubmitGameResponse {
+const LOCAL_SCORES_KEY = "fruit-game-scores";
+
+interface LocalScore {
+  uid: string;
+  playerName: string;
+  photoURL: string | null;
   score: number;
-  rank: string;
-  runId: string | null;
+  playTimeSec: number;
+  createdAt: number;
 }
 
-const callSubmitScore = httpsCallable<Pick<GameResult, "score">, SubmitGameResponse>(functions, "submitScore");
+function saveLocalScore(localScore: LocalScore): LocalScore | null {
+  if (!Number.isFinite(localScore.score) || localScore.score < 0) {
+    console.error("Invalid local fallback score:", localScore.score);
+    return null;
+  }
 
+  try {
+    const stored = localStorage.getItem(LOCAL_SCORES_KEY);
+    const parsed = stored ? JSON.parse(stored) : [];
+    const scores: LocalScore[] = Array.isArray(parsed) ? parsed : [];
+    scores.push(localScore);
+    scores.sort((a, b) => b.score - a.score);
+    const trimmedScores = scores.slice(0, 100);
+    localStorage.setItem(LOCAL_SCORES_KEY, JSON.stringify(trimmedScores));
+    if (import.meta.env.DEV) {
+      console.log("[ScoreData] saved local fallback score", localScore);
+    }
+    return localScore;
+  } catch (error) {
+    console.error("Failed to save score to localStorage:", error);
+    try {
+      const fallbackScores = [localScore];
+      localStorage.setItem(LOCAL_SCORES_KEY, JSON.stringify(fallbackScores));
+      if (import.meta.env.DEV) {
+        console.log("[ScoreData] saved local fallback score", localScore);
+      }
+      return localScore;
+    } catch (storageError) {
+      console.error("Failed to reset corrupt local scores:", storageError);
+    }
+    return null;
+  }
+}
 
+function getLocalScores(): ScoreRecord[] {
+  try {
+    const stored = localStorage.getItem(LOCAL_SCORES_KEY);
+    if (!stored) return [];
+    const parsed = JSON.parse(stored);
+    const scores: LocalScore[] = Array.isArray(parsed) ? parsed : [];
+    return scores.map((s) => ({
+      uid: s.uid,
+      playerName: s.playerName,
+      photoURL: s.photoURL,
+      score: s.score,
+      playTimeSec: s.playTimeSec,
+      createdAt: s.createdAt,
+    }));
+  } catch {
+    return [];
+  }
+}
 
 function firebaseErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
@@ -34,7 +87,7 @@ export function useScoreData() {
     try {
       setLeaderboard(await getLeaderboard(10));
     } catch {
-      // Keep the last successful snapshot while offline.
+      setLeaderboard(getLocalScores().slice(0, 10));
     }
   }, []);
 
@@ -56,18 +109,56 @@ export function useScoreData() {
 
   const handleGameOver = useCallback(async (result: GameResult) => {
     setLastScore(result.score);
-    if (!user) return;
+
+    if (!Number.isFinite(result.score) || result.score < 0) {
+      console.error("Invalid score:", result.score);
+      setSaveError("Điểm không hợp lệ.");
+      return;
+    }
+
+    const fallbackScore: LocalScore = {
+      uid: user?.uid || "local-player",
+      playerName: user?.displayName || "Người chơi",
+      photoURL: user?.photoURL || null,
+      score: result.score,
+      playTimeSec: 180,
+      createdAt: Date.now(),
+    };
+
     setSavingScore(true);
     setSaveError(null);
     try {
-      const response = await callSubmitScore({ score: result.score });
-      const verifiedScore = response.data.score;
+      if (!user) {
+        const savedRecord = saveLocalScore(fallbackScore);
+        if (!savedRecord) throw new Error("Failed to save score locally");
+        setBestScore((current) => Math.max(current, result.score));
+        setTotalGamesPlayed((current) => current + 1);
+        setLeaderboard(getLocalScores().slice(0, 10));
+        return;
+      }
+
+      const verifiedScore = await saveScore(user, result.score);
+
+      if (!Number.isFinite(verifiedScore) || verifiedScore < 0) {
+        throw new Error("Invalid score returned from server");
+      }
+
       setLastScore(verifiedScore);
       setBestScore((current) => Math.max(current, verifiedScore));
       setTotalGamesPlayed((current) => current + 1);
       await fetchLeaderboard();
     } catch (error) {
-      setSaveError(firebaseErrorMessage(error));
+      console.warn("Remote score submission failed, saving locally:", error);
+      setSaveError("Bảng điểm online tạm thời không khả dụng, đang dùng lưu tạm trên máy.");
+      const savedRecord = saveLocalScore(fallbackScore);
+      if (!savedRecord) {
+        setSaveError(firebaseErrorMessage(error));
+        return;
+      }
+
+      setBestScore((current) => Math.max(current, result.score));
+      setTotalGamesPlayed((current) => current + 1);
+      setLeaderboard(getLocalScores().slice(0, 10));
     } finally {
       setSavingScore(false);
     }

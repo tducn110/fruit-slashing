@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Container, Sprite, Texture } from "pixi.js";
 import { RADIUS, type FruitKind } from "../../../utils/fruit-utils";
-import { WORLD_HEIGHT, WORLD_WIDTH, type GameState } from "../../../game/core";
+import { WORLD_HEIGHT, WORLD_WIDTH, type GameState, getGameConfig } from "../../../game/core";
 
 interface Props {
   playLayerRef: React.RefObject<Container | null>;
@@ -15,12 +15,15 @@ export function useFruitSprites({ playLayerRef, texturesRef, sizeRef }: Props) {
   function syncFruitSprites(state: GameState) {
     if (!playLayerRef.current) return;
     const layer = playLayerRef.current;
-    
+
     const renderScale = Math.min(sizeRef.current.w / WORLD_WIDTH, sizeRef.current.h / WORLD_HEIGHT);
     const worldToScreen = (x: number, y: number) => ({
       x: (x - WORLD_WIDTH / 2) * renderScale + sizeRef.current.w / 2,
       y: (y - WORLD_HEIGHT / 2) * renderScale + sizeRef.current.h / 2,
     });
+
+    const isMobile = sizeRef.current.w <= 640;
+    const fruitScale = isMobile ? 1.3 : 1.0;
 
     const activeIds = new Set(state.fruits.map((f) => f.id));
     for (const [id, sprite] of spriteMapRef.current.entries()) {
@@ -29,7 +32,7 @@ export function useFruitSprites({ playLayerRef, texturesRef, sizeRef }: Props) {
         spriteMapRef.current.delete(id);
       }
     }
-    
+
     for (const fruit of state.fruits) {
       let sprite = spriteMapRef.current.get(fruit.id);
       if (!sprite) {
@@ -42,7 +45,7 @@ export function useFruitSprites({ playLayerRef, texturesRef, sizeRef }: Props) {
       sprite.x = x;
       sprite.y = y;
       sprite.rotation = fruit.rotation;
-      sprite.scale.set((RADIUS[fruit.kind as FruitKind] / 20) * renderScale * 0.9);
+      sprite.scale.set((RADIUS[fruit.kind as FruitKind] / 20) * renderScale * 0.9 * fruitScale);
     }
   }
 
