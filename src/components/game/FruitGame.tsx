@@ -238,7 +238,9 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
         />
       )}
 
-      <FloatingTextLayer bombTexts={bombTexts} pointTexts={pointTexts} />
+      <div className="feedbackTextLayer">
+        <FloatingTextLayer bombTexts={bombTexts} pointTexts={pointTexts} />
+      </div>
 
       <GameHud hud={hud} running={running} />
 
