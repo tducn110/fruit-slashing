@@ -112,11 +112,17 @@ export async function saveScore(
 ): Promise<number> {
   if (!Number.isInteger(rawScore) || rawScore < 0) throw new Error("Invalid score");
 
+  await auth.authStateReady();
+  const currentUser = auth.currentUser;
+  if (!currentUser || currentUser.uid !== user.uid) {
+    throw new Error("Authenticated user does not match score owner");
+  }
+
   const score = Math.min(rawScore, 9999);
   const now = Date.now();
-  const userRef = doc(db, "users", user.uid);
+  const userRef = doc(db, "users", currentUser.uid);
   const runRef = doc(collection(db, "runs"));
-  const playerName = user.displayName || user.email || "Người chơi";
+  const playerName = currentUser.displayName || currentUser.email || "Người chơi";
   const safePlayTimeSec = Math.max(0, Math.min(180, Math.round(playTimeSec)));
 
   await runTransaction(db, async (transaction) => {
@@ -125,9 +131,9 @@ export async function saveScore(
 
     if (score > 0) {
       transaction.set(runRef, {
-        uid: user.uid,
+        uid: currentUser.uid,
         playerName,
-        photoURL: user.photoURL,
+        photoURL: currentUser.photoURL,
         score,
         playTimeSec: safePlayTimeSec,
         verified: false,
@@ -137,7 +143,7 @@ export async function saveScore(
 
     transaction.set(userRef, {
       displayName: playerName,
-      photoURL: user.photoURL,
+      photoURL: currentUser.photoURL,
       bestScore: Math.max(typeof current?.bestScore === "number" ? current.bestScore : 0, score),
       totalGamesPlayed: (typeof current?.totalGamesPlayed === "number" ? current.totalGamesPlayed : 0) + 1,
       createdAt: current?.createdAt ?? now,

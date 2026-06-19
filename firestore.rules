@@ -1,26 +1,111 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /runs/{document} {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function hasValidPhotoURL(data) {
+      return data.photoURL == null || data.photoURL is string;
+    }
+
+    function hasValidUserFields(data) {
+      return data.keys().hasOnly([
+          'displayName',
+          'photoURL',
+          'bestScore',
+          'totalGamesPlayed',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasAll([
+          'displayName',
+          'photoURL',
+          'bestScore',
+          'totalGamesPlayed',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.displayName is string
+        && data.displayName.size() > 0
+        && data.displayName.size() <= 100
+        && hasValidPhotoURL(data)
+        && data.bestScore is int
+        && data.bestScore >= 0
+        && data.bestScore <= 9999
+        && data.totalGamesPlayed is int
+        && data.totalGamesPlayed >= 0
+        && data.createdAt is int
+        && data.createdAt > 0
+        && data.updatedAt is int
+        && data.updatedAt >= data.createdAt;
+    }
+
+    match /runs/{runId} {
+      // Public leaderboard data; all client writes remain owner-authenticated.
       allow read: if true;
-      allow create: if request.auth != null
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'playerName',
+          'photoURL',
+          'score',
+          'playTimeSec',
+          'verified',
+          'createdAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'uid',
+          'playerName',
+          'photoURL',
+          'score',
+          'playTimeSec',
+          'verified',
+          'createdAt'
+        ])
         && request.resource.data.uid == request.auth.uid
+        && request.resource.data.playerName is string
+        && request.resource.data.playerName.size() > 0
+        && request.resource.data.playerName.size() <= 100
+        && hasValidPhotoURL(request.resource.data)
         && request.resource.data.score is int
         && request.resource.data.score > 0
         && request.resource.data.score <= 9999
-        && request.resource.data.playTimeSec == 180
-        && request.resource.data.verified == false;
+        && request.resource.data.playTimeSec is int
+        && request.resource.data.playTimeSec >= 0
+        && request.resource.data.playTimeSec <= 180
+        && request.resource.data.verified == false
+        && request.resource.data.createdAt is int
+        && request.resource.data.createdAt > 0;
       allow update, delete: if false;
     }
+
     match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow create, update: if request.auth != null
-        && request.auth.uid == userId
-        && request.resource.data.bestScore is int
-        && request.resource.data.bestScore >= 0
-        && request.resource.data.bestScore <= 9999
-        && request.resource.data.totalGamesPlayed is int
-        && request.resource.data.totalGamesPlayed >= 0;
+      // User profile statistics are private to their authenticated owner.
+      allow read: if isOwner(userId);
+
+      allow create: if isOwner(userId)
+        && hasValidUserFields(request.resource.data)
+        && request.resource.data.totalGamesPlayed == 1;
+
+      allow update: if isOwner(userId)
+        && hasValidUserFields(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayName',
+          'photoURL',
+          'bestScore',
+          'totalGamesPlayed',
+          'updatedAt'
+        ])
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.bestScore >= resource.data.bestScore
+        && request.resource.data.totalGamesPlayed == resource.data.totalGamesPlayed + 1
+        && request.resource.data.updatedAt >= resource.data.updatedAt;
+
       allow delete: if false;
     }
   }
