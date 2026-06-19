@@ -30,6 +30,7 @@ import {
 } from "../../utils/fruit-utils";
 import type { GameResult } from "../../game/types";
 import { useGameSession } from "../../features/game/runtime/useGameSession";
+import { useSlashTrail } from "../../features/game/input/useSlashTrail";
 
 interface Props {
   onGameOver?: (result: GameResult) => void;
@@ -93,7 +94,10 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     startedAtRef,
   } = session;
 
-  const trailRef = useRef<TrailPoint[]>([]);
+  const { trailPointsRef, addTrailPoint, clearTrail, drawTrail } = useSlashTrail({
+    trailGraphicsRef,
+  });
+
   const coreRef = useRef<GameState | null>(null);
   const destroyedRef = useRef(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -127,9 +131,8 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     const screenX = (clientX - rect.left) * (sizeRef.current.w / rect.width);
     const screenY = (clientY - rect.top) * (sizeRef.current.h / rect.height);
     const now = performance.now();
-    const previousTrail = trailRef.current.at(-1);
-    trailRef.current.push({ x: screenX, y: screenY, t: now });
-    if (trailRef.current.length > 18) trailRef.current.shift();
+    const previousTrail = trailPointsRef.current.at(-1);
+    addTrailPoint({ x: screenX, y: screenY, t: now });
     if (!playingRef.current || !state) return;
 
     const tick = elapsedTick(now - startedAtRef.current);
@@ -147,7 +150,7 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
       tick,
     );
 
-    const trailSegments: TrailSegment[] = trailRef.current.map((p) =>
+    const trailSegments: TrailSegment[] = trailPointsRef.current.map((p) =>
       screenToWorld(p.x, p.y, sizeRef.current.w, sizeRef.current.h),
     );
 
@@ -181,21 +184,7 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
 
     updateScreenShake(playLayerRef.current);
 
-    const trailGraphics = trailGraphicsRef.current;
-    if (trailGraphics) {
-      trailGraphics.clear();
-      const now = performance.now();
-      trailRef.current = trailRef.current.filter((point) => now - point.t < 320);
-      for (let index = 1; index < trailRef.current.length; index += 1) {
-        const from = trailRef.current[index - 1];
-        const to = trailRef.current[index];
-        const alpha = 1 - (now - to.t) / 320;
-        trailGraphics.moveTo(from.x, from.y).lineTo(to.x, to.y)
-          .stroke({ color: 0xffffff, width: 18 * alpha + 5, alpha: alpha * 0.95, cap: "round" });
-        trailGraphics.moveTo(from.x, from.y).lineTo(to.x, to.y)
-          .stroke({ color: 0xe87432, width: 7 * alpha + 2, alpha, cap: "round" });
-      }
-    }
+    drawTrail();
   }
 
   useEffect(() => {
@@ -237,6 +226,7 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
 
       clearFruitSprites();
       clearParticles();
+      clearTrail();
     };
   }, [ready, texturesReady]);
 
