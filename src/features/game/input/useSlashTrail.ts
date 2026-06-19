@@ -1,5 +1,5 @@
-import { useRef, useCallback } from "react";
-import { Graphics } from "pixi.js";
+import { useCallback, useRef, type RefObject } from "react";
+import type { Graphics } from "pixi.js";
 
 export interface TrailPoint {
   x: number;
@@ -7,11 +7,15 @@ export interface TrailPoint {
   t: number;
 }
 
-interface UseSlashTrailOptions {
-  trailGraphicsRef: React.RefObject<Graphics | null>;
+export interface UseSlashTrailOptions {
+  trailGraphicsRef: RefObject<Graphics | null>;
+  maxAgeMs?: number;
 }
 
-export function useSlashTrail({ trailGraphicsRef }: UseSlashTrailOptions) {
+export function useSlashTrail({
+  trailGraphicsRef,
+  maxAgeMs = 320,
+}: UseSlashTrailOptions) {
   const trailPointsRef = useRef<TrailPoint[]>([]);
 
   const addTrailPoint = useCallback((point: TrailPoint) => {
@@ -37,7 +41,7 @@ export function useSlashTrail({ trailGraphicsRef }: UseSlashTrailOptions) {
     const now = performance.now();
 
     // Prune old points
-    trailPointsRef.current = trailPointsRef.current.filter((point) => now - point.t < 320);
+    trailPointsRef.current = trailPointsRef.current.filter((point) => now - point.t < maxAgeMs);
 
     for (let index = 1; index < trailPointsRef.current.length; index += 1) {
       const from = trailPointsRef.current[index - 1];
