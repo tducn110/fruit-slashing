@@ -113,7 +113,11 @@ export function useGameTicker({
     app.ticker.add(tick);
 
     return () => {
-      app.ticker.remove(tick);
+      try {
+        app.ticker?.remove?.(tick);
+      } catch {
+        // Ignore teardown races when the Pixi app has already been destroyed.
+      }
     };
   }, [appRef, enabled, destroyedRef, gameStateRef, playingRef, startedAtRef, sizeRef, playLayerRef]);
 }

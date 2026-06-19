@@ -9,7 +9,33 @@ export function HeroPeanutAnimation() {
     if (!host) return;
 
     let cancelled = false;
+    let appDestroyed = false;
     const app = new Application();
+
+    function destroyApp() {
+      if (appDestroyed) {
+        return;
+      }
+      appDestroyed = true;
+
+      try {
+        app.ticker?.stop?.();
+      } catch {
+        // Ignore teardown races during unmount.
+      }
+
+      try {
+        app.stage?.destroy?.({ children: true });
+      } catch {
+        // Ignore teardown races during unmount.
+      }
+
+      try {
+        app.destroy({ removeView: true });
+      } catch {
+        // Ignore teardown races during unmount.
+      }
+    }
 
     void app.init({
       width: 384,
@@ -20,7 +46,7 @@ export function HeroPeanutAnimation() {
       autoDensity: true,
     }).then(async () => {
       if (cancelled) {
-        app.destroy(true);
+        destroyApp();
         return;
       }
 
@@ -69,7 +95,7 @@ export function HeroPeanutAnimation() {
 
     return () => {
       cancelled = true;
-      app.destroy(true, { children: true });
+      destroyApp();
     };
   }, []);
 
