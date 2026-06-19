@@ -155,9 +155,29 @@ export async function saveScore(
 
 /** Fetch top N scores for the leaderboard. */
 export async function getLeaderboard(topN: number = 10): Promise<ScoreRecord[]> {
-  const q = query(collection(db, "runs"), orderBy("score", "desc"), limit(topN));
+  // Fetch more runs to allow client-side deduplication.
+  // A fully correct global leaderboard should use a `leaderboard/{uid}` aggregate later.
+  const fetchLimit = Math.max(100, topN * 10);
+  const q = query(collection(db, "runs"), orderBy("score", "desc"), limit(fetchLimit));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => d.data() as ScoreRecord);
+  const runs = snap.docs.map((d) => d.data() as ScoreRecord);
+
+  const bestByUid = new Map<string, ScoreRecord>();
+
+  for (const run of runs) {
+    const existing = bestByUid.get(run.uid);
+    if (
+      !existing ||
+      run.score > existing.score ||
+      (run.score === existing.score && run.createdAt > existing.createdAt)
+    ) {
+      bestByUid.set(run.uid, run);
+    }
+  }
+
+  return Array.from(bestByUid.values())
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topN);
 }
 
 /** Fetch user stats (bestScore, totalGamesPlayed) from Firestore. */
