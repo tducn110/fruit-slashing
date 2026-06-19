@@ -29,6 +29,7 @@ import {
   drawBackground,
 } from "../../utils/fruit-utils";
 import type { GameResult } from "../../game/types";
+import { useGameSession } from "../../features/game/runtime/useGameSession";
 
 interface Props {
   onGameOver?: (result: GameResult) => void;
@@ -78,19 +79,26 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     callbacksRef,
   });
 
+  const session = useGameSession({
+    onGameOver: (result) => callbacksRef.current.onGameOver?.(result),
+    onStart: handleStart,
+  });
+
+  const {
+    countdown,
+    running,
+    starting,
+    finalScore,
+    playingRef,
+    startedAtRef,
+  } = session;
+
   const trailRef = useRef<TrailPoint[]>([]);
   const coreRef = useRef<GameState | null>(null);
-  const startedAtRef = useRef(0);
-  const playingRef = useRef(false);
-  const submittedRef = useRef(false);
   const destroyedRef = useRef(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const [running, setRunning] = useState(false);
-  const [starting, setStarting] = useState(false);
-  const [finalScore, setFinalScore] = useState<number | null>(null);
   const [hud, setHud] = useState<HudState>({ score: 0, lives: 3, combo: 0, time: GAME_DURATION_SECONDS });
-  const [countdown, setCountdown] = useState<number | null>(null);
 
   function syncHud(state: GameState) {
     setHud({ score: state.score, lives: state.lives, combo: state.combo, time: timeLeftSeconds(state) });
@@ -98,20 +106,15 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
 
   function finishGame() {
     const state = coreRef.current;
-    if (!state || submittedRef.current) return;
-    submittedRef.current = true;
-    playingRef.current = false;
-    setRunning(false);
-    setFinalScore(state.score);
-    syncHud(state);
-
+    if (!state) return;
     const playTimeSec = Math.min(180, Math.floor(state.tick / TICK_RATE));
     const result: GameResult = {
       score: state.score,
       playTimeSec,
       endReason: state.endReason ?? undefined,
     };
-    callbacksRef.current.onGameOver?.(result);
+    session.finishGame(result);
+    syncHud(state);
   }
 
   function handlePointer(clientX: number, clientY: number) {
@@ -215,7 +218,7 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     app.ticker.add(tick);
 
     if (!playingRef.current && !countdown) {
-      beginCountdown();
+      session.startCountdown();
     }
 
     return () => {
@@ -237,53 +240,27 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     };
   }, [ready, texturesReady]);
 
-  async function start() {
-    if (starting) return;
-    setStarting(true);
-    try {
-      const values = new Uint32Array(1);
-      crypto.getRandomValues(values);
-      const seed = values[0] || Date.now();
-      const debugTrajectory =
-        typeof window !== "undefined" &&
-        new URLSearchParams(window.location.search).has("fruitDebug");
-      const config = {
-        ...getGameConfig(sizeRef.current.w),
-        debugTrajectory,
-      };
-      console.log('[FruitGame] viewport width:', sizeRef.current.w, 'config:', config);
-      coreRef.current = createGame(seed, config);
-      submittedRef.current = false;
-      clearParticles();
-      clearFeedback();
-      clearFruitSprites();
-      startedAtRef.current = performance.now();
-      playingRef.current = true;
-      setFinalScore(null);
-      setRunning(true);
-      setCountdown(null);
-      syncHud(coreRef.current);
-    } finally {
-      setStarting(false);
-    }
+  function handleStart() {
+    session.startSession();
+
+    const values = new Uint32Array(1);
+    crypto.getRandomValues(values);
+    const seed = values[0] || Date.now();
+    const debugTrajectory =
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).has("fruitDebug");
+    const config = {
+      ...getGameConfig(sizeRef.current.w),
+      debugTrajectory,
+    };
+    console.log('[FruitGame] viewport width:', sizeRef.current.w, 'config:', config);
+    coreRef.current = createGame(seed, config);
+
+    clearParticles();
+    clearFeedback();
+    clearFruitSprites();
+    syncHud(coreRef.current);
   }
-
-  function beginCountdown() {
-    if (!starting) setCountdown(3);
-  }
-
-  useEffect(() => {
-    if (!running && finalScore === null && countdown === null) beginCountdown();
-  }, []);
-
-  useEffect(() => {
-    if (countdown === null || countdown <= 0) return;
-    const timer = setTimeout(() => {
-      if (countdown === 1) void start();
-      else setCountdown(countdown - 1);
-    }, 700);
-    return () => clearTimeout(timer);
-  }, [countdown]);
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
@@ -309,7 +286,7 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
         finalScore={finalScore}
         running={running}
         countdown={countdown}
-        onReplay={beginCountdown}
+        onReplay={session.resetSession}
       />
 
       <CountdownOverlay countdown={countdown} starting={starting} />

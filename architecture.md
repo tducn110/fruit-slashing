@@ -23,7 +23,7 @@
 
 ### Yêu cầu
 
-- **Node.js** ≥ 20 (functions yêu cầu Node 20)
+- **Node.js** ≥ 20
 - **pnpm** (hoặc npm)
 - (Tùy chọn) **Firebase CLI** nếu muốn chạy emulator hoặc deploy
 
@@ -71,27 +71,16 @@ pnpm test:watch   # Chạy tests ở watch mode
 ### Chạy Firebase emulators
 
 ```bash
-# Cài dependencies và build functions
-cd functions && pnpm install && pnpm build && cd ..
-
 # Khởi động emulators
 firebase emulators:start
 # → Auth emulator:      localhost:9099
-# → Functions emulator:  localhost:5001
 # → Firestore emulator:  localhost:8080
 # → Emulator UI:         localhost:4000
 ```
 
-### Chạy Cloud Functions
+### Chạy Reset Leaderboard (Admin)
 
 ```bash
-cd functions
-
-pnpm build                    # Build với esbuild → lib/index.js
-pnpm typecheck                # Kiểm tra TypeScript
-pnpm test                     # Chạy tests
-
-# Reset leaderboard (admin script)
 pnpm reset:leaderboard -- fruit-games-79f91 --confirm-delete
 ```
 
@@ -106,9 +95,7 @@ pnpm reset:leaderboard -- fruit-games-79f91 --confirm-delete
 | Build Tool | Vite | 6.3.5 |
 | CSS Framework | Tailwind CSS | 4.1.12 |
 | Language | TypeScript | 5.8.3 |
-| Backend | Firebase (Auth, Firestore, Functions) | 12.14.0 |
-| Cloud Functions | firebase-functions v2 (Node 20) | 7.2.5 |
-| Cloud Functions Build | esbuild | 0.28.1 |
+| Backend | Firebase (Auth, Firestore) | 12.14.0 |
 | Icons | Lucide React | 0.487.0 |
 | Animations | tw-animate-css | 1.3.8 |
 | Testing | Vitest | 3.2.4 |
@@ -150,8 +137,8 @@ Speed Click Game/
 │   │   └── theme.css           # 🎨 Design tokens, shadcn/ui compat, game button primitives
 │   │
 │   ├── lib/
-│   │   └── firebase.ts         # Firebase init, Auth/Firestore/Functions helpers
-│   │                           # → exports: auth, db, functions, loginWithGoogle,
+│   │   └── firebase.ts         # Firebase init, Auth/Firestore helpers
+│   │                           # → exports: auth, db, loginWithGoogle,
 │   │                           #   signUpWithEmail, signInWithEmail, logout,
 │   │                           #   getLeaderboard, getUserStats, ScoreRecord
 │   │
@@ -174,7 +161,7 @@ Speed Click Game/
 │       │
 │       ├── hooks/
 │       │   ├── useSound.ts              # Hook SFX (playSlice, playBomb, polyphonic)
-│       │   └── useFirebaseStorage.ts    # Hook lưu/đọc điểm qua Cloud Function
+│       │   └── useFirebaseStorage.ts    # Hook lưu/đọc điểm qua Firestore transaction
 │       │
 │       ├── lib/
 │       │   └── AuthContext.tsx       # React Context Firebase Auth (Google popup→redirect fallback)
@@ -186,15 +173,8 @@ Speed Click Game/
 │           ├── fruit-utils.ts       # PixiJS procedural vector graphics cho 7 loại trái cây
 │           └── game-loader.ts       # Preload toàn bộ assets (audio 70%, Pixi 15%, ảnh 10%, fonts 5%)
 │
-├── functions/                  # Firebase Cloud Functions (asia-southeast1)
-│   ├── package.json            # chem-lac-functions, Node 20, esbuild
-│   ├── tsconfig.json           # Includes ../../src/game/core.ts (shared game logic!)
-│   ├── src/
-│   │   └── index.ts            # submitScore — onCall v2, Firestore transaction
-│   ├── scripts/
-│   │   └── reset-leaderboard.mjs  # Admin script xóa toàn bộ leaderboard
-│   └── lib/
-│       └── index.js            # Build output (esbuild → CJS)
+├── scripts/
+│   └── reset-leaderboard.mjs  # Admin script xóa toàn bộ leaderboard
 │
 └── tests/                      # (trống — tests nằm trong src/game/core.test.ts)
 ```
@@ -269,15 +249,14 @@ flowchart TB
     end
 
     subgraph Firebase ["☁️ Firebase (asia-southeast1)"]
-        FirebaseInit["firebase.ts\n(app, db, auth, functions)"]
+        FirebaseInit["firebase.ts
+(app, db, auth)"]
         AuthCtx["AuthContext.tsx\n(Google popup → redirect)"]
         Storage["useFirebaseStorage.ts"]
-        CloudFn["Cloud Function\nsubmitScore (onCall v2)"]
         Firestore[("Firestore\nruns + users")]
 
         AuthCtx --> FirebaseInit
-        Storage -->|httpsCallable| CloudFn
-        CloudFn -->|transaction| Firestore
+        Storage -->|transaction| Firestore
         Storage -->|getLeaderboard\ngetUserStats| Firestore
     end
 
@@ -300,7 +279,6 @@ sequenceDiagram
     participant FG as FruitGame
     participant GP as GamePage
     participant FS as useFirebaseStorage
-    participant CF as Cloud Function<br/>(submitScore)
     participant DB as Firestore
 
     U->>FG: Chém trái cây (pointer events)
@@ -314,12 +292,8 @@ sequenceDiagram
     GP->>FS: onGameOver({ score })
 
     alt Đã đăng nhập
-        FS->>CF: httpsCallable("submitScore", { score })
-        CF->>CF: requireUid() → validate score
-        CF->>CF: getAuth().getUser(uid) → playerName, photoURL
-        CF->>DB: Transaction:<br/>1. SET runs/{auto} (score, uid, playerName...)<br/>2. SET users/{uid} (bestScore=max, totalGamesPlayed++)
-        DB-->>CF: Commit OK
-        CF-->>FS: { score, rank, runId }
+        FS->>DB: Transaction:<br/>1. SET runs/{auto} (score, uid, playerName...)<br/>2. SET users/{uid} (bestScore=max, totalGamesPlayed++)
+        DB-->>FS: Commit OK
         FS->>DB: getLeaderboard(10) — query runs, order by score desc
         DB-->>FS: Top 10 ScoreRecord[]
         FS-->>GP: Cập nhật leaderboard + bestScore + lastScore
@@ -329,7 +303,7 @@ sequenceDiagram
     end
 ```
 
-> **⚠️ Quan trọng**: Client **không bao giờ** ghi trực tiếp vào Firestore. Tất cả score writes đều qua Cloud Function `submitScore`. Firestore rules: `allow write: if false` cho cả `runs` và `users`.
+> **⚠️ Lưu ý**: Score writes được thực hiện trực tiếp từ client qua Firestore transaction. Yêu cầu update `firestore.rules` để cho phép thao tác tạo mới document an toàn.
 
 ### 4.4. Luồng xác thực (Auth Flow)
 
@@ -503,11 +477,11 @@ lastScore: number | null   // Điểm lần chơi gần nhất
 totalGamesPlayed: number   // Tổng lượt chơi (từ Firestore)
 leaderboard: ScoreRecord[] // Top 10 từ Firestore runs collection
 saveError: string | null   // Lỗi Vietnamese khi lưu
-verifyingScore: boolean    // Đang gọi Cloud Function
+savingScore: boolean       // Đang lưu điểm
 
 // Actions
 beginGame()           → { seed: crypto.getRandomValues() }
-onGameOver(result)    → httpsCallable("submitScore") → Cloud Function
+onGameOver(result)    → chạy Firestore transaction trực tiếp
 refreshLeaderboard()  → getLeaderboard(10) → query runs collection
 ```
 
@@ -552,7 +526,7 @@ Autoplay strategy:
 
 ### Thiết kế: Deterministic Tick-Based Simulation
 
-Game engine hoàn toàn **deterministic** — cùng `seed` + cùng `InputSample[]` sẽ cho cùng kết quả. Engine được **share giữa client và server** (Cloud Functions tsconfig includes `../../src/game/core.ts`), cho phép replay & verify điểm server-side.
+Game engine hoàn toàn **deterministic** — cùng `seed` + cùng `InputSample[]` sẽ cho cùng kết quả. Engine độc lập và không chứa side-effects, sẵn sàng cho việc tính toán đồng bộ mọi nơi.
 
 ### Constants
 
@@ -711,26 +685,6 @@ service cloud.firestore {
     }
   }
 }
-```
-
-### Cloud Function — `submitScore`
-
-```
-Region: asia-southeast1
-Memory: 256MiB
-Timeout: 15s
-Type: onCall v2 (httpsCallable)
-
-Flow:
-1. requireUid(request.auth) → uid (unauthenticated → HttpsError)
-2. Validate score: integer ≥ 0, cap tại 9999
-3. getAuth().getUser(uid) → playerName, photoURL
-4. Firestore transaction:
-   a. SET runs/{auto-id}: { uid, playerName, photoURL, score, playTimeSec=180, verified=false, createdAt }
-   b. SET users/{uid} (merge): { bestScore=max, totalGamesPlayed++, timestamps }
-5. Return { score, rank: rankFor(score), runId }
-
-Shared code: imports rankFor() từ ../../src/game/core.ts
 ```
 
 ### Admin Script — `reset-leaderboard.mjs`
