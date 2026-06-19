@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Container, Sprite, Texture } from "pixi.js";
-import { RADIUS, type FruitKind } from "../../../utils/fruit-utils";
 import { WORLD_HEIGHT, WORLD_WIDTH, type GameState } from "../../../game/core";
+import { VISUAL_RADIUS } from "./fruitVisuals";
 
 interface Props {
   playLayerRef: React.RefObject<Container | null>;
@@ -62,7 +62,7 @@ export function useFruitSprites({ playLayerRef, texturesRef, texturesReady, size
       sprite.x = x;
       sprite.y = y;
       sprite.rotation = fruit.rotation;
-      sprite.scale.set((RADIUS[fruit.kind as FruitKind] / 20) * renderScale * 0.9 * fruitScale);
+      sprite.scale.set((VISUAL_RADIUS[fruit.kind] / 20) * renderScale * 0.9 * fruitScale);
     }
   }
 

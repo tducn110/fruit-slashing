@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { type Particle } from "../../../utils/fruit-utils";
+import { type Particle } from "./fruitVisuals";
 
 export function useParticleSystem() {
   const particlesRef = useRef<Particle[]>([]);

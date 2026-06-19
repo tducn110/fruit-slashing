@@ -1,6 +1,6 @@
 import { type Container, Graphics, Sprite, type Texture } from "pixi.js";
 import { type SliceResult, WORLD_WIDTH, WORLD_HEIGHT } from "../../../game/core";
-import { type Particle, COLORS } from "../../../utils/fruit-utils";
+import { FRUIT_COLORS, type Particle } from "./fruitVisuals";
 
 interface Callbacks {
   muted: boolean;
@@ -183,8 +183,8 @@ export function useSliceEffects({
         rotates: true,
       }, layer);
     });
-    spawnSplat(screen.x, screen.y, COLORS[result.fruit.kind].flesh, 45, 5);
-    spawnSplat(screen.x, screen.y, COLORS[result.fruit.kind].body, 15, 3);
+    spawnSplat(screen.x, screen.y, FRUIT_COLORS[result.fruit.kind].flesh, 45, 5);
+    spawnSplat(screen.x, screen.y, FRUIT_COLORS[result.fruit.kind].body, 15, 3);
     triggerPointFeedback({
       x: screen.x,
       y: screen.y,

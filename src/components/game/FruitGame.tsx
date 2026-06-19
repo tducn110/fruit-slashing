@@ -1,38 +1,28 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Application, Container, Graphics, Sprite, Texture } from "pixi.js";
 import {
   GAME_DURATION_MS,
-  WORLD_HEIGHT,
-  WORLD_WIDTH,
-  advanceToTick,
-  applyInput,
   createGame,
-  elapsedTick,
-  normalizePointer,
-  screenToWorld,
   timeLeftSeconds,
   getGameConfig,
   TICK_RATE,
   type GameState,
-  type InputSample,
   type SliceResult,
-  type TrailSegment,
 } from "../../game/core";
-import {
-  type FruitKind,
-  type Particle,
-  type TrailPoint,
-  COLORS,
-  RADIUS,
-  makeFruit,
-  makeHalf,
-  drawBackground,
-} from "../../utils/fruit-utils";
 import type { GameResult } from "../../game/types";
 import { useGameSession } from "../../features/game/runtime/useGameSession";
-import { useSlashTrail } from "../../features/game/input/useSlashTrail";
+import { useSlashTrail, type TrailPoint } from "../../features/game/input/useSlashTrail";
 import { useGamePointerInput } from "../../features/game/input/useGamePointerInput";
 import { useGameTicker } from "../../features/game/runtime/useGameTicker";
+import { GameHud, type HudState } from "./GameHud";
+import { CountdownOverlay } from "./CountdownOverlay";
+import { GameOverOverlay } from "./GameOverOverlay";
+import { FloatingTextLayer } from "./FloatingTextLayer";
+import { usePixiApp } from "../../features/game/render/usePixiApp";
+import { useFruitTextures } from "../../features/game/render/useFruitTextures";
+import { useFruitSprites } from "../../features/game/render/useFruitSprites";
+import { useParticleSystem } from "../../features/game/render/useParticleSystem";
+import { useGameFeedback } from "../../features/game/render/useGameFeedback";
+import { useSliceEffects } from "../../features/game/render/useSliceEffects";
 
 interface Props {
   onGameOver?: (result: GameResult) => void;
@@ -41,19 +31,7 @@ interface Props {
   onPlayBomb?: () => void;
 }
 
-import { GameHud, type HudState } from "./GameHud";
-import { CountdownOverlay } from "./CountdownOverlay";
-import { GameOverOverlay } from "./GameOverOverlay";
-import { FloatingTextLayer, type BombText, type PointText } from "./FloatingTextLayer";
-import { usePixiApp } from "../../features/game/render/usePixiApp";
-import { useFruitTextures } from "../../features/game/render/useFruitTextures";
-import { useFruitSprites } from "../../features/game/render/useFruitSprites";
-import { useParticleSystem } from "../../features/game/render/useParticleSystem";
-import { useGameFeedback } from "../../features/game/render/useGameFeedback";
-import { useSliceEffects } from "../../features/game/render/useSliceEffects";
-
 const GAME_DURATION_SECONDS = GAME_DURATION_MS / 1000;
-const FRUIT_KINDS: FruitKind[] = ["durian", "lychee", "banana", "dragonfruit", "mango", "peanut", "bomb"];
 
 export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }: Props) {
   const callbacksRef = useRef({ onGameOver, muted, onPlaySlice, onPlayBomb });

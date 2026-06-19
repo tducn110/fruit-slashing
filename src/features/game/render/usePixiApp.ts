@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Application, Container, Graphics, Sprite } from "pixi.js";
-import { drawBackground } from "../../../utils/fruit-utils";
+import { drawBackground } from "./fruitVisuals";
 
 export function usePixiApp() {
   const wrapRef = useRef<HTMLDivElement>(null);

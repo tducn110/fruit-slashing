@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { Application } from "pixi.js";
-import { Graphics, Sprite, Texture } from "pixi.js";
-import { makeFruit, makeHalf, RADIUS, type FruitKind } from "../../../utils/fruit-utils";
+import { Graphics, Texture } from "pixi.js";
+import type { FruitKind } from "../../../game/core";
+import { makeFruit, makeHalf, VISUAL_RADIUS } from "./fruitVisuals";
 
 const FRUIT_KINDS: FruitKind[] = ["durian", "lychee", "banana", "dragonfruit", "mango", "peanut", "bomb"];
 
@@ -38,7 +39,7 @@ export function useFruitTextures({ appRef, appReady }: Props) {
       }
 
       for (const kind of FRUIT_KINDS) {
-        const full = makeFruit(kind, RADIUS[kind]);
+        const full = makeFruit(kind, VISUAL_RADIUS[kind]);
         try {
           textures[kind] = app.renderer.generateTexture(full);
         } finally {
@@ -47,7 +48,7 @@ export function useFruitTextures({ appRef, appReady }: Props) {
 
         if (kind !== "bomb") {
           for (const side of ["left", "right"] as const) {
-            const half = makeHalf(kind, RADIUS[kind], side);
+            const half = makeHalf(kind, VISUAL_RADIUS[kind], side);
             try {
               textures[`${kind}_${side}`] = app.renderer.generateTexture(half);
             } finally {

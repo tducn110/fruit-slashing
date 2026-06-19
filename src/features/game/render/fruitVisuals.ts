@@ -1,7 +1,5 @@
 import { Graphics, Container } from "pixi.js";
-import { FRUIT_RULES, type FruitKind } from "../game/core";
-
-export type { FruitKind } from "../game/core";
+import type { FruitKind } from "../../../game/core";
 
 export const GAME_COLORS = {
   ricePaper: 0xf5ecd7,
@@ -14,35 +12,30 @@ export const GAME_COLORS = {
   birdGray: 0x8a7d65,
 } as const;
 
-export interface Fruit {
-  kind: FruitKind;
-  g: Container;
-  vx: number; vy: number;
-  rot: number; vr: number;
-  r: number;
-  sliced: boolean;
-}
-
 export interface Particle {
   g: Container;
-  vx: number; vy: number;
-  rot: number; vr: number;
+  vx: number;
+  vy: number;
+  rot: number;
+  vr: number;
   life: number;
   ttl: number;
   rotates: boolean;
 }
 
-export interface TrailPoint { x: number; y: number; t: number; }
-
-export interface FruitConfig {
-  points: number;
+interface FruitVisualConfig {
   radius: number;
   colors: { body: number; edge: number; flesh: number };
   drawFull: (g: Graphics, r: number, colors: { body: number; edge: number; flesh: number }) => void;
   drawHalf: (g: Graphics, r: number, colors: { body: number; edge: number; flesh: number }, side: "left" | "right") => void;
 }
 
-function defaultDrawHalf(g: Graphics, r: number, c: { body: number; edge: number; flesh: number }, side: "left" | "right") {
+function defaultDrawHalf(
+  g: Graphics,
+  r: number,
+  c: { body: number; edge: number; flesh: number },
+  side: "left" | "right",
+) {
   const sign = side === "left" ? -1 : 1;
   g.moveTo(0, -r);
   g.bezierCurveTo(sign * r * 1.1, -r, sign * r * 1.1, r, 0, r);
@@ -51,15 +44,14 @@ function defaultDrawHalf(g: Graphics, r: number, c: { body: number; edge: number
   g.rect(sign === -1 ? -3 : 0, -r, 3, r * 2).fill(c.flesh);
 }
 
-const FRUIT_REGISTRY: Record<FruitKind, FruitConfig> = {
+const FRUIT_VISUALS: Record<FruitKind, FruitVisualConfig> = {
   durian: {
-    points: FRUIT_RULES.durian.points,
-    radius: FRUIT_RULES.durian.radius,
+    radius: 28,
     colors: { body: 0xc8b84a, edge: 0x6b7a1f, flesh: 0xfff5a0 },
     drawFull: (g, r, c) => {
       g.ellipse(0, 0, r * 0.82, r).fill(c.body).stroke({ color: c.edge, width: 2 });
       const spikeCount = 16;
-      for (let i = 0; i < spikeCount; i++) {
+      for (let i = 0; i < spikeCount; i += 1) {
         const a = (i / spikeCount) * Math.PI * 2;
         const bx = Math.cos(a) * r * 0.78;
         const by = Math.sin(a) * r * 0.95;
@@ -70,27 +62,25 @@ const FRUIT_REGISTRY: Record<FruitKind, FruitConfig> = {
       g.rect(-r * 0.07, -r * 1.38, r * 0.14, r * 0.28).fill(0x5a3a10);
       g.ellipse(-r * 0.25, -r * 0.35, r * 0.22, r * 0.13).fill({ color: 0xffffff, alpha: 0.22 });
     },
-    drawHalf: defaultDrawHalf
+    drawHalf: defaultDrawHalf,
   },
   lychee: {
-    points: FRUIT_RULES.lychee.points,
-    radius: FRUIT_RULES.lychee.radius,
+    radius: 22,
     colors: { body: 0xe83050, edge: 0x7a1030, flesh: 0xfff0f4 },
     drawFull: (g, r, c) => {
       g.circle(0, 0, r).fill(c.body).stroke({ color: c.edge, width: 2 });
       const bumpCount = 12;
-      for (let i = 0; i < bumpCount; i++) {
+      for (let i = 0; i < bumpCount; i += 1) {
         const a = (i / bumpCount) * Math.PI * 2;
         g.circle(Math.cos(a) * r * 0.74, Math.sin(a) * r * 0.74, r * 0.11).fill({ color: c.edge, alpha: 0.35 });
       }
       g.circle(-r * 0.32, -r * 0.32, r * 0.2).fill({ color: 0xffffff, alpha: 0.28 });
       g.circle(0, -r * 0.9, r * 0.12).fill(0x5a3a10);
     },
-    drawHalf: defaultDrawHalf
+    drawHalf: defaultDrawHalf,
   },
   banana: {
-    points: FRUIT_RULES.banana.points,
-    radius: FRUIT_RULES.banana.radius,
+    radius: 24,
     colors: { body: 0xf5c842, edge: 0xb89020, flesh: 0xfff099 },
     drawFull: (g, r, c) => {
       g.moveTo(-r * 0.7, r * 0.4)
@@ -100,24 +90,22 @@ const FRUIT_REGISTRY: Record<FruitKind, FruitConfig> = {
         .fill(c.body).stroke({ color: c.edge, width: 2 });
       g.circle(-r * 0.65, r * 0.42, r * 0.1).fill(c.edge);
     },
-    drawHalf: defaultDrawHalf
+    drawHalf: defaultDrawHalf,
   },
   dragonfruit: {
-    points: FRUIT_RULES.dragonfruit.points,
-    radius: FRUIT_RULES.dragonfruit.radius,
+    radius: 26,
     colors: { body: 0xe8537c, edge: 0x7a1f3a, flesh: 0xfff0f4 },
     drawFull: (g, r, c) => {
       g.circle(0, 0, r * 0.92).fill(c.body).stroke({ color: c.edge, width: 2 });
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 6; i += 1) {
         const a = (i / 6) * Math.PI * 2;
         g.ellipse(Math.cos(a) * r * 0.7, Math.sin(a) * r * 0.7, r * 0.22, r * 0.1).fill(0x8fc24a);
       }
     },
-    drawHalf: defaultDrawHalf
+    drawHalf: defaultDrawHalf,
   },
   mango: {
-    points: FRUIT_RULES.mango.points,
-    radius: FRUIT_RULES.mango.radius,
+    radius: 27,
     colors: { body: 0xf0a830, edge: 0x8e5a0a, flesh: 0xffe0a0 },
     drawFull: (g, r, c) => {
       g.moveTo(0, -r)
@@ -129,11 +117,10 @@ const FRUIT_REGISTRY: Record<FruitKind, FruitConfig> = {
       g.ellipse(-r * 0.28, -r * 0.3, r * 0.2, r * 0.12).fill({ color: 0xffffff, alpha: 0.25 });
       g.rect(-r * 0.06, -r * 1.15, r * 0.12, r * 0.22).fill(0x5a3a10);
     },
-    drawHalf: defaultDrawHalf
+    drawHalf: defaultDrawHalf,
   },
   peanut: {
-    points: FRUIT_RULES.peanut.points,
-    radius: FRUIT_RULES.peanut.radius,
+    radius: 24,
     colors: { body: 0xd4a574, edge: 0x8b6914, flesh: 0xfff5e0 },
     drawFull: (g, r, c) => {
       const lobeR = r * 0.58;
@@ -145,7 +132,7 @@ const FRUIT_REGISTRY: Record<FruitKind, FruitConfig> = {
         .stroke({ color: c.edge, width: 1.2, alpha: 0.5, cap: "round" });
       g.moveTo(r * 0.4, -r * 0.15).quadraticCurveTo(0, 0, r * 0.4, r * 0.15)
         .stroke({ color: c.edge, width: 1.2, alpha: 0.5, cap: "round" });
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 5; i += 1) {
         const ay = -r * 0.7 + i * r * 0.35;
         g.moveTo(-r * 0.45, ay).lineTo(r * 0.45, ay)
           .stroke({ color: c.edge, width: 0.6, alpha: 0.3 });
@@ -157,11 +144,10 @@ const FRUIT_REGISTRY: Record<FruitKind, FruitConfig> = {
       const sign = side === "left" ? -1 : 1;
       g.ellipse(0, 0, r * 0.42, r * 0.95).fill(c.flesh).stroke({ color: c.edge, width: 1.5 });
       g.rect(sign === -1 ? -2 : 0, -r * 0.95, 2, r * 1.9).fill(c.edge);
-    }
+    },
   },
   bomb: {
-    points: FRUIT_RULES.bomb.points,
-    radius: FRUIT_RULES.bomb.radius,
+    radius: 25,
     colors: { body: 0x1f1f1f, edge: 0x000000, flesh: 0xff5a2a },
     drawFull: (g, r, c) => {
       g.circle(0, 0, r).fill(c.body).stroke({ color: 0x000, width: 2 });
@@ -170,27 +156,33 @@ const FRUIT_REGISTRY: Record<FruitKind, FruitConfig> = {
       g.circle(0, -r * 1.35, r * 0.16).fill(0xffaa22);
       g.circle(0, -r * 1.35, r * 0.09).fill(0xffe66a);
     },
-    drawHalf: () => {}
-  }
+    drawHalf: () => {},
+  },
 };
 
-// Maintaining export compatibility for old components that rely on COLORS, POINTS, RADIUS
-export const COLORS = Object.fromEntries(Object.entries(FRUIT_REGISTRY).map(([k, v]) => [k, v.colors])) as Record<FruitKind, { body: number; edge: number; flesh: number }>;
-export const POINTS = Object.fromEntries(Object.entries(FRUIT_REGISTRY).map(([k, v]) => [k, v.points])) as Record<FruitKind, number>;
-export const RADIUS = Object.fromEntries(Object.entries(FRUIT_REGISTRY).map(([k, v]) => [k, v.radius])) as Record<FruitKind, number>;
+export const FRUIT_COLORS = Object.fromEntries(
+  Object.entries(FRUIT_VISUALS).map(([kind, config]) => [kind, config.colors]),
+) as Record<FruitKind, { body: number; edge: number; flesh: number }>;
 
-// Factory function
-export function makeFruit(kind: FruitKind, r: number): Graphics {
+export const VISUAL_RADIUS = Object.fromEntries(
+  Object.entries(FRUIT_VISUALS).map(([kind, config]) => [kind, config.radius]),
+) as Record<FruitKind, number>;
+
+export function makeFruit(kind: FruitKind, r = VISUAL_RADIUS[kind]): Graphics {
   const g = new Graphics();
-  const config = FRUIT_REGISTRY[kind];
-  if (config) config.drawFull(g, r, config.colors);
+  const config = FRUIT_VISUALS[kind];
+  if (config) {
+    config.drawFull(g, r, config.colors);
+  }
   return g;
 }
 
-export function makeHalf(kind: FruitKind, r: number, side: "left" | "right"): Graphics {
+export function makeHalf(kind: FruitKind, r = VISUAL_RADIUS[kind], side: "left" | "right"): Graphics {
   const g = new Graphics();
-  const config = FRUIT_REGISTRY[kind];
-  if (config) config.drawHalf(g, r, config.colors, side);
+  const config = FRUIT_VISUALS[kind];
+  if (config) {
+    config.drawHalf(g, r, config.colors, side);
+  }
   return g;
 }
 
@@ -219,7 +211,7 @@ export function drawBackground(c: Container, W: number, H: number) {
   c.addChild(grass);
 
   const bamboo = new Graphics();
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < 14; i += 1) {
     const x = (i / 13) * W + (i % 2 === 0 ? 8 : -8);
     const baseY = H * 0.65 + (i % 3) * 8;
     const h = 60 + (i % 4) * 14;
@@ -229,7 +221,7 @@ export function drawBackground(c: Container, W: number, H: number) {
   c.addChild(bamboo);
 
   const birds = new Graphics();
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 4; i += 1) {
     const x = 100 + i * (W / 5);
     const y = 80 + (i % 2) * 26;
     birds.moveTo(x, y).lineTo(x + 6, y - 4).lineTo(x + 12, y)
