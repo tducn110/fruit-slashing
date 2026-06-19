@@ -221,16 +221,6 @@
   transform: scale(0.95);
 }
 
-.game-btn-primary {
-  background: linear-gradient(180deg, #f08a48 0%, #e87432 100%);
-  color: #fff;
-  border: 3px solid #b85a22;
-  box-shadow: 0 10px 24px rgba(232, 116, 50, 0.45);
-}
-.game-btn-primary:hover:not(:disabled) {
-  box-shadow: 0 14px 32px rgba(232, 116, 50, 0.6);
-}
-
 .game-btn-close {
   width: 32px; height: 32px; border-radius: 50%;
   background: transparent; border: none; cursor: pointer;
@@ -240,34 +230,3 @@
 }
 .game-btn-close:hover { background: rgba(138, 125, 101, 0.1); transform: scale(1.1); }
 .game-btn-close:active { transform: scale(0.9); }
-
-.game-btn-link {
-  background: transparent; border: none; color: #e87432;
-  font-weight: 700; cursor: pointer; padding: 0;
-  font-family: inherit; font-size: inherit;
-  transition: opacity 0.15s;
-}
-.game-btn-link:hover { opacity: 0.75; }
-
-/* Ripple effect */
-@keyframes btn-ripple {
-  0%   { transform: scale(0); opacity: 0.5; }
-  100% { transform: scale(4); opacity: 0; }
-}
-.ripple {
-  position: relative;
-  overflow: hidden;
-}
-.ripple::after {
-  content: "";
-  position: absolute;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.35);
-  width: 60px; height: 60px;
-  top: 50%; left: 50%;
-  transform: scale(0);
-  pointer-events: none;
-}
-.ripple:active::after {
-  animation: btn-ripple 0.5s ease-out;
-}

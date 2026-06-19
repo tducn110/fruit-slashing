@@ -4,7 +4,6 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   signInWithRedirect,
-  getRedirectResult,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
@@ -45,7 +44,7 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 // Force localStorage persistence — fixes Safari / storage-partitioned browser issues
 setPersistence(auth, browserLocalPersistence);
-export const db = getFirestore(app);
+const db = getFirestore(app);
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 

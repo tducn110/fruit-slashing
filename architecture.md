@@ -124,7 +124,6 @@ Speed Click Game/
 │       ├── moavii-we-are.mp3           # 🎵 Nhạc nền BGM (~4.9MB)
 │       ├── 666herohero-slash-21834.mp3 # 🔪 Hiệu ứng chém (~12KB)
 │       ├── bomb.mp3                    # 💣 Hiệu ứng bom (~6KB)
-│       ├── music.mp3                   # 🎵 File nhạc dự phòng (~2.9MB)
 │       └── slashing-fruit-loading.svg  # 🖼️ Ảnh loading screen (~2.3MB)
 │
 ├── src/
@@ -380,7 +379,7 @@ Bấm "Trang chủ" → setBgmVolume(0.7) → refreshLeaderboard() → view="lan
 - 24 ambient leaves rơi liên tục (`leaf-fall` + `leaf-sway`)
 - 42 burst leaves nổ tung khi hoàn tất (`leaf-burst`)
 - Progress bar: gradient fill + `loading-shine` + sprout tip (`sprout-bob`)
-- Exit: `loadingExit` (fade+blur+scale), `loadingContentExit` (slide up), `loadingPillExit`
+- Exit: `loadingExit` (fade+blur+scale), `loadingContentExit` (slide up)
 - `prefers-reduced-motion`: tắt toàn bộ animation
 
 ### 5.3. `FruitGame.tsx` — Canvas game chính (491 dòng)

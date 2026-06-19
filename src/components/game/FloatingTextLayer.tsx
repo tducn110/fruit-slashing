@@ -1,10 +1,10 @@
-export interface BombText {
+interface BombText {
   x: number;
   y: number;
   id: number;
 }
 
-export interface PointText {
+interface PointText {
   x: number;
   y: number;
   id: number;

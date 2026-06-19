@@ -7,7 +7,7 @@ export interface TrailPoint {
   t: number;
 }
 
-export interface UseSlashTrailOptions {
+interface UseSlashTrailOptions {
   trailGraphicsRef: RefObject<Graphics | null>;
   maxAgeMs?: number;
 }

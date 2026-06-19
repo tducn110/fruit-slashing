@@ -1,7 +1,7 @@
 import { Graphics, Container } from "pixi.js";
 import type { FruitKind } from "../../../game/core";
 
-export const GAME_COLORS = {
+const GAME_COLORS = {
   ricePaper: 0xf5ecd7,
   inkDark: 0x2a2418,
   orangeCta: 0xe87432,

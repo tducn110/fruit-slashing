@@ -11,7 +11,7 @@ import {
 } from "../../../game/core";
 import type { TrailPoint } from "./useSlashTrail";
 
-export interface UseGamePointerInputOptions {
+interface UseGamePointerInputOptions {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   gameStateRef: RefObject<GameState | null>;
   playingRef: RefObject<boolean>;
@@ -28,7 +28,7 @@ export interface UseGamePointerInputOptions {
   ) => void;
 }
 
-export interface UseGamePointerInputResult {
+interface UseGamePointerInputResult {
   pointerDownRef: RefObject<boolean>;
 }
 

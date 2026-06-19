@@ -1,6 +1,6 @@
 export const GAME_DURATION_MS = 180_000;
 export const TICK_RATE = 60;
-export const TICK_MS = 1000 / TICK_RATE;
+const TICK_MS = 1000 / TICK_RATE;
 export const WORLD_WIDTH = 1000;
 export const WORLD_HEIGHT = 600;
 
@@ -33,7 +33,7 @@ export type FruitKind =
   | "peanut"
   | "bomb";
 
-export const FRUIT_RULES: Record<FruitKind, { points: number; radius: number }> = {
+const FRUIT_RULES: Record<FruitKind, { points: number; radius: number }> = {
   durian: { points: 5, radius: 38 },
   lychee: { points: 3, radius: 26 },
   banana: { points: 2, radius: 34 },
@@ -51,7 +51,7 @@ export interface InputSample {
   y: number;
 }
 
-export interface CoreFruit {
+interface CoreFruit {
   id: number;
   kind: FruitKind;
   x: number;
@@ -359,11 +359,4 @@ export function applyInput(state: GameState, sample: InputSample, trail: TrailSe
     results.push({ fruit: { ...fruit }, points, combo: state.combo, lives: state.lives });
   }
   return results.reverse();
-}
-
-export function rankFor(score: number): string {
-  if (score >= 400) return "Vua Chém";
-  if (score >= 250) return "Cao Thủ";
-  if (score >= 100) return "Lính Mới";
-  return "Tập Sự";
 }

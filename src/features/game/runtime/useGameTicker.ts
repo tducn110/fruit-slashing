@@ -4,7 +4,7 @@ import type { GameResult } from "../../../game/types";
 import type { GameState } from "../../../game/core";
 import { elapsedTick, advanceToTick, TICK_RATE } from "../../../game/core";
 
-export interface UseGameTickerOptions {
+interface UseGameTickerOptions {
   enabled: boolean;
   appRef: RefObject<Application | null>;
   gameStateRef: RefObject<GameState | null>;

@@ -1,4 +1,4 @@
-export const LOCAL_SCORES_KEY = "fruit-game-scores";
+const LOCAL_SCORES_KEY = "fruit-game-scores";
 
 export interface LocalScore {
   uid: string;

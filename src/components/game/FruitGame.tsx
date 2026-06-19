@@ -191,7 +191,6 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
       ...getGameConfig(sizeRef.current.w),
       debugTrajectory,
     };
-    console.log('[FruitGame] viewport width:', sizeRef.current.w, 'config:', config);
     coreRef.current = createGame(seed, config);
 
     clearParticles();

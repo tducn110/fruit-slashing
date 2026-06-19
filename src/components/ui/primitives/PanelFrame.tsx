@@ -2,7 +2,7 @@ import React from "react";
 import { X } from "lucide-react";
 import { IconButton } from "./IconButton";
 
-export interface PanelFrameProps {
+interface PanelFrameProps {
   title: React.ReactNode;
   width?: number;
   maxHeight?: string;

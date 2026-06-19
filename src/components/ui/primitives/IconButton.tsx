@@ -1,6 +1,6 @@
 import React from "react";
 
-export interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   label: string;
   children: React.ReactNode;
   variant?: "ghost" | "soft" | "solid";
