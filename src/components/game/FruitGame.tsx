@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Application, Container, Graphics, Sprite, Texture, Ticker } from "pixi.js";
+import { Application, Container, Graphics, Sprite, Texture } from "pixi.js";
 import {
   GAME_DURATION_MS,
   WORLD_HEIGHT,
@@ -32,6 +32,7 @@ import type { GameResult } from "../../game/types";
 import { useGameSession } from "../../features/game/runtime/useGameSession";
 import { useSlashTrail } from "../../features/game/input/useSlashTrail";
 import { useGamePointerInput } from "../../features/game/input/useGamePointerInput";
+import { useGameTicker } from "../../features/game/runtime/useGameTicker";
 
 interface Props {
   onGameOver?: (result: GameResult) => void;
@@ -155,22 +156,22 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     onSliceResult: handleSliceResult,
   });
 
-  function tick(ticker: Ticker) {
-    if (destroyedRef.current) return;
-    const state = coreRef.current;
-    if (playingRef.current && state) {
-      advanceToTick(state, elapsedTick(performance.now() - startedAtRef.current));
-      syncFruitSprites(state);
-      if (ticker.lastTime % 250 < ticker.deltaMS) syncHud(state);
-      if (state.ended) finishGame();
-    }
-
-    updateParticles(ticker.deltaMS / 1000, sizeRef.current.h);
-
-    updateScreenShake(playLayerRef.current);
-
-    drawTrail();
-  }
+  useGameTicker({
+    enabled: ready && texturesReady,
+    appRef,
+    gameStateRef: coreRef,
+    playingRef,
+    startedAtRef,
+    sizeRef,
+    destroyedRef,
+    playLayerRef,
+    syncFruitSprites,
+    updateParticles,
+    updateScreenShake,
+    drawTrail,
+    syncHud,
+    finishGame,
+  });
 
   useEffect(() => {
     if (!ready || !texturesReady || !appRef.current || !wrapRef.current) return;
@@ -185,8 +186,6 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     });
     resizeObserver.observe(wrapRef.current);
 
-    app.ticker.add(tick);
-
     if (!playingRef.current && !countdown) {
       session.startCountdown();
     }
@@ -194,10 +193,6 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     return () => {
       destroyedRef.current = true;
       resizeObserver.disconnect();
-
-      if (app?.ticker) {
-        app.ticker.remove(tick);
-      }
 
       clearFruitSprites();
       clearParticles();
