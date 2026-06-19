@@ -27,6 +27,32 @@ export function useSliceEffects({
   triggerPointFeedback,
   callbacksRef,
 }: Props) {
+  function destroyDisplay(display: Container) {
+    try {
+      if (display.parent) {
+        display.parent.removeChild(display);
+      }
+    } catch {
+      // Ignore teardown races with layer/app cleanup.
+    }
+
+    try {
+      if (!display.destroyed) {
+        display.destroy({
+          children: true,
+          texture: false,
+          textureSource: false,
+        });
+      }
+    } catch {
+      // Ignore already-destroyed display objects during failure cleanup.
+    }
+  }
+
+  function getTexture(key: string): Texture | null {
+    return texturesRef.current[key] ?? null;
+  }
+
   function renderScale(): number {
     return Math.min(sizeRef.current.w / WORLD_WIDTH, sizeRef.current.h / WORLD_HEIGHT);
   }
@@ -38,23 +64,53 @@ export function useSliceEffects({
     };
   }
 
+  function handoffDisplay(
+    display: Container,
+    particle: Omit<Particle, "g">,
+    layer: Container,
+  ) {
+    try {
+      if (display.destroyed) {
+        destroyDisplay(display);
+        return false;
+      }
+
+      layer.addChild(display);
+      addParticle({
+        g: display,
+        ...particle,
+      });
+
+      if (display.destroyed || display.parent !== layer) {
+        destroyDisplay(display);
+        return false;
+      }
+
+      return true;
+    } catch {
+      destroyDisplay(display);
+      return false;
+    }
+  }
+
   function spawnSplat(x: number, y: number, color: number, count: number, size: number) {
     const layer = playLayerRef.current;
-    if (!layer) return;
+    const circleTexture = getTexture("circle");
+    if (!layer || !circleTexture) return;
+
     for (let index = 0; index < count; index += 1) {
-      const particle = new Sprite(texturesRef.current.circle);
+      const particle = new Sprite(circleTexture);
       particle.anchor.set(0.5);
       particle.tint = color;
       const radius = size * (0.4 + Math.random() * 0.9);
       particle.width = radius * 2;
       particle.height = radius * 2;
       particle.position.set(x, y);
-      layer.addChild(particle);
       const angle = Math.random() * Math.PI * 2;
       const speed = 100 + Math.random() * 220;
       const ttl = 0.6 + Math.random() * 0.3;
-      addParticle({
-        g: particle,
+
+      handoffDisplay(particle, {
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed - 80,
         rot: 0,
@@ -62,13 +118,14 @@ export function useSliceEffects({
         life: ttl,
         ttl,
         rotates: false,
-      });
+      }, layer);
     }
   }
 
   function showSliceEffect(result: SliceResult, direction: { dx: number; dy: number }) {
     const layer = playLayerRef.current;
-    if (!layer) return;
+    if (!layer || !result?.fruit) return;
+
     const screen = worldToScreen(result.fruit.x, result.fruit.y);
     if (result.fruit.kind === "bomb") {
       spawnSplat(screen.x, screen.y, 0xff5a2a, 80, 8);
@@ -91,9 +148,8 @@ export function useSliceEffects({
       .stroke({ color: 0xe87432, width: 7, alpha: 1, cap: "round" });
     slash.position.set(screen.x, screen.y);
     slash.rotation = angle;
-    layer.addChild(slash);
-    addParticle({
-      g: slash,
+
+    handoffDisplay(slash, {
       vx: 0,
       vy: 0,
       rot: angle,
@@ -101,17 +157,23 @@ export function useSliceEffects({
       life: 0.2,
       ttl: 0.2,
       rotates: false,
-    });
+    }, layer);
+
     (["left", "right"] as const).forEach((side, index) => {
-      const g = new Sprite(texturesRef.current[`${result.fruit.kind}_${side}`]);
+      const halfTexture = getTexture(`${result.fruit.kind}_${side}`);
+
+      if (!halfTexture) {
+        return;
+      }
+
+      const g = new Sprite(halfTexture);
       g.anchor.set(0.5);
       g.position.set(screen.x, screen.y);
       g.rotation = result.fruit.rotation;
       g.scale.set(scale);
       const vr = (Math.random() - 0.5) * 10;
-      layer.addChild(g);
-      addParticle({
-        g,
+
+      handoffDisplay(g, {
         vx: result.fruit.vx * (sizeRef.current.w / WORLD_WIDTH) + Math.cos(perpendicular) * splitSpeed * (index === 0 ? -1 : 1),
         vy: result.fruit.vy * (sizeRef.current.h / WORLD_HEIGHT) + Math.sin(perpendicular) * splitSpeed * (index === 0 ? -1 : 1) - 80,
         rot: result.fruit.rotation,
@@ -119,7 +181,7 @@ export function useSliceEffects({
         life: 1,
         ttl: 1,
         rotates: true,
-      });
+      }, layer);
     });
     spawnSplat(screen.x, screen.y, COLORS[result.fruit.kind].flesh, 45, 5);
     spawnSplat(screen.x, screen.y, COLORS[result.fruit.kind].body, 15, 3);
