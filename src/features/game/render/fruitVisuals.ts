@@ -21,6 +21,12 @@ export interface Particle {
   life: number;
   ttl: number;
   rotates: boolean;
+  /**
+   * When true, this object belongs to an external pool and must NOT be
+   * destroyed when its lifetime expires.  The legacy particle system will
+   * instead hide + clear it so the pool can reuse it safely.
+   */
+  pooled?: boolean;
 }
 
 interface FruitVisualConfig {

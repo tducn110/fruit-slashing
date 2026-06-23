@@ -9,6 +9,7 @@ export function HeroSection({ onPlay }: Props) {
   return (
     <section
       id="gioi-thieu"
+      className="hero-section"
       style={{
         position: "relative",
         minHeight: "100vh",
@@ -26,7 +27,7 @@ export function HeroSection({ onPlay }: Props) {
         pointerEvents: "none",
       }} />
 
-      <div style={{
+      <div className="hero-content" style={{
         position: "relative",
         maxWidth: 1100,
         padding: "60px 32px",
@@ -76,7 +77,7 @@ export function HeroSection({ onPlay }: Props) {
         </p>
 
         <div className="hero-cta" style={{ display: "flex", gap: 32, justifyContent: "center", alignItems: "center", flexWrap: "wrap", marginTop: 20 }}>
-          <button onClick={onPlay} style={{
+          <button className="hero-play-button" onClick={onPlay} style={{
             padding: "16px 36px", borderRadius: 999,
             background: "linear-gradient(180deg,#f08a48,#e87432)",
             color: "#fff", border: "3px solid #b85a22",

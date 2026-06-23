@@ -23,6 +23,7 @@ import { useFruitSprites } from "../../features/game/render/useFruitSprites";
 import { useParticleSystem } from "../../features/game/render/useParticleSystem";
 import { useGameFeedback } from "../../features/game/render/useGameFeedback";
 import { useSliceEffects } from "../../features/game/render/useSliceEffects";
+import { getFxPreset } from "../../features/game/render/fxPreset";
 
 interface Props {
   onGameOver?: (result: GameResult) => void;
@@ -38,9 +39,12 @@ export function FruitGame({ onGameOver, onGameStart, muted = false, onPlaySlice,
   const callbacksRef = useRef({ onGameOver, onGameStart, muted, onPlaySlice, onPlayBomb });
   callbacksRef.current = { onGameOver, onGameStart, muted, onPlaySlice, onPlayBomb };
   const { wrapRef, appRef, sizeRef, playLayerRef, trailGraphicsRef, ready } = usePixiApp();
+  const getCurrentFxPreset = useCallback(() => getFxPreset(sizeRef.current.w), [sizeRef]);
   const { texturesRef, texturesReady } = useFruitTextures({ appRef, appReady: ready });
   const { syncFruitSprites, clearFruitSprites } = useFruitSprites({ playLayerRef, texturesRef, texturesReady, sizeRef });
-  const { addParticle, updateParticles, clearParticles } = useParticleSystem();
+  const { addParticle, updateParticles, clearParticles, initPool, spawnPooledParticle } = useParticleSystem({
+    getMaxParticles: () => getCurrentFxPreset().maxParticles,
+  });
   const {
     flashRed,
     bombTexts,
@@ -51,11 +55,12 @@ export function FruitGame({ onGameOver, onGameStart, muted = false, onPlaySlice,
     clearFeedback,
   } = useGameFeedback();
 
-  const { showSliceEffect } = useSliceEffects({
+  const { showSliceEffect, destroySlashPool } = useSliceEffects({
     playLayerRef,
     texturesRef,
     sizeRef,
     addParticle,
+    spawnPooledParticle,
     triggerBombFeedback,
     triggerPointFeedback,
     callbacksRef,
@@ -75,13 +80,14 @@ export function FruitGame({ onGameOver, onGameStart, muted = false, onPlaySlice,
     startedAtRef,
   } = session;
 
-  const { trailPointsRef, addTrailPoint, clearTrail, drawTrail } = useSlashTrail({
-    trailGraphicsRef,
-  });
-
   const coreRef = useRef<GameState | null>(null);
   const destroyedRef = useRef(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const { trailPointsRef, addTrailPoint, clearTrail, drawTrail } = useSlashTrail({
+    trailGraphicsRef,
+    getMaxPoints: () => getCurrentFxPreset().trailPoints,
+  });
 
   const [hud, setHud] = useState<HudState>({ score: 0, lives: 3, combo: 0, time: GAME_DURATION_SECONDS });
 
@@ -160,6 +166,14 @@ export function FruitGame({ onGameOver, onGameStart, muted = false, onPlaySlice,
     destroyedRef.current = false;
     canvasRef.current = app.canvas;
 
+    // Phase 2.1: Initialise particle pool now that textures + layer are ready.
+    const layer = playLayerRef.current;
+    const circleTexture = texturesRef.current["circle"];
+    if (layer && circleTexture) {
+      const preset = getCurrentFxPreset();
+      initPool(layer, circleTexture, preset.maxParticles);
+    }
+
     const resizeObserver = new ResizeObserver(() => {
       if (coreRef.current) syncFruitSprites(coreRef.current);
     });
@@ -176,6 +190,7 @@ export function FruitGame({ onGameOver, onGameStart, muted = false, onPlaySlice,
       clearFruitSprites();
       clearParticles();
       clearTrail();
+      destroySlashPool();
     };
   }, [ready, texturesReady]);
 

@@ -104,6 +104,7 @@ export function HeroPeanutAnimation() {
   return (
     <div
       ref={hostRef}
+      className="hero-peanut-stage"
       aria-hidden="true"
       style={{
         position: "absolute",

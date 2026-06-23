@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Application, Container, Graphics, Sprite } from "pixi.js";
 import { drawBackground } from "./fruitVisuals";
+import { getFxPreset } from "./fxPreset";
 
 export function usePixiApp() {
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -21,8 +22,8 @@ export function usePixiApp() {
     const height = Math.max(200, wrap.clientHeight || 450);
     sizeRef.current = { w: width, h: height };
 
-    // DPR/resolution safety: Cap window.devicePixelRatio at 2
-    const resolution = Math.min(window.devicePixelRatio || 1, 2);
+    const preset = getFxPreset(width);
+    const resolution = Math.min(window.devicePixelRatio || 1, preset.resolutionCap);
 
     const resizeObserver = new ResizeObserver(() => {
       if (cancelled || !appRef.current) return;
@@ -56,7 +57,7 @@ export function usePixiApp() {
       width,
       height,
       background: 0xf5ecd7,
-      antialias: true,
+      antialias: preset.antialias,
       resolution,
       autoDensity: true
     })

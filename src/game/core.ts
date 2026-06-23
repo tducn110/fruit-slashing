@@ -15,8 +15,9 @@ export interface GameConfig {
 
 export function getGameConfig(viewportWidth: number): GameConfig {
   const isMobile = viewportWidth <= 640;
+  const hitboxScale = viewportWidth <= 430 ? 2.0 : isMobile ? 1.65 : 1.3;
   return {
-    hitboxScale: isMobile ? 1.45 : 1.3,
+    hitboxScale,
     spawnInterval: isMobile ? 0.98 : 1.0,
     peakYBase: isMobile ? 40 : 80,
     peakYRange: isMobile ? 0.12 : 0.2,
@@ -65,6 +66,11 @@ interface CoreFruit {
   targetPeakY?: number;
   minYReached?: number;
   spawnVelocityY?: number;
+  gravityScale?: number;
+}
+
+function movementScaleAt(difficulty: number): number {
+  return 0.62 + difficulty * 0.38;
 }
 
 export interface SliceResult {
@@ -116,7 +122,7 @@ function logFruitTrajectory(state: GameState, reason: "spawn" | "slice" | "despa
     spawnY: fruit.spawnY,
     targetPeakY: fruit.targetPeakY,
     initialVelocityY: fruit.spawnVelocityY,
-    gravity: GRAVITY,
+    gravity: GRAVITY * (fruit.gravityScale ?? 1),
     minYReached: fruit.minYReached,
     currentY: fruit.y,
   });
@@ -163,7 +169,7 @@ function difficultyAt(tick: number): number {
   return Math.max(0, Math.min(1, value));
 }
 
-function spawnFruit(state: GameState, bombChance: number, flightSeconds: number): void {
+function spawnFruit(state: GameState, bombChance: number, flightSeconds: number, movementScale: number): void {
   const kind: FruitKind = random(state) < bombChance
     ? "bomb"
     : random(state) < 0.08
@@ -177,7 +183,9 @@ function spawnFruit(state: GameState, bombChance: number, flightSeconds: number)
   );
   const peakY = state.config.peakYBase + random(state) * (WORLD_HEIGHT * state.config.peakYRange);
   const spawnY = WORLD_HEIGHT + state.config.spawnYOffset;
-  const initialVelocityY = -Math.sqrt(2 * GRAVITY * Math.max(50, spawnY - peakY));
+  const safeMovementScale = Math.max(0.45, movementScale);
+  const initialVelocityY = -Math.sqrt(2 * GRAVITY * Math.max(50, spawnY - peakY)) * safeMovementScale;
+  const gravityScale = safeMovementScale * safeMovementScale;
 
   const fruit: CoreFruit = {
     id: state.nextFruitId++,
@@ -193,6 +201,7 @@ function spawnFruit(state: GameState, bombChance: number, flightSeconds: number)
     targetPeakY: peakY,
     minYReached: spawnY,
     spawnVelocityY: initialVelocityY,
+    gravityScale,
   };
   state.fruits.push(fruit);
   logFruitTrajectory(state, "spawn", fruit);
@@ -214,16 +223,18 @@ function step(state: GameState): void {
     const spawnEveryMs = (1100 - difficulty * 680) * state.config.spawnInterval;
     const count = 1 + Math.floor(difficulty * 3.5);
     const bombChance = 0.02 + difficulty * 0.26;
-    const flightSeconds = 1.35 - difficulty * 0.65;
-    for (let index = 0; index < count; index += 1) spawnFruit(state, bombChance, flightSeconds);
+    const movementScale = movementScaleAt(difficulty);
+    const flightSeconds = 1.75 - difficulty * 0.85;
+    for (let index = 0; index < count; index += 1) spawnFruit(state, bombChance, flightSeconds, movementScale);
     state.nextSpawnTick = state.tick + Math.max(1, Math.round(spawnEveryMs / TICK_MS));
   }
 
   const deltaSeconds = 1 / TICK_RATE;
   for (const fruit of state.fruits) {
     fruit.x += fruit.vx * deltaSeconds;
-    fruit.y += fruit.vy * deltaSeconds + 0.5 * GRAVITY * deltaSeconds * deltaSeconds;
-    fruit.vy += GRAVITY * deltaSeconds;
+    const gravity = GRAVITY * (fruit.gravityScale ?? 1);
+    fruit.y += fruit.vy * deltaSeconds + 0.5 * gravity * deltaSeconds * deltaSeconds;
+    fruit.vy += gravity * deltaSeconds;
     fruit.minYReached = Math.min(fruit.minYReached ?? fruit.y, fruit.y);
     fruit.rotation += fruit.rotationVelocity * deltaSeconds;
     if (fruit.x < fruit.radius) {
@@ -262,14 +273,33 @@ export function normalizePointer(x: number, y: number, width: number, height: nu
   };
 }
 
-export function screenToWorld(x: number, y: number, width: number, height: number) {
-  const renderScale = Math.min(
-    Math.max(1, width) / WORLD_WIDTH,
-    Math.max(1, height) / WORLD_HEIGHT,
-  );
+export function getWorldRenderTransform(width: number, height: number) {
+  const safeWidth = Math.max(1, width);
+  const safeHeight = Math.max(1, height);
+  const uniformScale = Math.min(safeWidth / WORLD_WIDTH, safeHeight / WORLD_HEIGHT);
+  const usePortraitScale = safeWidth <= 640 && safeHeight / safeWidth >= 1.35;
+
   return {
-    x: (x - width / 2) / renderScale + WORLD_WIDTH / 2,
-    y: (y - height / 2) / renderScale + WORLD_HEIGHT / 2,
+    scaleX: usePortraitScale ? safeWidth / WORLD_WIDTH : uniformScale,
+    scaleY: usePortraitScale ? safeHeight / WORLD_HEIGHT : uniformScale,
+    offsetX: safeWidth / 2,
+    offsetY: safeHeight / 2,
+  };
+}
+
+export function worldToScreen(x: number, y: number, width: number, height: number) {
+  const transform = getWorldRenderTransform(width, height);
+  return {
+    x: (x - WORLD_WIDTH / 2) * transform.scaleX + transform.offsetX,
+    y: (y - WORLD_HEIGHT / 2) * transform.scaleY + transform.offsetY,
+  };
+}
+
+export function screenToWorld(x: number, y: number, width: number, height: number) {
+  const transform = getWorldRenderTransform(width, height);
+  return {
+    x: (x - transform.offsetX) / transform.scaleX + WORLD_WIDTH / 2,
+    y: (y - transform.offsetY) / transform.scaleY + WORLD_HEIGHT / 2,
   };
 }
 

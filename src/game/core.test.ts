@@ -31,6 +31,20 @@ describe("fruit trajectory", () => {
     }
   });
 
+  it("ramps fruit movement speed as the run gets harder", () => {
+    const state = createGame(123456, getGameConfig(390));
+
+    advanceToTick(state, 65);
+    const earlyGravityScale = state.fruits.at(-1)?.gravityScale ?? 1;
+
+    advanceToTick(state, 4200);
+    const lateGravityScale = Math.max(...state.fruits.map((fruit) => fruit.gravityScale ?? 1));
+
+    expect(earlyGravityScale).toBeLessThan(0.5);
+    expect(lateGravityScale).toBeGreaterThan(earlyGravityScale);
+  });
+
+
   it("inverts centered letterboxed rendering coordinates", () => {
     const viewport = { width: 1920, height: 1080 };
     const worldCenter = screenToWorld(960, 540, viewport.width, viewport.height);

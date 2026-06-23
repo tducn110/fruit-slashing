@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Container, Sprite, Texture } from "pixi.js";
-import { WORLD_HEIGHT, WORLD_WIDTH, type GameState } from "../../../game/core";
+import { getWorldRenderTransform, worldToScreen, type GameState } from "../../../game/core";
 import { VISUAL_RADIUS } from "./fruitVisuals";
 
 interface Props {
@@ -30,14 +30,14 @@ export function useFruitSprites({ playLayerRef, texturesRef, texturesReady, size
 
     const layer = playLayerRef.current;
 
-    const renderScale = Math.min(sizeRef.current.w / WORLD_WIDTH, sizeRef.current.h / WORLD_HEIGHT);
-    const worldToScreen = (x: number, y: number) => ({
-      x: (x - WORLD_WIDTH / 2) * renderScale + sizeRef.current.w / 2,
-      y: (y - WORLD_HEIGHT / 2) * renderScale + sizeRef.current.h / 2,
-    });
+    const transform = getWorldRenderTransform(sizeRef.current.w, sizeRef.current.h);
+    const renderScale = transform.scaleX;
 
-    const isMobile = sizeRef.current.w <= 640;
-    const fruitScale = isMobile ? 1.3 : 1.0;
+    const viewportWidth = sizeRef.current.w;
+    const fruitScale =
+      viewportWidth <= 430 ? 2.0 :
+        viewportWidth <= 640 ? 1.45 :
+          1.0;
 
     const activeIds = new Set(state.fruits.map((f) => f.id));
     for (const [id, sprite] of spriteMapRef.current.entries()) {
@@ -58,7 +58,7 @@ export function useFruitSprites({ playLayerRef, texturesRef, texturesReady, size
         layer.addChild(sprite);
         spriteMapRef.current.set(fruit.id, sprite);
       }
-      const { x, y } = worldToScreen(fruit.x, fruit.y);
+      const { x, y } = worldToScreen(fruit.x, fruit.y, sizeRef.current.w, sizeRef.current.h);
       sprite.x = x;
       sprite.y = y;
       sprite.rotation = fruit.rotation;

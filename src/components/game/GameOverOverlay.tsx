@@ -1,3 +1,5 @@
+import { AdDoubleScoreButton } from "./AdDoubleScoreButton";
+
 interface GameOverOverlayProps {
   finalScore: number | null;
   running: boolean;
@@ -21,6 +23,7 @@ export function GameOverOverlay({
           <div className="scoreValue">{finalScore} điểm</div>
           <div className="scoreMeta">Điểm sẽ được gửi nếu bạn đã đăng nhập.</div>
         </div>
+        <AdDoubleScoreButton score={finalScore} />
         <button onClick={onReplay} className="replayButton">
           Chơi lại
         </button>
