@@ -5,19 +5,36 @@ export function useGameFeedback() {
   const [flashRed, setFlashRed] = useState(false);
   const [bombTexts, setBombTexts] = useState<Array<{ id: number; x: number; y: number }>>([]);
   const [pointTexts, setPointTexts] = useState<
-    Array<{ id: number; x: number; y: number; text: string; color: string }>
+    Array<{ id: number; x: number; y: number; text: string; color: string; variant?: "points" | "combo" | "critical" }>
   >([]);
 
   const effectIdRef = useRef(0);
   const shakeRef = useRef({ active: false, startedAt: 0 });
   const timersRef = useRef<Set<number>>(new Set());
+  const mountedRef = useRef(false);
+  const shakenLayerRef = useRef<Container | null>(null);
+
+  function resetScreenShake(layer?: Container | null) {
+    const targetLayer = layer ?? shakenLayerRef.current;
+    if (!targetLayer) return;
+    targetLayer.position.set(0, 0);
+  }
+
+  function clearTimers() {
+    timersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+    timersRef.current.clear();
+  }
 
   function schedule(cb: () => void, delayMs: number) {
     const timer = window.setTimeout(() => {
       timersRef.current.delete(timer);
+      if (!mountedRef.current) {
+        return;
+      }
       cb();
     }, delayMs);
     timersRef.current.add(timer);
+    return timer;
   }
 
   function triggerBombFeedback(screen: { x: number; y: number }) {
@@ -31,20 +48,33 @@ export function useGameFeedback() {
     }, 800);
   }
 
-  function triggerPointFeedback(input: { x: number; y: number; text: string; color: string }) {
+  function triggerPointFeedback(input: { x: number; y: number; text: string; color: string; variant?: "points" | "combo" | "critical" }) {
     const id = ++effectIdRef.current;
-    setPointTexts((items) => [...items.slice(-8), { ...input, id }]);
+    setPointTexts((items) => [...items.slice(-14), { ...input, id }]);
     schedule(() => {
       setPointTexts((items) => items.filter((item) => item.id !== id));
     }, 800);
   }
 
   function updateScreenShake(playLayer: Container | null) {
-    if (!shakeRef.current.active || !playLayer) return;
+    if (!playLayer) {
+      return;
+    }
+
+    if (!shakeRef.current.active) {
+      if (shakenLayerRef.current === playLayer) {
+        resetScreenShake(playLayer);
+        shakenLayerRef.current = null;
+      }
+      return;
+    }
+
+    shakenLayerRef.current = playLayer;
     const elapsed = (performance.now() - shakeRef.current.startedAt) / 400;
     if (elapsed >= 1) {
       shakeRef.current.active = false;
-      playLayer.position.set(0, 0);
+      resetScreenShake(playLayer);
+      shakenLayerRef.current = null;
     } else {
       const amount = 8 * (1 - elapsed);
       playLayer.position.set((Math.random() - 0.5) * amount, (Math.random() - 0.5) * amount);
@@ -52,8 +82,9 @@ export function useGameFeedback() {
   }
 
   function clearFeedback() {
-    timersRef.current.forEach((t) => window.clearTimeout(t));
-    timersRef.current.clear();
+    clearTimers();
+    resetScreenShake();
+    shakenLayerRef.current = null;
     setFlashRed(false);
     setBombTexts([]);
     setPointTexts([]);
@@ -61,7 +92,10 @@ export function useGameFeedback() {
   }
 
   useEffect(() => {
+    mountedRef.current = true;
+
     return () => {
+      mountedRef.current = false;
       clearFeedback();
     };
   }, []);

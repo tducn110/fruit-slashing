@@ -1,48 +1,22 @@
-import { useEffect, useRef, useState } from "react";
-import { Application, Container, Graphics, Sprite, Texture, Ticker } from "pixi.js";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   GAME_DURATION_MS,
-  WORLD_HEIGHT,
-  WORLD_WIDTH,
-  advanceToTick,
-  applyInput,
   createGame,
-  elapsedTick,
-  normalizePointer,
-  screenToWorld,
   timeLeftSeconds,
   getGameConfig,
+  TICK_RATE,
   type GameState,
-  type InputSample,
   type SliceResult,
-  type TrailSegment,
 } from "../../game/core";
-import {
-  type FruitKind,
-  type Particle,
-  type TrailPoint,
-  COLORS,
-  RADIUS,
-  makeFruit,
-  makeHalf,
-  drawBackground,
-} from "../../utils/fruit-utils";
-
-export interface GameResult {
-  score: number;
-}
-
-interface Props {
-  onGameOver?: (result: GameResult) => void;
-  muted?: boolean;
-  onPlaySlice?: () => void;
-  onPlayBomb?: () => void;
-}
-
+import type { GameResult } from "../../game/types";
+import { useGameSession } from "../../features/game/runtime/useGameSession";
+import { useSlashTrail, type TrailPoint } from "../../features/game/input/useSlashTrail";
+import { useGamePointerInput } from "../../features/game/input/useGamePointerInput";
+import { useGameTicker } from "../../features/game/runtime/useGameTicker";
 import { GameHud, type HudState } from "./GameHud";
 import { CountdownOverlay } from "./CountdownOverlay";
 import { GameOverOverlay } from "./GameOverOverlay";
-import { FloatingTextLayer, type BombText, type PointText } from "./FloatingTextLayer";
+import { FloatingTextLayer } from "./FloatingTextLayer";
 import { usePixiApp } from "../../features/game/render/usePixiApp";
 import { useFruitTextures } from "../../features/game/render/useFruitTextures";
 import { useFruitSprites } from "../../features/game/render/useFruitSprites";
@@ -50,15 +24,22 @@ import { useParticleSystem } from "../../features/game/render/useParticleSystem"
 import { useGameFeedback } from "../../features/game/render/useGameFeedback";
 import { useSliceEffects } from "../../features/game/render/useSliceEffects";
 
-const GAME_DURATION_SECONDS = GAME_DURATION_MS / 1000;
-const FRUIT_KINDS: FruitKind[] = ["durian", "lychee", "banana", "dragonfruit", "mango", "peanut", "bomb"];
+interface Props {
+  onGameOver?: (result: GameResult) => void;
+  onGameStart?: () => void;
+  muted?: boolean;
+  onPlaySlice?: () => void;
+  onPlayBomb?: () => void;
+}
 
-export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }: Props) {
-  const callbacksRef = useRef({ onGameOver, muted, onPlaySlice, onPlayBomb });
-  callbacksRef.current = { onGameOver, muted, onPlaySlice, onPlayBomb };
+const GAME_DURATION_SECONDS = GAME_DURATION_MS / 1000;
+
+export function FruitGame({ onGameOver, onGameStart, muted = false, onPlaySlice, onPlayBomb }: Props) {
+  const callbacksRef = useRef({ onGameOver, onGameStart, muted, onPlaySlice, onPlayBomb });
+  callbacksRef.current = { onGameOver, onGameStart, muted, onPlaySlice, onPlayBomb };
   const { wrapRef, appRef, sizeRef, playLayerRef, trailGraphicsRef, ready } = usePixiApp();
   const { texturesRef, texturesReady } = useFruitTextures({ appRef, appReady: ready });
-  const { syncFruitSprites, clearFruitSprites } = useFruitSprites({ playLayerRef, texturesRef, sizeRef });
+  const { syncFruitSprites, clearFruitSprites } = useFruitSprites({ playLayerRef, texturesRef, texturesReady, sizeRef });
   const { addParticle, updateParticles, clearParticles } = useParticleSystem();
   const {
     flashRed,
@@ -80,19 +61,29 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     callbacksRef,
   });
 
-  const trailRef = useRef<TrailPoint[]>([]);
+  const session = useGameSession({
+    onGameOver: (result) => callbacksRef.current.onGameOver?.(result),
+    onStart: handleStart,
+  });
+
+  const {
+    countdown,
+    running,
+    starting,
+    finalScore,
+    playingRef,
+    startedAtRef,
+  } = session;
+
+  const { trailPointsRef, addTrailPoint, clearTrail, drawTrail } = useSlashTrail({
+    trailGraphicsRef,
+  });
+
   const coreRef = useRef<GameState | null>(null);
-  const startedAtRef = useRef(0);
-  const playingRef = useRef(false);
-  const submittedRef = useRef(false);
   const destroyedRef = useRef(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const [running, setRunning] = useState(false);
-  const [starting, setStarting] = useState(false);
-  const [finalScore, setFinalScore] = useState<number | null>(null);
   const [hud, setHud] = useState<HudState>({ score: 0, lives: 3, combo: 0, time: GAME_DURATION_SECONDS });
-  const [countdown, setCountdown] = useState<number | null>(null);
 
   function syncHud(state: GameState) {
     setHud({ score: state.score, lives: state.lives, combo: state.combo, time: timeLeftSeconds(state) });
@@ -100,52 +91,25 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
 
   function finishGame() {
     const state = coreRef.current;
-    if (!state || submittedRef.current) return;
-    submittedRef.current = true;
-    playingRef.current = false;
-    setRunning(false);
-    setFinalScore(state.score);
+    if (!state) return;
+    const playTimeSec = Math.min(180, Math.floor(state.tick / TICK_RATE));
+    const result: GameResult = {
+      score: state.score,
+      playTimeSec,
+      endReason: state.endReason ?? undefined,
+    };
+    session.finishGame(result);
     syncHud(state);
-    callbacksRef.current.onGameOver?.({ score: state.score });
   }
 
-  function handlePointer(clientX: number, clientY: number) {
-    if (destroyedRef.current) return;
-    const app = appRef.current;
+  const handleSliceResult = useCallback((
+    results: SliceResult[],
+    previousTrail: TrailPoint | undefined,
+    screenX: number,
+    screenY: number
+  ) => {
     const state = coreRef.current;
-    if (!app || !app.canvas) return;
-    const rect = app.canvas.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-    const screenX = (clientX - rect.left) * (sizeRef.current.w / rect.width);
-    const screenY = (clientY - rect.top) * (sizeRef.current.h / rect.height);
-    const now = performance.now();
-    const previousTrail = trailRef.current.at(-1);
-    trailRef.current.push({ x: screenX, y: screenY, t: now });
-    if (trailRef.current.length > 18) trailRef.current.shift();
-    if (!playingRef.current || !state) return;
-
-    const tick = elapsedTick(now - startedAtRef.current);
-    const worldPoint = screenToWorld(
-      screenX,
-      screenY,
-      sizeRef.current.w,
-      sizeRef.current.h,
-    );
-    const sample = normalizePointer(
-      worldPoint.x,
-      worldPoint.y,
-      WORLD_WIDTH,
-      WORLD_HEIGHT,
-      tick,
-    );
-
-    const trailSegments: TrailSegment[] = trailRef.current.map((p) =>
-      screenToWorld(p.x, p.y, sizeRef.current.w, sizeRef.current.h),
-    );
-
-    const config = getGameConfig(sizeRef.current.w);
-    const results = applyInput(state, sample, trailSegments, config);
-
+    if (!state) return;
     for (const result of results) {
       showSliceEffect(result, {
         dx: previousTrail ? screenX - previousTrail.x : 1,
@@ -157,38 +121,36 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
       syncHud(state);
     }
     if (state.ended) finishGame();
-  }
+  }, [showSliceEffect, syncFruitSprites, syncHud, finishGame]);
 
-  function tick(ticker: Ticker) {
-    if (destroyedRef.current) return;
-    const state = coreRef.current;
-    if (playingRef.current && state) {
-      advanceToTick(state, elapsedTick(performance.now() - startedAtRef.current));
-      syncFruitSprites(state);
-      if (ticker.lastTime % 250 < ticker.deltaMS) syncHud(state);
-      if (state.ended) finishGame();
-    }
+  useGamePointerInput({
+    canvasRef,
+    gameStateRef: coreRef,
+    playingRef,
+    startedAtRef,
+    sizeRef,
+    addTrailPoint,
+    clearTrail,
+    trailPointsRef,
+    onSliceResult: handleSliceResult,
+  });
 
-    updateParticles(ticker.deltaMS / 1000, sizeRef.current.h);
-
-    updateScreenShake(playLayerRef.current);
-
-    const trailGraphics = trailGraphicsRef.current;
-    if (trailGraphics) {
-      trailGraphics.clear();
-      const now = performance.now();
-      trailRef.current = trailRef.current.filter((point) => now - point.t < 320);
-      for (let index = 1; index < trailRef.current.length; index += 1) {
-        const from = trailRef.current[index - 1];
-        const to = trailRef.current[index];
-        const alpha = 1 - (now - to.t) / 320;
-        trailGraphics.moveTo(from.x, from.y).lineTo(to.x, to.y)
-          .stroke({ color: 0xffffff, width: 18 * alpha + 5, alpha: alpha * 0.95, cap: "round" });
-        trailGraphics.moveTo(from.x, from.y).lineTo(to.x, to.y)
-          .stroke({ color: 0xe87432, width: 7 * alpha + 2, alpha, cap: "round" });
-      }
-    }
-  }
+  useGameTicker({
+    enabled: ready && texturesReady,
+    appRef,
+    gameStateRef: coreRef,
+    playingRef,
+    startedAtRef,
+    sizeRef,
+    destroyedRef,
+    playLayerRef,
+    syncFruitSprites,
+    updateParticles,
+    updateScreenShake,
+    drawTrail,
+    syncHud,
+    finishGame,
+  });
 
   useEffect(() => {
     if (!ready || !texturesReady || !appRef.current || !wrapRef.current) return;
@@ -203,76 +165,46 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     });
     resizeObserver.observe(wrapRef.current);
 
-    const pointerHandler = (event: PointerEvent) => handlePointer(event.clientX, event.clientY);
-    app.canvas.addEventListener("pointermove", pointerHandler);
-    app.canvas.addEventListener("pointerdown", pointerHandler);
-
-    app.ticker.add(tick);
-
     if (!playingRef.current && !countdown) {
-      beginCountdown();
+      session.startCountdown();
     }
 
     return () => {
       destroyedRef.current = true;
       resizeObserver.disconnect();
 
-      const canvas = canvasRef.current;
-      if (canvas) {
-        canvas.removeEventListener("pointermove", pointerHandler);
-        canvas.removeEventListener("pointerdown", pointerHandler);
-      }
-
-      if (app?.ticker) {
-        app.ticker.remove(tick);
-      }
-
       clearFruitSprites();
       clearParticles();
+      clearTrail();
     };
   }, [ready, texturesReady]);
 
-  async function start() {
-    if (starting) return;
-    setStarting(true);
-    try {
-      const values = new Uint32Array(1);
-      crypto.getRandomValues(values);
-      const seed = values[0] || Date.now();
-      const config = getGameConfig(sizeRef.current.w);
-      console.log('[FruitGame] viewport width:', sizeRef.current.w, 'config:', config);
-      coreRef.current = createGame(seed, config);
-      submittedRef.current = false;
-      clearParticles();
-      clearFeedback();
-      clearFruitSprites();
-      startedAtRef.current = performance.now();
-      playingRef.current = true;
-      setFinalScore(null);
-      setRunning(true);
-      setCountdown(null);
-      syncHud(coreRef.current);
-    } finally {
-      setStarting(false);
-    }
+  function handleReplay() {
+    callbacksRef.current.onGameStart?.();
+    session.resetSession();
   }
 
-  function beginCountdown() {
-    if (!starting) setCountdown(3);
+  function handleStart() {
+    session.startSession();
+    callbacksRef.current.onGameStart?.();
+
+    const values = new Uint32Array(1);
+    crypto.getRandomValues(values);
+    const seed = values[0] || Date.now();
+    const debugTrajectory =
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).has("fruitDebug");
+    const config = {
+      ...getGameConfig(sizeRef.current.w),
+      debugTrajectory,
+    };
+    coreRef.current = createGame(seed, config);
+
+    clearParticles();
+    clearFeedback();
+    clearFruitSprites();
+    syncHud(coreRef.current);
   }
-
-  useEffect(() => {
-    if (!running && finalScore === null && countdown === null) beginCountdown();
-  }, []);
-
-  useEffect(() => {
-    if (countdown === null || countdown <= 0) return;
-    const timer = setTimeout(() => {
-      if (countdown === 1) void start();
-      else setCountdown(countdown - 1);
-    }, 700);
-    return () => clearTimeout(timer);
-  }, [countdown]);
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
@@ -290,7 +222,9 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
         />
       )}
 
-      <FloatingTextLayer bombTexts={bombTexts} pointTexts={pointTexts} />
+      <div className="feedbackTextLayer">
+        <FloatingTextLayer bombTexts={bombTexts} pointTexts={pointTexts} />
+      </div>
 
       <GameHud hud={hud} running={running} />
 
@@ -298,7 +232,7 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
         finalScore={finalScore}
         running={running}
         countdown={countdown}
-        onReplay={beginCountdown}
+        onReplay={handleReplay}
       />
 
       <CountdownOverlay countdown={countdown} starting={starting} />

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Application, Graphics, Texture } from "pixi.js";
-import { makeFruit, makeHalf, RADIUS, type FruitKind } from "../../../utils/fruit-utils";
+import type { Application } from "pixi.js";
+import { Graphics, Texture } from "pixi.js";
+import type { FruitKind } from "../../../game/core";
+import { makeFruit, makeHalf, VISUAL_RADIUS } from "./fruitVisuals";
 
 const FRUIT_KINDS: FruitKind[] = ["durian", "lychee", "banana", "dragonfruit", "mango", "peanut", "bomb"];
 
@@ -14,36 +16,84 @@ export function useFruitTextures({ appRef, appReady }: Props) {
   const [texturesReady, setTexturesReady] = useState(false);
 
   useEffect(() => {
-    if (!appReady || !appRef.current) return;
-
-    const app = appRef.current;
-    const textures: Record<string, Texture> = {};
-
-    const circle = new Graphics().circle(0, 0, 10).fill(0xffffff);
-    textures.circle = app.renderer.generateTexture(circle);
-    circle.destroy();
-
-    for (const kind of FRUIT_KINDS) {
-      const full = makeFruit(kind, RADIUS[kind]);
-      textures[kind] = app.renderer.generateTexture(full);
-      full.destroy();
-
-      if (kind !== "bomb") {
-        for (const side of ["left", "right"] as const) {
-          const half = makeHalf(kind, RADIUS[kind], side);
-          textures[`${kind}_${side}`] = app.renderer.generateTexture(half);
-          half.destroy();
-        }
-      }
+    if (!appReady || !appRef.current) {
+      setTexturesReady(false);
+      return;
     }
 
-    texturesRef.current = textures;
-    setTexturesReady(true);
+    const app = appRef.current;
+    if (!app.renderer) {
+      setTexturesReady(false);
+      return;
+    }
+
+    let cancelled = false;
+    const textures: Record<string, Texture> = {};
+
+    try {
+      const circle = new Graphics().circle(0, 0, 10).fill(0xffffff);
+      try {
+        textures.circle = app.renderer.generateTexture(circle);
+      } finally {
+        circle.destroy();
+      }
+
+      for (const kind of FRUIT_KINDS) {
+        const full = makeFruit(kind, VISUAL_RADIUS[kind]);
+        try {
+          textures[kind] = app.renderer.generateTexture(full);
+        } finally {
+          full.destroy();
+        }
+
+        if (kind !== "bomb") {
+          for (const side of ["left", "right"] as const) {
+            const half = makeHalf(kind, VISUAL_RADIUS[kind], side);
+            try {
+              textures[`${kind}_${side}`] = app.renderer.generateTexture(half);
+            } finally {
+              half.destroy();
+            }
+          }
+        }
+      }
+
+      if (!cancelled) {
+        texturesRef.current = textures;
+        setTexturesReady(true);
+      } else {
+        // Destroy textures if cancelled before mount completes
+        Object.values(textures).forEach((tex) => {
+          try {
+            tex.destroy(true);
+          } catch (e) {
+            // ignore
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Failed to generate fruit textures", error);
+      // Clean up partially generated textures
+      Object.values(textures).forEach((tex) => {
+        try {
+          tex.destroy(true);
+        } catch (e) {
+          // ignore
+        }
+      });
+      setTexturesReady(false);
+      return;
+    }
 
     return () => {
-      for (const tex of Object.values(texturesRef.current)) {
-        tex.destroy(true);
-      }
+      cancelled = true;
+      Object.values(texturesRef.current).forEach((tex) => {
+        try {
+          tex.destroy(true);
+        } catch (e) {
+          // ignore
+        }
+      });
       texturesRef.current = {};
       setTexturesReady(false);
     };

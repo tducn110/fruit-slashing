@@ -4,7 +4,6 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   signInWithRedirect,
-  getRedirectResult,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
@@ -45,7 +44,7 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 // Force localStorage persistence — fixes Safari / storage-partitioned browser issues
 setPersistence(auth, browserLocalPersistence);
-export const db = getFirestore(app);
+const db = getFirestore(app);
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 
@@ -105,14 +104,25 @@ export interface ScoreRecord {
   createdAt: number;
 }
 
-export async function saveScore(user: User, rawScore: number): Promise<number> {
+export async function saveScore(
+  user: User,
+  rawScore: number,
+  playTimeSec: number
+): Promise<number> {
   if (!Number.isInteger(rawScore) || rawScore < 0) throw new Error("Invalid score");
+
+  await auth.authStateReady();
+  const currentUser = auth.currentUser;
+  if (!currentUser || currentUser.uid !== user.uid) {
+    throw new Error("Authenticated user does not match score owner");
+  }
 
   const score = Math.min(rawScore, 9999);
   const now = Date.now();
-  const userRef = doc(db, "users", user.uid);
+  const userRef = doc(db, "users", currentUser.uid);
   const runRef = doc(collection(db, "runs"));
-  const playerName = user.displayName || user.email || "Người chơi";
+  const playerName = currentUser.displayName || currentUser.email || "Người chơi";
+  const safePlayTimeSec = Math.max(0, Math.min(180, Math.round(playTimeSec)));
 
   await runTransaction(db, async (transaction) => {
     const userSnapshot = await transaction.get(userRef);
@@ -120,11 +130,11 @@ export async function saveScore(user: User, rawScore: number): Promise<number> {
 
     if (score > 0) {
       transaction.set(runRef, {
-        uid: user.uid,
+        uid: currentUser.uid,
         playerName,
-        photoURL: user.photoURL,
+        photoURL: currentUser.photoURL,
         score,
-        playTimeSec: 180,
+        playTimeSec: safePlayTimeSec,
         verified: false,
         createdAt: now,
       });
@@ -132,7 +142,7 @@ export async function saveScore(user: User, rawScore: number): Promise<number> {
 
     transaction.set(userRef, {
       displayName: playerName,
-      photoURL: user.photoURL,
+      photoURL: currentUser.photoURL,
       bestScore: Math.max(typeof current?.bestScore === "number" ? current.bestScore : 0, score),
       totalGamesPlayed: (typeof current?.totalGamesPlayed === "number" ? current.totalGamesPlayed : 0) + 1,
       createdAt: current?.createdAt ?? now,
@@ -145,9 +155,29 @@ export async function saveScore(user: User, rawScore: number): Promise<number> {
 
 /** Fetch top N scores for the leaderboard. */
 export async function getLeaderboard(topN: number = 10): Promise<ScoreRecord[]> {
-  const q = query(collection(db, "runs"), orderBy("score", "desc"), limit(topN));
+  // Fetch more runs to allow client-side deduplication.
+  // A fully correct global leaderboard should use a `leaderboard/{uid}` aggregate later.
+  const fetchLimit = Math.max(100, topN * 10);
+  const q = query(collection(db, "runs"), orderBy("score", "desc"), limit(fetchLimit));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => d.data() as ScoreRecord);
+  const runs = snap.docs.map((d) => d.data() as ScoreRecord);
+
+  const bestByUid = new Map<string, ScoreRecord>();
+
+  for (const run of runs) {
+    const existing = bestByUid.get(run.uid);
+    if (
+      !existing ||
+      run.score > existing.score ||
+      (run.score === existing.score && run.createdAt > existing.createdAt)
+    ) {
+      bestByUid.set(run.uid, run);
+    }
+  }
+
+  return Array.from(bestByUid.values())
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topN);
 }
 
 /** Fetch user stats (bestScore, totalGamesPlayed) from Firestore. */

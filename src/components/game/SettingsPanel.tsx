@@ -2,7 +2,7 @@ import { Volume2, VolumeX } from "lucide-react";
 import type { User } from "firebase/auth";
 import { PanelFrame, IconButton, StatRow } from "../ui/primitives";
 
-export function rankFor(s: number) {
+function rankFor(s: number) {
   if (s >= 400) return "Vua Chém 👑";
   if (s >= 250) return "Cao Thủ ⚔️";
   if (s >= 100) return "Lính Mới 🌱";

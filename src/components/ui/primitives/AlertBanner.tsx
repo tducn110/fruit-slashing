@@ -1,6 +1,6 @@
 import React from "react";
 
-export interface AlertBannerProps {
+interface AlertBannerProps {
   variant: "error" | "info" | "success" | "warning";
   children: React.ReactNode;
 }
