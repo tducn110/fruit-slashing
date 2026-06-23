@@ -13,7 +13,6 @@ interface Props {
   texturesRef: React.MutableRefObject<Record<string, Texture>>;
   sizeRef: React.MutableRefObject<{ w: number; h: number }>;
   addParticle: (particle: Particle) => void;
-  addSplat: (config: any, texture: any, layer: any) => void;
   triggerBombFeedback: (screen: { x: number; y: number }) => void;
   triggerPointFeedback: (input: { x: number; y: number; text: string; color: string; variant?: "points" | "combo" | "critical" }) => void;
   callbacksRef: React.MutableRefObject<Callbacks>;
@@ -100,20 +99,26 @@ export function useSliceEffects({
     if (!layer || !circleTexture) return;
 
     for (let index = 0; index < count; index += 1) {
+      const particle = new Sprite(circleTexture);
+      particle.anchor.set(0.5);
+      particle.tint = color;
       const radius = size * (0.4 + Math.random() * 0.9);
+      particle.width = radius * 2;
+      particle.height = radius * 2;
+      particle.position.set(x, y);
       const angle = Math.random() * Math.PI * 2;
       const speed = 100 + Math.random() * 220;
       const ttl = 0.6 + Math.random() * 0.3;
 
-      addSplat({
-        x,
-        y,
+      handoffDisplay(particle, {
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed - 80,
-        color,
-        size: radius * 2,
+        rot: 0,
+        vr: 0,
+        life: ttl,
         ttl,
-      }, circleTexture, layer);
+        rotates: false,
+      }, layer);
     }
   }
 
