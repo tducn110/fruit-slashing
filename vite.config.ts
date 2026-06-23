@@ -46,11 +46,6 @@ export default defineConfig({
           if (id.includes('/firebase/') || id.includes('/@firebase/')) {
             return 'firebase-vendor'
           }
-
-          if (id.includes('/pixi.js/lib/filters/')) {
-            return 'pixi-filters'
-          }
-
           if (id.includes('/pixi.js/')) {
             return 'pixi-vendor'
           }
