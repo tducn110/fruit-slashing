@@ -33,4 +33,35 @@ export default defineConfig({
 
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+
+          if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/')) {
+            return 'react-vendor'
+          }
+
+          if (id.includes('/firebase/') || id.includes('/@firebase/')) {
+            return 'firebase-vendor'
+          }
+
+          if (id.includes('/pixi.js/lib/filters/')) {
+            return 'pixi-filters'
+          }
+
+          if (id.includes('/pixi.js/')) {
+            return 'pixi-vendor'
+          }
+
+          if (id.includes('/lucide-react/') || id.includes('/tw-animate-css/')) {
+            return 'ui-vendor'
+          }
+
+          return 'vendor'
+        },
+      },
+    },
+  },
 })

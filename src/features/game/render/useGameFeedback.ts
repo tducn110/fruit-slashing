@@ -5,7 +5,7 @@ export function useGameFeedback() {
   const [flashRed, setFlashRed] = useState(false);
   const [bombTexts, setBombTexts] = useState<Array<{ id: number; x: number; y: number }>>([]);
   const [pointTexts, setPointTexts] = useState<
-    Array<{ id: number; x: number; y: number; text: string; color: string }>
+    Array<{ id: number; x: number; y: number; text: string; color: string; variant?: "points" | "combo" | "critical" }>
   >([]);
 
   const effectIdRef = useRef(0);
@@ -48,9 +48,9 @@ export function useGameFeedback() {
     }, 800);
   }
 
-  function triggerPointFeedback(input: { x: number; y: number; text: string; color: string }) {
+  function triggerPointFeedback(input: { x: number; y: number; text: string; color: string; variant?: "points" | "combo" | "critical" }) {
     const id = ++effectIdRef.current;
-    setPointTexts((items) => [...items.slice(-8), { ...input, id }]);
+    setPointTexts((items) => [...items.slice(-14), { ...input, id }]);
     schedule(() => {
       setPointTexts((items) => items.filter((item) => item.id !== id));
     }, 800);

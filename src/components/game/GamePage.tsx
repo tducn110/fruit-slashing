@@ -41,6 +41,10 @@ export function GamePage({
 }: Props) {
   const [panel, setPanel] = useState<null | "settings" | "dashboard">(null);
 
+  const handleGameStart = useCallback(() => {
+    setPanel(null);
+  }, []);
+
   // 🎵 Sound — BGM managed by App.tsx, SFX for in-game slicing
   const { playSlice, playBomb } = useGameSound(muted);
 
@@ -124,6 +128,7 @@ export function GamePage({
         <div className="game-canvas-layer">
           <FruitGame
             onGameOver={handleGameOver}
+            onGameStart={handleGameStart}
             muted={muted}
             onPlaySlice={playSlice}
             onPlayBomb={playBomb}

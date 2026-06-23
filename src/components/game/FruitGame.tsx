@@ -26,6 +26,7 @@ import { useSliceEffects } from "../../features/game/render/useSliceEffects";
 
 interface Props {
   onGameOver?: (result: GameResult) => void;
+  onGameStart?: () => void;
   muted?: boolean;
   onPlaySlice?: () => void;
   onPlayBomb?: () => void;
@@ -33,9 +34,9 @@ interface Props {
 
 const GAME_DURATION_SECONDS = GAME_DURATION_MS / 1000;
 
-export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }: Props) {
-  const callbacksRef = useRef({ onGameOver, muted, onPlaySlice, onPlayBomb });
-  callbacksRef.current = { onGameOver, muted, onPlaySlice, onPlayBomb };
+export function FruitGame({ onGameOver, onGameStart, muted = false, onPlaySlice, onPlayBomb }: Props) {
+  const callbacksRef = useRef({ onGameOver, onGameStart, muted, onPlaySlice, onPlayBomb });
+  callbacksRef.current = { onGameOver, onGameStart, muted, onPlaySlice, onPlayBomb };
   const { wrapRef, appRef, sizeRef, playLayerRef, trailGraphicsRef, ready } = usePixiApp();
   const { texturesRef, texturesReady } = useFruitTextures({ appRef, appReady: ready });
   const { syncFruitSprites, clearFruitSprites } = useFruitSprites({ playLayerRef, texturesRef, texturesReady, sizeRef });
@@ -178,8 +179,14 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
     };
   }, [ready, texturesReady]);
 
+  function handleReplay() {
+    callbacksRef.current.onGameStart?.();
+    session.resetSession();
+  }
+
   function handleStart() {
     session.startSession();
+    callbacksRef.current.onGameStart?.();
 
     const values = new Uint32Array(1);
     crypto.getRandomValues(values);
@@ -225,7 +232,7 @@ export function FruitGame({ onGameOver, muted = false, onPlaySlice, onPlayBomb }
         finalScore={finalScore}
         running={running}
         countdown={countdown}
-        onReplay={session.resetSession}
+        onReplay={handleReplay}
       />
 
       <CountdownOverlay countdown={countdown} starting={starting} />

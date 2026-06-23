@@ -14,7 +14,7 @@ interface Props {
   sizeRef: React.MutableRefObject<{ w: number; h: number }>;
   addParticle: (particle: Particle) => void;
   triggerBombFeedback: (screen: { x: number; y: number }) => void;
-  triggerPointFeedback: (input: { x: number; y: number; text: string; color: string }) => void;
+  triggerPointFeedback: (input: { x: number; y: number; text: string; color: string; variant?: "points" | "combo" | "critical" }) => void;
   callbacksRef: React.MutableRefObject<Callbacks>;
 }
 
@@ -188,9 +188,21 @@ export function useSliceEffects({
     triggerPointFeedback({
       x: screen.x,
       y: screen.y,
-      text: result.fruit.kind === "peanut" ? `+${result.points} SIÊU HIẾM!` : `+${result.points}`,
+      text: result.fruit.kind === "peanut" ? "+" + result.points + " SIÊU HIẾM!" : "+" + result.points,
       color: result.fruit.kind === "peanut" ? "var(--mascot-yellow)" : "var(--primary)",
+      variant: "points",
     });
+
+    if (result.combo >= 2) {
+      const critical = result.combo >= 5;
+      triggerPointFeedback({
+        x: screen.x + 74,
+        y: screen.y - 18,
+        text: (critical ? "CRITICAL" : "COMBO") + " x" + result.combo,
+        color: critical ? "var(--destructive)" : "var(--orange-cta)",
+        variant: critical ? "critical" : "combo",
+      });
+    }
     if (!callbacksRef.current.muted) callbacksRef.current.onPlaySlice?.();
   }
 

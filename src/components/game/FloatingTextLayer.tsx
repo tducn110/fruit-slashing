@@ -10,11 +10,18 @@ interface PointText {
   id: number;
   text: string;
   color: string;
+  variant?: "points" | "combo" | "critical";
 }
 
 interface FloatingTextLayerProps {
   bombTexts: BombText[];
   pointTexts: PointText[];
+}
+
+function pointTextClass(variant: PointText["variant"]) {
+  if (variant === "critical") return "pointText criticalText";
+  if (variant === "combo") return "pointText comboFloatText";
+  return "pointText";
 }
 
 export function FloatingTextLayer({
@@ -32,7 +39,7 @@ export function FloatingTextLayer({
       {pointTexts.map((text) => (
         <div
           key={text.id}
-          className="pointText"
+          className={pointTextClass(text.variant)}
           style={{ left: text.x, top: text.y, color: text.color }}
         >
           {text.text}

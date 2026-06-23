@@ -72,13 +72,15 @@ export function HeroPeanutAnimation() {
         throw new Error("idle_wave animation is missing from peanut sprite sheet");
       }
 
+      // Keep the feet planted. The source spritesheet frames are not centered
+      // consistently, so these offsets compensate against the foot bbox.
       const frameOffsets = [
         { x: 0, y: 0 },
-        { x: 6, y: -3 },
+        { x: 18, y: 1 },
         { x: 0, y: 0 },
-        { x: 0, y: 2 },
-        { x: 6, y: -2 },
-        { x: 0, y: 2 },
+        { x: -4, y: 2 },
+        { x: 18, y: 2 },
+        { x: -4, y: 2 },
       ];
 
       const peanut = new AnimatedSprite(frames);
