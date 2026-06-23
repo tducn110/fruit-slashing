@@ -91,11 +91,11 @@ export function FruitGame({ onGameOver, onGameStart, muted = false, onPlaySlice,
 
   const [hud, setHud] = useState<HudState>({ score: 0, lives: 3, combo: 0, time: GAME_DURATION_SECONDS });
 
-  function syncHud(state: GameState) {
+  const syncHud = useCallback((state: GameState) => {
     setHud({ score: state.score, lives: state.lives, combo: state.combo, time: timeLeftSeconds(state) });
-  }
+  }, []);
 
-  function finishGame() {
+  const finishGame = useCallback(() => {
     const state = coreRef.current;
     if (!state) return;
     const playTimeSec = Math.min(180, Math.floor(state.tick / TICK_RATE));
@@ -106,7 +106,7 @@ export function FruitGame({ onGameOver, onGameStart, muted = false, onPlaySlice,
     };
     session.finishGame(result);
     syncHud(state);
-  }
+  }, [session, syncHud]);
 
   const handleSliceResult = useCallback((
     results: SliceResult[],
@@ -192,14 +192,14 @@ export function FruitGame({ onGameOver, onGameStart, muted = false, onPlaySlice,
       clearTrail();
       destroySlashPool();
     };
-  }, [ready, texturesReady]);
+  }, [ready, texturesReady, getCurrentFxPreset, initPool, syncFruitSprites, clearFruitSprites, clearParticles, clearTrail, destroySlashPool, countdown, session]);
 
-  function handleReplay() {
+  const handleReplay = useCallback(() => {
     callbacksRef.current.onGameStart?.();
     session.resetSession();
-  }
+  }, [session]);
 
-  function handleStart() {
+  const handleStart = useCallback(() => {
     session.startSession();
     callbacksRef.current.onGameStart?.();
 
@@ -219,7 +219,7 @@ export function FruitGame({ onGameOver, onGameStart, muted = false, onPlaySlice,
     clearFeedback();
     clearFruitSprites();
     syncHud(coreRef.current);
-  }
+  }, [session, clearParticles, clearFeedback, clearFruitSprites, syncHud]);
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
