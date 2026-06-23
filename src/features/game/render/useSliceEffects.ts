@@ -128,9 +128,9 @@ export function useSliceEffects({
 
     const screen = worldToScreen(result.fruit.x, result.fruit.y);
     if (result.fruit.kind === "bomb") {
-      spawnSplat(screen.x, screen.y, 0xff5a2a, 80, 8);
-      spawnSplat(screen.x, screen.y, 0xffe66a, 40, 6);
-      spawnSplat(screen.x, screen.y, 0x1f1f1f, 30, 10);
+      spawnSplat(screen.x, screen.y, 0xff5a2a, 35, 8);
+      spawnSplat(screen.x, screen.y, 0xffe66a, 20, 6);
+      spawnSplat(screen.x, screen.y, 0x1f1f1f, 15, 10);
       triggerBombFeedback(screen);
       if (!callbacksRef.current.muted) callbacksRef.current.onPlayBomb?.();
       return;
@@ -183,8 +183,8 @@ export function useSliceEffects({
         rotates: true,
       }, layer);
     });
-    spawnSplat(screen.x, screen.y, FRUIT_COLORS[result.fruit.kind].flesh, 45, 5);
-    spawnSplat(screen.x, screen.y, FRUIT_COLORS[result.fruit.kind].body, 15, 3);
+    spawnSplat(screen.x, screen.y, FRUIT_COLORS[result.fruit.kind].flesh, 20, 5);
+    spawnSplat(screen.x, screen.y, FRUIT_COLORS[result.fruit.kind].body, 8, 3);
     triggerPointFeedback({
       x: screen.x,
       y: screen.y,

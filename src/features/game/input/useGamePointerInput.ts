@@ -100,6 +100,7 @@ export function useGamePointerInput({
     };
 
     const handlePointerMove = (event: PointerEvent) => {
+      if (!pointerDownRef.current) return;
       handlePointer(event.clientX, event.clientY);
     };
 
