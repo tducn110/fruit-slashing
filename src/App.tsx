@@ -39,6 +39,21 @@ export default function App() {
     audioManager.setMuted(muted);
   }, [muted]);
 
+  useEffect(() => {
+    const playButtonClick = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+
+      const button = target.closest("button");
+      if (!button || button.disabled || button.getAttribute("aria-disabled") === "true") return;
+
+      audioManager.playButtonSfx();
+    };
+
+    document.addEventListener("click", playButtonClick, true);
+    return () => document.removeEventListener("click", playButtonClick, true);
+  }, []);
+
   // Bootstrap once: audio decoding, web fonts and a Pixi renderer preflight.
   useEffect(() => {
     let active = true;
@@ -80,9 +95,9 @@ export default function App() {
     try {
       await audioManager.unlock();
       if (!audioManager.bgmPlaying) {
-        audioManager.playBgm(0.2);
+        audioManager.playBgm(audioManager.gameBgmVolume);
       } else {
-        audioManager.setBgmVolume(0.2);
+        audioManager.setBgmVolume(audioManager.gameBgmVolume);
       }
     } catch (error) {
       console.warn("Audio unlock failed", error);
@@ -91,7 +106,7 @@ export default function App() {
   }, []);
 
   const handleHome = useCallback(() => {
-    audioManager.setBgmVolume(0.7);
+    audioManager.setBgmVolume(audioManager.landingBgmVolume);
     refreshLeaderboard();
     setView("landing");
   }, [refreshLeaderboard]);

@@ -20,7 +20,7 @@ export function useGameSound(muted: boolean) {
   const playBgm = useCallback(() => {
     if (bgmStartedRef.current) return;
     bgmStartedRef.current = true;
-    audioManager.playBgm(0.7);
+    audioManager.playBgm(audioManager.landingBgmVolume);
   }, []);
 
   const stopBgm = useCallback(() => {
@@ -29,11 +29,11 @@ export function useGameSound(muted: boolean) {
   }, []);
 
   const playSlice = useCallback(() => {
-    audioManager.playSfx("slice", 0.55, 5);
+    audioManager.playSfx("slice", 0.86, 5);
   }, []);
 
   const playBomb = useCallback(() => {
-    audioManager.playSfx("bomb", 0.7, 3);
+    audioManager.playSfx("bomb", 0.96, 3);
   }, []);
 
   return { playBgm, stopBgm, playSlice, playBomb };

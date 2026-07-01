@@ -6,6 +6,10 @@
 
 type SfxName = "bgm" | "slice" | "bomb";
 
+const LANDING_BGM_VOLUME = 0.24;
+const GAME_BGM_VOLUME = 0.16;
+const BUTTON_SFX_VOLUME = 0.58;
+
 interface AudioBuffers {
   bgm: AudioBuffer | null;
   slice: AudioBuffer | null;
@@ -20,6 +24,7 @@ class AudioManager {
   private _muted = false;
   private _loaded = false;
   private _bgmPlaying = false;
+  private currentBgmVolume = LANDING_BGM_VOLUME;
 
   /** Unlock AudioContext (must be called from user gesture) */
   async unlock(): Promise<void> {
@@ -34,6 +39,8 @@ class AudioManager {
   get muted() { return this._muted; }
   get loaded() { return this._loaded; }
   get bgmPlaying() { return this._bgmPlaying; }
+  get landingBgmVolume() { return LANDING_BGM_VOLUME; }
+  get gameBgmVolume() { return GAME_BGM_VOLUME; }
 
   /**
    * Preload all audio buffers. Returns progress 0-1 via onProgress.
@@ -114,7 +121,7 @@ class AudioManager {
       }
 
       if (this.ctx.state === "running") {
-        this.playBgm(0.7);
+        this.playBgm(LANDING_BGM_VOLUME);
       }
     };
 
@@ -132,7 +139,7 @@ class AudioManager {
         await this.preloadBgmOnly(basePath);
       }
       if (this.ctx.state === "running" && !this._bgmPlaying) {
-        this.playBgm(0.7);
+        this.playBgm(LANDING_BGM_VOLUME);
       }
       cleanup();
     };
@@ -152,13 +159,14 @@ class AudioManager {
   playBgm(volume = 0.3): void {
     if (!this.ctx || !this.buffers.bgm) return;
     this.stopBgm();
+    this.currentBgmVolume = this.clampVolume(volume);
 
     const source = this.ctx.createBufferSource();
     source.buffer = this.buffers.bgm;
     source.loop = true;
 
     const gain = this.ctx.createGain();
-    gain.gain.value = this._muted ? 0 : Math.max(0, Math.min(1, volume));
+    gain.gain.value = this._muted ? 0 : this.currentBgmVolume;
 
     source.connect(gain).connect(this.ctx.destination);
     source.start(0);
@@ -226,18 +234,65 @@ class AudioManager {
     source.start(0);
   }
 
+  playButtonSfx(volume = BUTTON_SFX_VOLUME): void {
+    if (this._muted) return;
+
+    if (!this.ctx) {
+      this.ctx = new AudioContext();
+    }
+
+    if (this.ctx.state === "suspended") {
+      void this.ctx.resume().catch(() => {});
+    }
+
+    const now = this.ctx.currentTime;
+    const gain = this.ctx.createGain();
+    const click = this.ctx.createOscillator();
+    const pop = this.ctx.createOscillator();
+    const finalVolume = this.clampVolume(volume);
+
+    click.type = "triangle";
+    click.frequency.setValueAtTime(920, now);
+    click.frequency.exponentialRampToValueAtTime(520, now + 0.055);
+
+    pop.type = "sine";
+    pop.frequency.setValueAtTime(210, now);
+    pop.frequency.exponentialRampToValueAtTime(130, now + 0.08);
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(finalVolume, now + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
+
+    click.connect(gain);
+    pop.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    click.start(now);
+    pop.start(now);
+    click.stop(now + 0.09);
+    pop.stop(now + 0.09);
+
+    const cleanup = () => {
+      click.disconnect();
+      pop.disconnect();
+      gain.disconnect();
+    };
+    click.onended = cleanup;
+  }
+
   /** Toggle mute on/off */
   setMuted(m: boolean): void {
     this._muted = m;
     if (this.bgmGain) {
-      this.bgmGain.gain.value = m ? 0 : 0.7;
+      this.bgmGain.gain.value = m ? 0 : this.currentBgmVolume;
     }
   }
 
   /** Change BGM volume dynamically (0-1). Does not restart the track. */
   setBgmVolume(volume: number): void {
+    this.currentBgmVolume = this.clampVolume(volume);
     if (this.bgmGain) {
-      this.bgmGain.gain.value = this._muted ? 0 : Math.max(0, Math.min(1, volume));
+      this.bgmGain.gain.value = this._muted ? 0 : this.currentBgmVolume;
     }
   }
 
@@ -257,6 +312,10 @@ class AudioManager {
     }
     this.buffers = { bgm: null, slice: null, bomb: null };
     this._loaded = false;
+  }
+
+  private clampVolume(volume: number): number {
+    return Math.max(0, Math.min(1, volume));
   }
 }
 
