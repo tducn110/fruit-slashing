@@ -11,28 +11,46 @@ const GAME_BGM_VOLUME = 0.16;
 const BUTTON_SFX_VOLUME = 0.58;
 
 interface AudioBuffers {
-  bgm: AudioBuffer | null;
   slice: AudioBuffer | null;
   bomb: AudioBuffer | null;
 }
 
 class AudioManager {
   private ctx: AudioContext | null = null;
-  private buffers: AudioBuffers = { bgm: null, slice: null, bomb: null };
-  private bgmSource: AudioBufferSourceNode | null = null;
   private bgmGain: GainNode | null = null;
+  private sfxGain: GainNode | null = null;
+
+  private buffers: AudioBuffers = { slice: null, bomb: null };
+  
+  private bgm: HTMLAudioElement | null = null;
+  private bgmSource: MediaElementAudioSourceNode | null = null;
+  private bgmLocalGain: GainNode | null = null;
+
   private _muted = false;
   private _loaded = false;
   private _bgmPlaying = false;
   private currentBgmVolume = LANDING_BGM_VOLUME;
 
+  private ensureContext() {
+    if (!this.ctx) {
+      this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      this.bgmGain = this.ctx.createGain();
+      this.sfxGain = this.ctx.createGain();
+      
+      this.bgmGain.connect(this.ctx.destination);
+      this.sfxGain.connect(this.ctx.destination);
+      
+      this.bgmGain.gain.value = this._muted ? 0 : 1;
+      this.sfxGain.gain.value = this._muted ? 0 : 1;
+    }
+  }
+
   /** Unlock AudioContext (must be called from user gesture) */
   async unlock(): Promise<void> {
-    if (!this.ctx) {
-      this.ctx = new AudioContext();
-    }
-    if (this.ctx.state === "suspended") {
-      await this.ctx.resume();
+    this.ensureContext();
+    if (this.ctx!.state === "suspended") {
+      await this.ctx!.resume();
     }
   }
 
@@ -42,6 +60,16 @@ class AudioManager {
   get landingBgmVolume() { return LANDING_BGM_VOLUME; }
   get gameBgmVolume() { return GAME_BGM_VOLUME; }
 
+  private setupBgmNode() {
+    if (!this.ctx || !this.bgm || this.bgmSource) return;
+    this.bgmSource = this.ctx.createMediaElementSource(this.bgm);
+    this.bgmLocalGain = this.ctx.createGain();
+    this.bgmLocalGain.gain.value = this.currentBgmVolume;
+    
+    this.bgmSource.connect(this.bgmLocalGain);
+    this.bgmLocalGain.connect(this.bgmGain!);
+  }
+
   /**
    * Preload all audio buffers. Returns progress 0-1 via onProgress.
    * `basePath` should point to the folder containing audio files, e.g. "/assets/".
@@ -50,21 +78,39 @@ class AudioManager {
     basePath: string,
     onProgress?: (ratio: number) => void
   ): Promise<void> {
-    // Ensure context exists
-    if (!this.ctx) {
-      this.ctx = new AudioContext();
-    }
+    this.ensureContext();
 
-    const files: { name: SfxName; url: string }[] = [
-      { name: "bgm", url: `${basePath}moavii-we-are.mp3` },
+    const files: { name: keyof AudioBuffers; url: string }[] = [
       { name: "slice", url: `${basePath}666herohero-slash-21834.mp3` },
       { name: "bomb", url: `${basePath}bomb.mp3` },
     ];
 
     let loaded = 0;
-    const total = files.length;
+    const total = files.length + 1; // +1 for BGM
 
-    const loadOne = async (name: SfxName, url: string): Promise<void> => {
+    // Preload BGM using HTMLAudioElement
+    await new Promise<void>((resolve) => {
+      this.bgm = new Audio(`${basePath}moavii-we-are.mp3`);
+      this.bgm.loop = true;
+      this.bgm.preload = "auto";
+      
+      const onCanPlay = () => { cleanup(); resolve(); };
+      const onError = () => { cleanup(); resolve(); };
+      const cleanup = () => {
+        this.bgm?.removeEventListener("canplaythrough", onCanPlay);
+        this.bgm?.removeEventListener("error", onError);
+      };
+      
+      this.bgm.addEventListener("canplaythrough", onCanPlay);
+      this.bgm.addEventListener("error", onError);
+      this.bgm.load();
+    });
+    
+    this.setupBgmNode();
+    loaded++;
+    onProgress?.(loaded / total);
+
+    const loadOne = async (name: keyof AudioBuffers, url: string): Promise<void> => {
       try {
         const resp = await fetch(url);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -73,7 +119,6 @@ class AudioManager {
         this.buffers[name] = audioBuf;
       } catch (err) {
         console.warn(`[AudioManager] Failed to load ${name}:`, err);
-        // Continue without this sound
       }
       loaded++;
       onProgress?.(loaded / total);
@@ -88,17 +133,33 @@ class AudioManager {
    * Returns true if loaded successfully.
    */
   async preloadBgmOnly(basePath: string): Promise<boolean> {
-    if (!this.ctx) this.ctx = new AudioContext();
-    try {
-      const resp = await fetch(`${basePath}moavii-we-are.mp3`);
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const arrayBuf = await resp.arrayBuffer();
-      this.buffers.bgm = await this.ctx!.decodeAudioData(arrayBuf);
-      return true;
-    } catch (err) {
-      console.warn("[AudioManager] Failed to preload BGM:", err);
-      return false;
-    }
+    this.ensureContext();
+    if (this.bgm) return true;
+
+    return new Promise((resolve) => {
+      this.bgm = new Audio(`${basePath}moavii-we-are.mp3`);
+      this.bgm.loop = true;
+      this.bgm.preload = "auto";
+      
+      const onCanPlay = () => {
+        cleanup();
+        this.setupBgmNode();
+        resolve(true);
+      };
+      const onError = () => {
+        cleanup();
+        console.warn("[AudioManager] Failed to preload BGM");
+        resolve(false);
+      };
+      const cleanup = () => {
+        this.bgm?.removeEventListener("canplaythrough", onCanPlay);
+        this.bgm?.removeEventListener("error", onError);
+      };
+      
+      this.bgm.addEventListener("canplaythrough", onCanPlay);
+      this.bgm.addEventListener("error", onError);
+      this.bgm.load();
+    });
   }
 
   /**
@@ -109,36 +170,34 @@ class AudioManager {
   tryAutoPlayBgm(basePath: string): void {
     const doPlay = async () => {
       if (this._bgmPlaying) return;
-      if (!this.ctx) this.ctx = new AudioContext();
+      this.ensureContext();
 
-      if (this.ctx.state === "suspended") {
-        try { await this.ctx.resume(); } catch {}
+      if (this.ctx!.state === "suspended") {
+        try { await this.ctx!.resume(); } catch {}
       }
 
-      if (!this.buffers.bgm) {
+      if (!this.bgm) {
         const ok = await this.preloadBgmOnly(basePath);
         if (!ok) return;
       }
 
-      if (this.ctx.state === "running") {
+      if (this.ctx!.state === "running") {
         this.playBgm(LANDING_BGM_VOLUME);
       }
     };
 
-    // Try immediately (may work if user already interacted with site before)
     doPlay();
 
-    // If blocked by autoplay policy, wait for first user interaction
     const resumeOnInteraction = async () => {
       if (this._bgmPlaying) { cleanup(); return; }
-      if (!this.ctx) this.ctx = new AudioContext();
-      if (this.ctx.state === "suspended") {
-        try { await this.ctx.resume(); } catch {}
+      this.ensureContext();
+      if (this.ctx!.state === "suspended") {
+        try { await this.ctx!.resume(); } catch {}
       }
-      if (!this.buffers.bgm) {
+      if (!this.bgm) {
         await this.preloadBgmOnly(basePath);
       }
-      if (this.ctx.state === "running" && !this._bgmPlaying) {
+      if (this.ctx!.state === "running" && !this._bgmPlaying) {
         this.playBgm(LANDING_BGM_VOLUME);
       }
       cleanup();
@@ -157,34 +216,24 @@ class AudioManager {
 
   /** Play BGM in a loop at given volume (0-1). */
   playBgm(volume = 0.3): void {
-    if (!this.ctx || !this.buffers.bgm) return;
-    this.stopBgm();
+    if (!this.bgm) return;
     this.currentBgmVolume = this.clampVolume(volume);
-
-    const source = this.ctx.createBufferSource();
-    source.buffer = this.buffers.bgm;
-    source.loop = true;
-
-    const gain = this.ctx.createGain();
-    gain.gain.value = this._muted ? 0 : this.currentBgmVolume;
-
-    source.connect(gain).connect(this.ctx.destination);
-    source.start(0);
-
-    this.bgmSource = source;
-    this.bgmGain = gain;
+    
+    if (this.bgmLocalGain) {
+      this.bgmLocalGain.gain.value = this.currentBgmVolume;
+    }
+    
+    if (!this._bgmPlaying) {
+      this.bgm.currentTime = 0;
+    }
+    
+    this.bgm.play().catch(e => console.log("Deferred until interaction"));
     this._bgmPlaying = true;
   }
 
   stopBgm(): void {
-    if (this.bgmSource) {
-      try { this.bgmSource.stop(); } catch {}
-      this.bgmSource.disconnect();
-      this.bgmSource = null;
-    }
-    if (this.bgmGain) {
-      this.bgmGain.disconnect();
-      this.bgmGain = null;
+    if (this.bgm) {
+      this.bgm.pause();
     }
     this._bgmPlaying = false;
   }
@@ -195,28 +244,24 @@ class AudioManager {
   private voicePools: Map<SfxName, AudioBufferSourceNode[]> = new Map();
 
   playSfx(name: SfxName, volume = 0.6, maxVoices = 5): void {
-    if (!this.ctx || !this.buffers[name]) return;
-    if (this._muted && name !== "bomb") return;
-    // Bomb still plays even when muted? No — respect mute
-    if (this._muted) return;
-
+    if (!this.ctx || name === "bgm" || !this.buffers[name]) return;
+    
     const buf = this.buffers[name]!;
     const source = this.ctx.createBufferSource();
     source.buffer = buf;
 
     const gain = this.ctx.createGain();
-    gain.gain.value = Math.max(0, Math.min(1, volume));
+    gain.gain.value = this.clampVolume(volume);
 
-    source.connect(gain).connect(this.ctx.destination);
+    // IMPORTANT: Connect to sfxGain, not ctx.destination directly
+    source.connect(gain).connect(this.sfxGain!);
 
-    // Manage voice pool
     let pool = this.voicePools.get(name);
     if (!pool) {
       pool = [];
       this.voicePools.set(name, pool);
     }
     const alive = [...pool];
-    // Limit voices
     if (alive.length >= maxVoices) {
       try { alive[0].stop(); } catch {}
       alive.shift();
@@ -235,20 +280,15 @@ class AudioManager {
   }
 
   playButtonSfx(volume = BUTTON_SFX_VOLUME): void {
-    if (this._muted) return;
-
-    if (!this.ctx) {
-      this.ctx = new AudioContext();
+    this.ensureContext();
+    if (this.ctx!.state === "suspended") {
+      void this.ctx!.resume().catch(() => {});
     }
 
-    if (this.ctx.state === "suspended") {
-      void this.ctx.resume().catch(() => {});
-    }
-
-    const now = this.ctx.currentTime;
-    const gain = this.ctx.createGain();
-    const click = this.ctx.createOscillator();
-    const pop = this.ctx.createOscillator();
+    const now = this.ctx!.currentTime;
+    const gain = this.ctx!.createGain();
+    const click = this.ctx!.createOscillator();
+    const pop = this.ctx!.createOscillator();
     const finalVolume = this.clampVolume(volume);
 
     click.type = "triangle";
@@ -265,7 +305,9 @@ class AudioManager {
 
     click.connect(gain);
     pop.connect(gain);
-    gain.connect(this.ctx.destination);
+    
+    // IMPORTANT: Connect to sfxGain, not ctx.destination directly
+    gain.connect(this.sfxGain!);
 
     click.start(now);
     pop.start(now);
@@ -284,15 +326,18 @@ class AudioManager {
   setMuted(m: boolean): void {
     this._muted = m;
     if (this.bgmGain) {
-      this.bgmGain.gain.value = m ? 0 : this.currentBgmVolume;
+      this.bgmGain.gain.value = m ? 0 : 1;
+    }
+    if (this.sfxGain) {
+      this.sfxGain.gain.value = m ? 0 : 1;
     }
   }
 
   /** Change BGM volume dynamically (0-1). Does not restart the track. */
   setBgmVolume(volume: number): void {
     this.currentBgmVolume = this.clampVolume(volume);
-    if (this.bgmGain) {
-      this.bgmGain.gain.value = this._muted ? 0 : this.currentBgmVolume;
+    if (this.bgmLocalGain) {
+      this.bgmLocalGain.gain.value = this.currentBgmVolume;
     }
   }
 
@@ -306,11 +351,31 @@ class AudioManager {
       })
     );
     this.voicePools.clear();
+    if (this.bgm) {
+      this.bgm.src = "";
+      this.bgm = null;
+    }
+    if (this.bgmSource) {
+      this.bgmSource.disconnect();
+      this.bgmSource = null;
+    }
+    if (this.bgmLocalGain) {
+      this.bgmLocalGain.disconnect();
+      this.bgmLocalGain = null;
+    }
+    if (this.bgmGain) {
+      this.bgmGain.disconnect();
+      this.bgmGain = null;
+    }
+    if (this.sfxGain) {
+      this.sfxGain.disconnect();
+      this.sfxGain = null;
+    }
     if (this.ctx) {
       this.ctx.close().catch(() => {});
       this.ctx = null;
     }
-    this.buffers = { bgm: null, slice: null, bomb: null };
+    this.buffers = { slice: null, bomb: null };
     this._loaded = false;
   }
 
