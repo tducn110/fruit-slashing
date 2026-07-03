@@ -106,7 +106,7 @@ export function useGameTicker({
       if (size) {
         callbacksRef.current.updateParticles(ticker.deltaMS / 1000, size.h);
       }
-      callbacksRef.current.updateScreenShake(playLayerRef.current);
+      callbacksRef.current.updateScreenShake(app?.stage ?? playLayerRef.current);
       callbacksRef.current.drawTrail();
     }
 

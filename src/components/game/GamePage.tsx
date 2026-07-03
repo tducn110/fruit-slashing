@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { FruitGame } from "./FruitGame";
 import type { GameResult } from "../../game/types";
 import { Home, Settings, Trophy } from "lucide-react";
-import type { User } from "firebase/auth";
-import type { ScoreRecord } from "../../lib/firebase";
+import type { LocalScore } from "../../lib/localScores";
 import { useGameSound } from "../../hooks/useSound";
 import { DashboardPanel } from "./DashboardPanel";
 import { SettingsPanel } from "./SettingsPanel";
@@ -11,33 +10,25 @@ import { SettingsPanel } from "./SettingsPanel";
 interface Props {
   muted: boolean;
   onToggleMute: () => void;
-  user: User | null;
   bestScore: number;
   lastScore: number | null;
   totalGamesPlayed: number;
-  leaderboard: ScoreRecord[];
-  saveError?: string | null;
-  savingScore?: boolean;
+  leaderboard: LocalScore[];
   onGameOver: (result: GameResult) => void;
   onHome: () => void;
   onRefreshLeaderboard: () => void;
-  onLoginPrompt: () => void;
 }
 
 export function GamePage({
   muted,
   onToggleMute,
-  user,
   bestScore,
   lastScore,
   totalGamesPlayed,
   leaderboard,
-  saveError,
-  savingScore,
   onGameOver,
   onHome,
   onRefreshLeaderboard,
-  onLoginPrompt,
 }: Props) {
   const [panel, setPanel] = useState<null | "settings" | "dashboard">(null);
 
@@ -99,9 +90,10 @@ export function GamePage({
         <span className="gameTitle" style={{
           fontWeight: 800, fontSize: 16, color: "var(--ink-dark)",
           fontFamily: "var(--font-family)",
-          letterSpacing: 0.5,
+          letterSpacing: 0,
         }}>
-          Chém Lạc <span className="gameSub" style={{ color: "var(--primary)" }}>Vùng Cao</span>
+          <span className="game-title-brand">Chém Lạc</span>{" "}
+          <span className="gameSub game-title-accent" style={{ color: "var(--primary)" }}>Vùng Cao</span>
         </span>
 
         {/* Right: Settings + Dashboard */}
@@ -144,7 +136,6 @@ export function GamePage({
               bestScore={bestScore}
               lastScore={lastScore}
               totalGamesPlayed={totalGamesPlayed}
-              user={user}
               onClose={() => setPanel(null)}
             />
           )}
@@ -153,10 +144,7 @@ export function GamePage({
           {panel === "dashboard" && (
             <DashboardPanel
               leaderboard={leaderboard}
-              user={user}
-              savingScore={savingScore}
-              saveError={saveError}
-              onLoginPrompt={onLoginPrompt}
+              bestScore={bestScore}
               onClose={() => setPanel(null)}
             />
           )}

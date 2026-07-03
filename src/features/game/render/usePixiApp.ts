@@ -21,37 +21,49 @@ export function usePixiApp() {
     const width = Math.max(320, wrap.clientWidth || 800);
     const height = Math.max(200, wrap.clientHeight || 450);
     sizeRef.current = { w: width, h: height };
+    let resizeFrame = 0;
 
     const preset = getFxPreset(width);
     const resolution = Math.min(window.devicePixelRatio || 1, preset.resolutionCap);
 
-    const resizeObserver = new ResizeObserver(() => {
+    function redrawBackground(nextWidth: number, nextHeight: number) {
+      const backgroundLayer = backgroundLayerRef.current;
+      if (!backgroundLayer || !appRef.current) return;
+
+      // Clean up old background textures to prevent memory leaks on resize
+      backgroundLayer.children.forEach((child) => {
+        if (child instanceof Sprite && child.texture) {
+          child.texture.destroy(true);
+        }
+        child.destroy({ children: true });
+      });
+      backgroundLayer.removeChildren();
+
+      const background = new Container();
+      drawBackground(background, nextWidth, nextHeight);
+      const texture = appRef.current.renderer.generateTexture(background);
+      const sprite = new Sprite(texture);
+      backgroundLayer.addChild(sprite);
+      background.destroy({ children: true });
+    }
+
+    const applyResize = () => {
+      resizeFrame = 0;
       if (cancelled || !appRef.current) return;
       const nextWidth = Math.max(320, wrap.clientWidth);
       const nextHeight = Math.max(200, wrap.clientHeight);
       if (nextWidth === sizeRef.current.w && nextHeight === sizeRef.current.h) return;
       sizeRef.current = { w: nextWidth, h: nextHeight };
       appRef.current.renderer.resize(nextWidth, nextHeight);
-      
-      const backgroundLayer = backgroundLayerRef.current;
-      if (backgroundLayer && appRef.current) {
-        // Clean up old background textures to prevent memory leaks on resize
-        backgroundLayer.children.forEach((child) => {
-          if (child instanceof Sprite && child.texture) {
-            child.texture.destroy(true);
-          }
-          child.destroy({ children: true });
-        });
-        backgroundLayer.removeChildren();
+      redrawBackground(nextWidth, nextHeight);
+    };
 
-        const background = new Container();
-        drawBackground(background, nextWidth, nextHeight);
-        const texture = appRef.current.renderer.generateTexture(background);
-        const sprite = new Sprite(texture);
-        backgroundLayer.addChild(sprite);
-        background.destroy({ children: true });
-      }
-    });
+    const scheduleResize = () => {
+      if (resizeFrame) window.cancelAnimationFrame(resizeFrame);
+      resizeFrame = window.requestAnimationFrame(applyResize);
+    };
+
+    const resizeObserver = new ResizeObserver(scheduleResize);
 
     app.init({
       width,
@@ -95,6 +107,8 @@ export function usePixiApp() {
         trailGraphicsRef.current = trailGraphics;
 
         resizeObserver.observe(wrap);
+        window.visualViewport?.addEventListener("resize", scheduleResize, { passive: true });
+        window.addEventListener("orientationchange", scheduleResize);
         setReady(true);
       })
       .catch((error) => console.error("Pixi init failed", error));
@@ -102,6 +116,9 @@ export function usePixiApp() {
     return () => {
       cancelled = true;
       resizeObserver.disconnect();
+      if (resizeFrame) window.cancelAnimationFrame(resizeFrame);
+      window.visualViewport?.removeEventListener("resize", scheduleResize);
+      window.removeEventListener("orientationchange", scheduleResize);
 
       // Clean up background texture resources to prevent memory leaks on unmount
       const bgLayer = backgroundLayerRef.current;

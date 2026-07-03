@@ -48,6 +48,8 @@ export function useGamePointerInput({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    let moveFrame = 0;
+    let pendingMove: { clientX: number; clientY: number } | null = null;
 
     function handlePointer(clientX: number, clientY: number) {
       const state = gameStateRef.current;
@@ -101,10 +103,27 @@ export function useGamePointerInput({
 
     const handlePointerMove = (event: PointerEvent) => {
       if (!pointerDownRef.current) return;
-      handlePointer(event.clientX, event.clientY);
+      pendingMove = { clientX: event.clientX, clientY: event.clientY };
+      if (moveFrame) return;
+      moveFrame = window.requestAnimationFrame(() => {
+        moveFrame = 0;
+        const next = pendingMove;
+        pendingMove = null;
+        if (!pointerDownRef.current || !next) return;
+        handlePointer(next.clientX, next.clientY);
+      });
     };
 
     const handlePointerUp = () => {
+      if (pendingMove) {
+        const next = pendingMove;
+        pendingMove = null;
+        if (moveFrame) {
+          window.cancelAnimationFrame(moveFrame);
+          moveFrame = 0;
+        }
+        handlePointer(next.clientX, next.clientY);
+      }
       pointerDownRef.current = false;
       clearTrail();
     };
@@ -121,6 +140,7 @@ export function useGamePointerInput({
       window.removeEventListener("pointerup", handlePointerUp);
       canvas.removeEventListener("pointerleave", handlePointerUp);
       canvas.removeEventListener("pointercancel", handlePointerUp);
+      if (moveFrame) window.cancelAnimationFrame(moveFrame);
     };
   }, [
     canvasRef,

@@ -1,5 +1,4 @@
 import { createRoot } from "react-dom/client";
-import { AuthProvider } from "./contexts/AuthContext";
 import App from "./App";
 import "./styles/index.css";
 
@@ -10,8 +9,4 @@ if (preloader) {
   setTimeout(() => preloader.remove(), 400);
 }
 
-createRoot(document.getElementById("root")!).render(
-  <AuthProvider>
-    <App />
-  </AuthProvider>,
-);
+createRoot(document.getElementById("root")!).render(<App />);

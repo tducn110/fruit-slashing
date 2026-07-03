@@ -1,13 +1,7 @@
-import { Volume2, VolumeX } from "lucide-react";
-import type { User } from "firebase/auth";
-import { PanelFrame, IconButton, StatRow } from "../ui/primitives";
-
-function rankFor(s: number) {
-  if (s >= 400) return "Vua Chém 👑";
-  if (s >= 250) return "Cao Thủ ⚔️";
-  if (s >= 100) return "Lính Mới 🌱";
-  return "Tập Sự 🌾";
-}
+import { BarChart3, Music, Settings as SettingsIcon, Trophy, UserRound, Volume2, VolumeX } from "lucide-react";
+import type React from "react";
+import { PanelFrame, IconButton } from "../ui/primitives";
+import { getRank } from "../../lib/localScores";
 
 interface Props {
   muted: boolean;
@@ -15,7 +9,6 @@ interface Props {
   bestScore: number;
   lastScore: number | null;
   totalGamesPlayed: number;
-  user: User | null;
   onClose: () => void;
 }
 
@@ -25,51 +18,73 @@ export function SettingsPanel({
   bestScore,
   lastScore,
   totalGamesPlayed,
-  user,
   onClose,
 }: Props) {
   return (
     <PanelFrame
-      title="⚙️ Cài đặt"
-      width={240}
-      onClose={onClose}
-    >
-
-      {/* Mute toggle */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <span style={{ fontSize: 14, color: "color-mix(in srgb, var(--ink-dark) 85%, transparent)" }}>Âm thanh</span>
-        <IconButton
-          label="Mute Toggle"
-          variant="solid"
-          onClick={onToggleMute}
-          style={{
-            display: "flex", alignItems: "center", gap: 6,
-            padding: "6px 14px", borderRadius: 999,
-            background: muted ? "var(--paper-warm)" : "linear-gradient(180deg, color-mix(in srgb, var(--primary) 80%, white), var(--primary))",
-            color: muted ? "var(--pencil-gray)" : "#fff",
-            border: muted ? "1.5px solid var(--secondary-container)" : "1.5px solid color-mix(in srgb, var(--primary) 70%, black)",
-            fontWeight: 700, fontSize: 13, cursor: "pointer",
-          }}
-        >
-          {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-          {muted ? "Bật" : "Tắt"}
-        </IconButton>
-      </div>
-
-      {/* Stats */}
-      <div style={{ borderTop: "1px solid var(--muted)", paddingTop: 14 }}>
-        <div style={{ fontSize: 12, color: "var(--pencil-gray)", fontWeight: 700, letterSpacing: 1, marginBottom: 8 }}>THỐNG KÊ</div>
-        <StatRow label="Điểm cao nhất" value={bestScore || "—"} />
-        <StatRow label="Điểm gần nhất" value={lastScore ?? "—"} />
-        <StatRow label="Tổng lượt chơi" value={totalGamesPlayed} />
-        <StatRow label="Cấp bậc" value={rankFor(bestScore)} />
-      </div>
-
-      {!user && (
-        <p style={{ fontSize: 12, color: "var(--pencil-gray)", marginTop: 14, lineHeight: 1.5 }}>
-          💡 Đăng nhập để lưu điểm vào bảng vinh danh.
-        </p>
+      title={(
+        <span className="settingsPanelTitle">
+          <SettingsIcon size={20} />
+          Cài đặt
+        </span>
       )}
+      width={330}
+      onClose={onClose}
+      className="settingsPanel"
+    >
+      <div className="settingsPanelRows">
+        <div className="settingsOptionRow">
+          <div className="settingsOptionLabel">
+            {muted ? <VolumeX size={20} /> : <Music size={20} />}
+            <span>Âm thanh</span>
+          </div>
+          <IconButton
+            label={muted ? "Bật âm thanh" : "Tắt âm thanh"}
+            aria-pressed={!muted}
+            variant="solid"
+            onClick={onToggleMute}
+            className={`settingsToggle ${muted ? "is-off" : "is-on"}`}
+          >
+            {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+            {muted ? "Bật" : "Tắt"}
+          </IconButton>
+        </div>
+
+        <div className="settingsStatsCard">
+          <div className="settingsSectionLabel">
+            <BarChart3 size={15} />
+            Thống kê
+          </div>
+          <StatLine icon={<Trophy size={16} />} label="Điểm cao nhất" value={bestScore || "—"} />
+          <StatLine icon={<BarChart3 size={16} />} label="Điểm gần nhất" value={lastScore ?? "—"} />
+          <StatLine icon={<UserRound size={16} />} label="Tổng lượt chơi" value={totalGamesPlayed} />
+          <StatLine icon={<Trophy size={16} />} label="Cấp bậc" value={getRank(bestScore)} strong />
+        </div>
+      </div>
     </PanelFrame>
+  );
+}
+
+function StatLine({
+  icon,
+  label,
+  value,
+  strong = false,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: React.ReactNode;
+  strong?: boolean;
+}) {
+  return (
+    <div className="settingsStatLine">
+      <span className="settingsStatLabel">
+        {icon}
+        {label}
+      </span>
+      <span className={strong ? "settingsStatValue is-strong" : "settingsStatValue"}>
+        {value}
+      </span>
+    </div>
   );
 }

@@ -1,102 +1,134 @@
-import type { User } from "firebase/auth";
-import type { ScoreRecord } from "../../lib/firebase";
-import { PanelFrame, AlertBanner, GameButton } from "../ui/primitives";
+import { Clock3, Trophy } from "lucide-react";
+import {
+  BADGE_COLORS,
+  buildLeaderboardModel,
+  getRank,
+  type LocalScore,
+  type RankedLeaderboardEntry,
+} from "../../lib/localScores";
+import { PanelFrame } from "../ui/primitives";
 
 interface Props {
-  leaderboard: ScoreRecord[];
-  user: User | null;
-  savingScore?: boolean;
-  saveError?: string | null;
-  onLoginPrompt: () => void;
+  leaderboard: LocalScore[];
+  bestScore: number;
   onClose: () => void;
 }
 
 export function DashboardPanel({
   leaderboard,
-  user,
-  savingScore,
-  saveError,
-  onLoginPrompt,
+  bestScore,
   onClose,
 }: Props) {
+  const { topEntries, currentPlayer } = buildLeaderboardModel(leaderboard, "Người chơi");
+  const playerInTopTen = topEntries.find((entry) => entry.isLocal) ?? null;
+  const playerRow = playerInTopTen ?? currentPlayer;
+
   return (
     <PanelFrame
-      title="🏆 Bảng vinh danh toàn cầu"
-      width={340}
-      maxHeight="80vh"
+      title={(
+        <span className="settingsPanelTitle">
+          <Trophy size={20} />
+          Kỷ lục
+        </span>
+      )}
+      width={380}
+      maxHeight="calc(100dvh - 86px)"
       onClose={onClose}
+      className="settingsPanel dashboardPanel"
     >
+      <div className="dashboardBestCard">
+        <div className="dashboardBestLabel">Kỷ lục của bạn</div>
+        <div className="dashboardBestScore">{bestScore.toLocaleString("vi-VN")}</div>
+        <div className="dashboardBestRank">Danh hiệu: {getRank(bestScore)}</div>
+      </div>
 
-      {leaderboard.length === 0 ? (
-        <p style={{ fontSize: 13, color: "var(--pencil-gray)", textAlign: "center", padding: "20px 0" }}>
-          Chưa có điểm nào. Hãy là người đầu tiên!
-        </p>
-      ) : (
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-          <thead>
-            <tr style={{ color: "var(--pencil-gray)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>
-              {["#", "Tên", "Điểm", "Thời gian"].map((h) => (
-                <th key={h} style={{ padding: "4px 6px", textAlign: "left", fontWeight: 700, borderBottom: "1.5px solid var(--paper-warm)" }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {leaderboard.map((r, i) => {
-              const isMe = user?.uid === r.uid;
-              const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : String(i + 1);
-              return (
-                <tr key={`${r.uid}-${r.createdAt}`} style={{
-                  background: isMe ? "color-mix(in srgb, var(--primary) 8%, transparent)" : i % 2 === 0 ? "color-mix(in srgb, var(--rice-paper) 50%, transparent)" : "transparent",
-                }}>
-                  <td style={{ padding: "7px 6px", fontWeight: 700 }}>{medal}</td>
-                  <td style={{ padding: "7px 6px", fontWeight: isMe ? 800 : 500, color: isMe ? "var(--primary)" : "var(--ink-dark)" }}>
-                    {r.playerName || "Người chơi"}{isMe ? " (bạn)" : ""}
-                  </td>
-                  <td style={{ padding: "7px 6px", fontWeight: 700, color: "var(--primary)" }}>{r.score}</td>
-                  <td style={{ padding: "7px 6px", color: "var(--pencil-gray)", fontSize: 11 }}>
-                    {new Date(r.createdAt).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
+      <section className="dashboardRankSection">
+        <div className="dashboardRankHeader">
+          <span>
+            <Trophy size={18} />
+            Ranking 1-10
+          </span>
+          <b>Top điểm</b>
+        </div>
 
-      {savingScore && (
-        <p style={{ fontSize: 12, color: "var(--pencil-gray)", marginTop: 12, textAlign: "center" }}>
-          Đang lưu điểm…
-        </p>
-      )}
+        <div className="dashboardRankList">
+          {topEntries.map((entry) => (
+            <RankingRow key={`${entry.name}-${entry.rank}-${entry.score}`} entry={entry} highlight={entry.isLocal} />
+          ))}
+        </div>
+      </section>
 
-      {/* Save error banner */}
-      {saveError && (
-        <AlertBanner variant="error">
-          ⚠️ {saveError}
-        </AlertBanner>
-      )}
-
-      {/* Login prompt for guest users */}
-      {!user && (
-        <GameButton
-          onClick={onLoginPrompt}
-          className="loginPromptBtn"
-          style={{
-            marginTop: 16, padding: "14px 16px",
-            borderRadius: 14, width: "100%",
-            background: "linear-gradient(135deg, color-mix(in srgb, var(--mascot-yellow) 15%, transparent), color-mix(in srgb, var(--primary) 10%, transparent))",
-            border: "1.5px dashed color-mix(in srgb, var(--primary) 30%, transparent)",
-            textAlign: "center", cursor: "pointer",
-          }}
-        >
-          <p style={{ margin: "0 0 6px", fontWeight: 700, color: "var(--primary)", fontSize: 14 }}>
-            🔐 Đăng nhập để lưu điểm!
-          </p>
-          <p style={{ margin: 0, fontSize: 12, color: "var(--pencil-gray)", lineHeight: 1.5 }}>
-            Điểm của bạn sẽ được lưu vào bảng vinh danh và không bị mất khi thoát game.
-          </p>
-        </GameButton>
+      {playerRow && (
+        <section className="dashboardPlayerCard">
+          <div className="dashboardPlayerLabel">Bảng xếp hạng của bạn</div>
+          <RankingRow
+            entry={playerRow}
+            highlight
+            label="Hạng của bạn"
+          />
+        </section>
       )}
     </PanelFrame>
+  );
+}
+
+function RankingRow({
+  entry,
+  highlight = false,
+  label,
+}: {
+  entry: RankedLeaderboardEntry;
+  highlight?: boolean;
+  label?: string;
+}) {
+  const isTopThree = entry.rank != null && entry.rank <= 3;
+  const medal = isTopThree ? BADGE_COLORS[entry.rank! - 1] : null;
+
+  return (
+    <div
+      className="dashboardRankRow"
+      data-highlight={highlight ? "true" : "false"}
+      style={{
+        background: highlight
+          ? "rgba(232,116,50,0.16)"
+          : medal
+            ? `linear-gradient(90deg, ${medal.bg}30 0%, rgba(255,255,255,0.18) 100%)`
+            : "rgba(138,125,101,0.08)",
+        borderColor: highlight
+          ? "rgba(232,116,50,0.45)"
+          : medal
+            ? `${medal.border}55`
+            : "transparent",
+        boxShadow: isTopThree ? "0 2px 0 rgba(255,255,255,0.52) inset" : "none",
+      }}
+    >
+      <div
+        className="dashboardRankBadge"
+        style={{
+          background: medal?.bg ?? "rgba(42,36,24,0.1)",
+          borderColor: medal?.border ?? "rgba(42,36,24,0.08)",
+          color: medal?.text ?? "var(--pencil-gray)",
+        }}
+      >
+        {entry.rank ? `#${entry.rank}` : "Mới"}
+      </div>
+
+      <div className="dashboardRankName">
+        <span>{entry.name}</span>
+        <small>
+          {label && <b>{label}</b>}
+          {entry.playTimeSec > 0 && (
+            <em>
+              <Clock3 size={11} />
+              {entry.playTimeSec}s
+            </em>
+          )}
+        </small>
+      </div>
+
+      <div className="dashboardRankScore">
+        {entry.score > 0 ? entry.score.toLocaleString("vi-VN") : "Chưa có"}
+      </div>
+    </div>
   );
 }

@@ -3,24 +3,19 @@ import { TopNav } from "./components/ui/TopNav";
 import { HeroSection } from "./components/ui/HeroSection";
 import { GamePage } from "./components/game/GamePage";
 import { LoadingScreen } from "./components/ui/LoadingScreen";
-import { LoginModal } from "./components/ui/LoginModal";
 import { audioManager } from "./utils/audio-manager";
 import { preloadGameResources } from "./utils/game-loader";
 
-import { useAuth } from "./contexts/AuthContext";
 import { useScoreData } from "./hooks/useScoreData";
 
 type AppView = "loading" | "landing" | "game";
 
 export default function App() {
-  const { user, logout: fbLogout } = useAuth();
   const {
     bestScore,
     lastScore,
     leaderboard,
     totalGamesPlayed,
-    saveError,
-    savingScore,
     onGameOver,
     refreshLeaderboard,
   } = useScoreData();
@@ -28,7 +23,6 @@ export default function App() {
   const [view, setView] = useState<AppView>("loading");
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [resourcesReady, setResourcesReady] = useState(false);
-  const [showLogin, setShowLogin] = useState(false);
   const [muted, setMuted] = useState(false);
   // Controls the exit transition of the loading screen
   const [loadingExiting, setLoadingExiting] = useState(false);
@@ -126,30 +120,21 @@ export default function App() {
   // Game view — full screen, dashboard panel opens on demand inside GamePage
   if (view === "game") {
     return (
-      <>
-        <GamePage
-          muted={muted}
-          onToggleMute={() => setMuted((m) => !m)}
-          user={user}
-          bestScore={bestScore}
-          lastScore={lastScore}
-          totalGamesPlayed={totalGamesPlayed}
-          leaderboard={leaderboard}
-          saveError={saveError}
-          savingScore={savingScore}
-          onGameOver={onGameOver}
-          onHome={handleHome}
-          onRefreshLeaderboard={refreshLeaderboard}
-          onLoginPrompt={() => setShowLogin(true)}
-        />
-        <LoginModal open={showLogin} onClose={() => setShowLogin(false)} />
-      </>
+      <GamePage
+        muted={muted}
+        onToggleMute={() => setMuted((m) => !m)}
+        bestScore={bestScore}
+        lastScore={lastScore}
+        totalGamesPlayed={totalGamesPlayed}
+        leaderboard={leaderboard}
+        onGameOver={onGameOver}
+        onHome={handleHome}
+        onRefreshLeaderboard={refreshLeaderboard}
+      />
     );
   }
 
   // Landing view — just nav + hero, no dashboard/footer sections
-  const userDisplay = user ? { name: user.displayName ?? "Người chơi", photoURL: user.photoURL } : null;
-
   return (
     <div
       className="landing-enter"
@@ -161,16 +146,11 @@ export default function App() {
       }}
     >
       <TopNav
-        onLogin={() => setShowLogin(true)}
-        user={userDisplay}
-        onLogout={fbLogout}
         muted={muted}
         onToggleMute={() => setMuted((m) => !m)}
       />
 
       <HeroSection onPlay={handlePlay} />
-
-      <LoginModal open={showLogin} onClose={() => setShowLogin(false)} />
     </div>
   );
 }

@@ -14,7 +14,8 @@
  *   different async turns they may produce separate flushes.
  * - timersRef tracks all scheduled timeouts for safe cleanup on unmount.
  * - Bomb feedback (low frequency, once per bomb) is not batched — keeps code simple.
- * - No visual or gameplay changes; all CSS/timer behaviour preserved.
+ * - Point feedback also starts a short Pixi-side micro shake. This keeps the
+ *   slice impact in the render loop instead of adding extra React state.
  */
 import { useState, useRef, useEffect } from "react";
 import { type Container } from "pixi.js";
@@ -27,10 +28,11 @@ export function useGameFeedback() {
   >([]);
 
   const effectIdRef = useRef(0);
-  const shakeRef = useRef({ active: false, startedAt: 0 });
+  const shakeRef = useRef({ active: false, startedAt: 0, durationMs: 400, amount: 8 });
   const timersRef = useRef<Set<number>>(new Set());
   const mountedRef = useRef(false);
   const shakenLayerRef = useRef<Container | null>(null);
+  const lastPointShakeAtRef = useRef(0);
 
   // ── Batching state ────────────────────────────────────────────────────────
 
@@ -76,7 +78,7 @@ export function useGameFeedback() {
   // ── Bomb feedback (not batched — low frequency) ───────────────────────────
 
   function triggerBombFeedback(screen: { x: number; y: number }) {
-    shakeRef.current = { active: true, startedAt: performance.now() };
+    shakeRef.current = { active: true, startedAt: performance.now(), durationMs: 420, amount: 11 };
     setFlashRed(true);
     schedule(() => setFlashRed(false), 100);
     const id = ++effectIdRef.current;
@@ -90,6 +92,14 @@ export function useGameFeedback() {
 
   function triggerPointFeedback(input: { x: number; y: number; text: string; color: string; variant?: "points" | "combo" | "critical" }) {
     const id = ++effectIdRef.current;
+    const amount = input.variant === "critical" ? 5.5 : input.variant === "combo" ? 3.8 : 2.4;
+    const durationMs = input.variant === "points" ? 130 : 190;
+    const now = performance.now();
+    const shouldShake = input.variant !== "points" || now - lastPointShakeAtRef.current > 70;
+    if (shouldShake) {
+      shakeRef.current = { active: true, startedAt: now, durationMs, amount };
+      lastPointShakeAtRef.current = now;
+    }
 
     // Queue the new entry.
     pendingPointTextsRef.current.push({ ...input, id });
@@ -121,14 +131,18 @@ export function useGameFeedback() {
     }
 
     shakenLayerRef.current = playLayer;
-    const elapsed = (performance.now() - shakeRef.current.startedAt) / 400;
+    const elapsed = (performance.now() - shakeRef.current.startedAt) / shakeRef.current.durationMs;
     if (elapsed >= 1) {
       shakeRef.current.active = false;
       resetScreenShake(playLayer);
       shakenLayerRef.current = null;
     } else {
-      const amount = 8 * (1 - elapsed);
-      playLayer.position.set((Math.random() - 0.5) * amount, (Math.random() - 0.5) * amount);
+      const amount = shakeRef.current.amount * Math.pow(1 - elapsed, 2);
+      const wave = Math.sin(elapsed * Math.PI * 8);
+      playLayer.position.set(
+        wave * amount + (Math.random() - 0.5) * amount * 0.55,
+        Math.cos(elapsed * Math.PI * 7) * amount * 0.42,
+      );
     }
   }
 
@@ -143,7 +157,8 @@ export function useGameFeedback() {
     setPointTexts([]);
     pendingPointTextsRef.current = [];
     flushScheduledRef.current = false;
-    shakeRef.current = { active: false, startedAt: 0 };
+    lastPointShakeAtRef.current = 0;
+    shakeRef.current = { active: false, startedAt: 0, durationMs: 400, amount: 8 };
   }
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────

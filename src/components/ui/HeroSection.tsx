@@ -61,7 +61,8 @@ export function HeroSection({ onPlay }: Props) {
           fontFamily: "Be Vietnam Pro, sans-serif",
           textShadow: "0 2px 0 rgba(255,255,255,0.6)",
         }}>
-          Chém Lạc <span style={{ color: "#e87432" }}>Vùng Cao</span>
+          <span className="hero-title-main">Chém Lạc</span>{" "}
+          <span className="hero-title-accent">Vùng Cao</span>
         </h1>
 
         <p className="hero-desc" style={{
@@ -95,7 +96,7 @@ export function HeroSection({ onPlay }: Props) {
             e.currentTarget.style.boxShadow = "0 10px 24px rgba(232,116,50,0.4)";
           }}
           >
-            ▶  Chơi ngay
+            Chơi ngay
           </button>
 
         </div>
