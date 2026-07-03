@@ -13,6 +13,7 @@ const BUTTON_SFX_VOLUME = 0.58;
 interface AudioBuffers {
   slice: AudioBuffer | null;
   bomb: AudioBuffer | null;
+  bgm: AudioBuffer | null;
 }
 
 class AudioManager {
@@ -20,10 +21,9 @@ class AudioManager {
   private bgmGain: GainNode | null = null;
   private sfxGain: GainNode | null = null;
 
-  private buffers: AudioBuffers = { slice: null, bomb: null };
+  private buffers: AudioBuffers = { slice: null, bomb: null, bgm: null };
   
-  private bgm: HTMLAudioElement | null = null;
-  private bgmSource: MediaElementAudioSourceNode | null = null;
+  private bgmSourceNode: AudioBufferSourceNode | null = null;
   private bgmLocalGain: GainNode | null = null;
 
   private _muted = false;
@@ -60,16 +60,6 @@ class AudioManager {
   get landingBgmVolume() { return LANDING_BGM_VOLUME; }
   get gameBgmVolume() { return GAME_BGM_VOLUME; }
 
-  private setupBgmNode() {
-    if (!this.ctx || !this.bgm || this.bgmSource) return;
-    this.bgmSource = this.ctx.createMediaElementSource(this.bgm);
-    this.bgmLocalGain = this.ctx.createGain();
-    this.bgmLocalGain.gain.value = this.currentBgmVolume;
-    
-    this.bgmSource.connect(this.bgmLocalGain);
-    this.bgmLocalGain.connect(this.bgmGain!);
-  }
-
   /**
    * Preload all audio buffers. Returns progress 0-1 via onProgress.
    * `basePath` should point to the folder containing audio files, e.g. "/assets/".
@@ -83,34 +73,18 @@ class AudioManager {
     const files: { name: keyof AudioBuffers; url: string }[] = [
       { name: "slice", url: `${basePath}666herohero-slash-21834.mp3` },
       { name: "bomb", url: `${basePath}bomb.mp3` },
+      { name: "bgm", url: `${basePath}moavii-we-are.mp3` },
     ];
 
     let loaded = 0;
-    const total = files.length + 1; // +1 for BGM
-
-    // Preload BGM using HTMLAudioElement
-    await new Promise<void>((resolve) => {
-      this.bgm = new Audio(`${basePath}moavii-we-are.mp3`);
-      this.bgm.loop = true;
-      this.bgm.preload = "auto";
-      
-      const onCanPlay = () => { cleanup(); resolve(); };
-      const onError = () => { cleanup(); resolve(); };
-      const cleanup = () => {
-        this.bgm?.removeEventListener("canplaythrough", onCanPlay);
-        this.bgm?.removeEventListener("error", onError);
-      };
-      
-      this.bgm.addEventListener("canplaythrough", onCanPlay);
-      this.bgm.addEventListener("error", onError);
-      this.bgm.load();
-    });
-    
-    this.setupBgmNode();
-    loaded++;
-    onProgress?.(loaded / total);
+    const total = files.length;
 
     const loadOne = async (name: keyof AudioBuffers, url: string): Promise<void> => {
+      if (this.buffers[name]) {
+        loaded++;
+        onProgress?.(loaded / total);
+        return;
+      }
       try {
         const resp = await fetch(url);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -134,32 +108,19 @@ class AudioManager {
    */
   async preloadBgmOnly(basePath: string): Promise<boolean> {
     this.ensureContext();
-    if (this.bgm) return true;
+    if (this.buffers.bgm) return true;
 
-    return new Promise((resolve) => {
-      this.bgm = new Audio(`${basePath}moavii-we-are.mp3`);
-      this.bgm.loop = true;
-      this.bgm.preload = "auto";
-      
-      const onCanPlay = () => {
-        cleanup();
-        this.setupBgmNode();
-        resolve(true);
-      };
-      const onError = () => {
-        cleanup();
-        console.warn("[AudioManager] Failed to preload BGM");
-        resolve(false);
-      };
-      const cleanup = () => {
-        this.bgm?.removeEventListener("canplaythrough", onCanPlay);
-        this.bgm?.removeEventListener("error", onError);
-      };
-      
-      this.bgm.addEventListener("canplaythrough", onCanPlay);
-      this.bgm.addEventListener("error", onError);
-      this.bgm.load();
-    });
+    try {
+      const resp = await fetch(`${basePath}moavii-we-are.mp3`);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const arrayBuf = await resp.arrayBuffer();
+      const audioBuf = await this.ctx!.decodeAudioData(arrayBuf);
+      this.buffers.bgm = audioBuf;
+      return true;
+    } catch (err) {
+      console.warn("[AudioManager] Failed to preload BGM", err);
+      return false;
+    }
   }
 
   /**
@@ -176,7 +137,7 @@ class AudioManager {
         try { await this.ctx!.resume(); } catch {}
       }
 
-      if (!this.bgm) {
+      if (!this.buffers.bgm) {
         const ok = await this.preloadBgmOnly(basePath);
         if (!ok) return;
       }
@@ -194,7 +155,7 @@ class AudioManager {
       if (this.ctx!.state === "suspended") {
         try { await this.ctx!.resume(); } catch {}
       }
-      if (!this.bgm) {
+      if (!this.buffers.bgm) {
         await this.preloadBgmOnly(basePath);
       }
       if (this.ctx!.state === "running" && !this._bgmPlaying) {
@@ -216,24 +177,41 @@ class AudioManager {
 
   /** Play BGM in a loop at given volume (0-1). */
   playBgm(volume = 0.3): void {
-    if (!this.bgm) return;
+    if (!this.ctx || !this.buffers.bgm) return;
     this.currentBgmVolume = this.clampVolume(volume);
     
     if (this.bgmLocalGain) {
       this.bgmLocalGain.gain.value = this.currentBgmVolume;
     }
     
-    if (!this._bgmPlaying) {
-      this.bgm.currentTime = 0;
+    if (this._bgmPlaying && this.bgmSourceNode) {
+      return; // Already playing
     }
     
-    this.bgm.play().catch(e => console.log("Deferred until interaction"));
+    if (this.bgmSourceNode) {
+      try { this.bgmSourceNode.stop(); } catch {}
+      this.bgmSourceNode.disconnect();
+    }
+    
+    if (!this.bgmLocalGain) {
+      this.bgmLocalGain = this.ctx.createGain();
+      this.bgmLocalGain.gain.value = this.currentBgmVolume;
+      this.bgmLocalGain.connect(this.bgmGain!);
+    }
+    
+    this.bgmSourceNode = this.ctx.createBufferSource();
+    this.bgmSourceNode.buffer = this.buffers.bgm;
+    this.bgmSourceNode.loop = true;
+    this.bgmSourceNode.connect(this.bgmLocalGain);
+    this.bgmSourceNode.start(0);
     this._bgmPlaying = true;
   }
 
   stopBgm(): void {
-    if (this.bgm) {
-      this.bgm.pause();
+    if (this.bgmSourceNode) {
+      try { this.bgmSourceNode.stop(); } catch {}
+      this.bgmSourceNode.disconnect();
+      this.bgmSourceNode = null;
     }
     this._bgmPlaying = false;
   }
@@ -244,7 +222,7 @@ class AudioManager {
   private voicePools: Map<SfxName, AudioBufferSourceNode[]> = new Map();
 
   playSfx(name: SfxName, volume = 0.6, maxVoices = 5): void {
-    if (!this.ctx || name === "bgm" || !this.buffers[name]) return;
+    if (!this.ctx || !this.buffers[name]) return;
     
     const buf = this.buffers[name]!;
     const source = this.ctx.createBufferSource();
@@ -351,14 +329,7 @@ class AudioManager {
       })
     );
     this.voicePools.clear();
-    if (this.bgm) {
-      this.bgm.src = "";
-      this.bgm = null;
-    }
-    if (this.bgmSource) {
-      this.bgmSource.disconnect();
-      this.bgmSource = null;
-    }
+    
     if (this.bgmLocalGain) {
       this.bgmLocalGain.disconnect();
       this.bgmLocalGain = null;
@@ -375,7 +346,7 @@ class AudioManager {
       this.ctx.close().catch(() => {});
       this.ctx = null;
     }
-    this.buffers = { slice: null, bomb: null };
+    this.buffers = { slice: null, bomb: null, bgm: null };
     this._loaded = false;
   }
 
