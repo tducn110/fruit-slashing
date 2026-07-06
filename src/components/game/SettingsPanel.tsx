@@ -1,23 +1,19 @@
-import { BarChart3, Music, Settings as SettingsIcon, Trophy, UserRound, Volume2, VolumeX } from "lucide-react";
-import type React from "react";
+import { Music, Settings as SettingsIcon, Sparkles, Volume2, VolumeX } from "lucide-react";
 import { PanelFrame, IconButton } from "../ui/primitives";
-import { getRank } from "../../lib/localScores";
 
 interface Props {
-  muted: boolean;
-  onToggleMute: () => void;
-  bestScore: number;
-  lastScore: number | null;
-  totalGamesPlayed: number;
+  musicMuted: boolean;
+  sfxMuted: boolean;
+  onToggleMusic: () => void;
+  onToggleSfx: () => void;
   onClose: () => void;
 }
 
 export function SettingsPanel({
-  muted,
-  onToggleMute,
-  bestScore,
-  lastScore,
-  totalGamesPlayed,
+  musicMuted,
+  sfxMuted,
+  onToggleMusic,
+  onToggleSfx,
   onClose,
 }: Props) {
   return (
@@ -35,56 +31,38 @@ export function SettingsPanel({
       <div className="settingsPanelRows">
         <div className="settingsOptionRow">
           <div className="settingsOptionLabel">
-            {muted ? <VolumeX size={20} /> : <Music size={20} />}
-            <span>Âm thanh</span>
+            {musicMuted ? <VolumeX size={20} /> : <Music size={20} />}
+            <span>Nhạc nền</span>
           </div>
           <IconButton
-            label={muted ? "Bật âm thanh" : "Tắt âm thanh"}
-            aria-pressed={!muted}
+            label={musicMuted ? "Bật nhạc nền" : "Tắt nhạc nền"}
+            aria-pressed={!musicMuted}
             variant="solid"
-            onClick={onToggleMute}
-            className={`settingsToggle ${muted ? "is-off" : "is-on"}`}
+            onClick={onToggleMusic}
+            className={`settingsToggle ${musicMuted ? "is-off" : "is-on"}`}
           >
-            {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-            {muted ? "Bật" : "Tắt"}
+            {musicMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+            {musicMuted ? "Bật" : "Tắt"}
           </IconButton>
         </div>
 
-        <div className="settingsStatsCard">
-          <div className="settingsSectionLabel">
-            <BarChart3 size={15} />
-            Thống kê
+        <div className="settingsOptionRow">
+          <div className="settingsOptionLabel">
+            {sfxMuted ? <VolumeX size={20} /> : <Sparkles size={20} />}
+            <span>SFX</span>
           </div>
-          <StatLine icon={<Trophy size={16} />} label="Điểm cao nhất" value={bestScore || "—"} />
-          <StatLine icon={<BarChart3 size={16} />} label="Điểm gần nhất" value={lastScore ?? "—"} />
-          <StatLine icon={<UserRound size={16} />} label="Tổng lượt chơi" value={totalGamesPlayed} />
-          <StatLine icon={<Trophy size={16} />} label="Cấp bậc" value={getRank(bestScore)} strong />
+          <IconButton
+            label={sfxMuted ? "Bật hiệu ứng âm thanh" : "Tắt hiệu ứng âm thanh"}
+            aria-pressed={!sfxMuted}
+            variant="solid"
+            onClick={onToggleSfx}
+            className={`settingsToggle ${sfxMuted ? "is-off" : "is-on"}`}
+          >
+            {sfxMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+            {sfxMuted ? "Bật" : "Tắt"}
+          </IconButton>
         </div>
       </div>
     </PanelFrame>
-  );
-}
-
-function StatLine({
-  icon,
-  label,
-  value,
-  strong = false,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: React.ReactNode;
-  strong?: boolean;
-}) {
-  return (
-    <div className="settingsStatLine">
-      <span className="settingsStatLabel">
-        {icon}
-        {label}
-      </span>
-      <span className={strong ? "settingsStatValue is-strong" : "settingsStatValue"}>
-        {value}
-      </span>
-    </div>
   );
 }

@@ -7,15 +7,15 @@ import { audioManager } from "../utils/audio-manager";
  * SFX slice/bomb dùng polyphonic Web Audio API.
  *
  * Usage:
- *   const { playBgm, stopBgm, playSlice, playBomb } = useGameSound(muted);
+ *   const { playBgm, stopBgm, playSlice, playBomb } = useGameSound(sfxMuted);
  */
-export function useGameSound(muted: boolean) {
+export function useGameSound(sfxMuted: boolean) {
   const bgmStartedRef = useRef(false);
 
-  // Sync mute state to audio manager
+  // Sync gameplay SFX mute state to audio manager.
   useEffect(() => {
-    audioManager.setMuted(muted);
-  }, [muted]);
+    audioManager.setSfxMuted(sfxMuted);
+  }, [sfxMuted]);
 
   const playBgm = useCallback(() => {
     if (bgmStartedRef.current) return;

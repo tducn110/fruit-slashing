@@ -1,4 +1,3 @@
-export const GAME_DURATION_MS = 180_000;
 export const TICK_RATE = 60;
 const TICK_MS = 1000 / TICK_RATE;
 export const WORLD_WIDTH = 1000;
@@ -91,13 +90,12 @@ export interface GameState {
   nextSpawnTick: number;
   nextFruitId: number;
   ended: boolean;
-  endReason: "timeout" | "lives" | null;
+  endReason: "lives" | null;
   fruits: CoreFruit[];
   lastPointer: { x: number; y: number } | null;
   config: GameConfig;
 }
 
-const DURATION_TICKS = Math.round(GAME_DURATION_MS / TICK_MS);
 const GRAVITY = 2200;
 const FRUIT_POOL: FruitKind[] = ["mango", "mango", "banana", "lychee", "dragonfruit", "durian"];
 
@@ -210,11 +208,6 @@ function spawnFruit(state: GameState, bombChance: number, flightSeconds: number,
 function step(state: GameState): void {
   if (state.ended) return;
   state.tick += 1;
-  if (state.tick >= DURATION_TICKS) {
-    state.ended = true;
-    state.endReason = "timeout";
-    return;
-  }
 
   if (state.combo > 0 && state.tick > state.comboExpiresAtTick) state.combo = 0;
 
@@ -253,16 +246,12 @@ function step(state: GameState): void {
 }
 
 export function advanceToTick(state: GameState, targetTick: number): void {
-  const safeTarget = Math.min(DURATION_TICKS, Math.max(state.tick, Math.floor(targetTick)));
+  const safeTarget = Math.max(state.tick, Math.floor(targetTick));
   while (!state.ended && state.tick < safeTarget) step(state);
 }
 
 export function elapsedTick(elapsedMs: number): number {
-  return Math.max(0, Math.min(DURATION_TICKS, Math.floor(elapsedMs / TICK_MS)));
-}
-
-export function timeLeftSeconds(state: GameState): number {
-  return Math.max(0, Math.ceil((DURATION_TICKS - state.tick) / TICK_RATE));
+  return Math.max(0, Math.floor(elapsedMs / TICK_MS));
 }
 
 export function normalizePointer(x: number, y: number, width: number, height: number, tick: number): InputSample {

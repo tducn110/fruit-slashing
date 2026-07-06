@@ -1,4 +1,4 @@
-import { Clock3, Trophy } from "lucide-react";
+import { ArrowLeft, Clock3, Trophy } from "lucide-react";
 import {
   BADGE_COLORS,
   buildLeaderboardModel,
@@ -61,25 +61,77 @@ export function DashboardPanel({
       {playerRow && (
         <section className="dashboardPlayerCard">
           <div className="dashboardPlayerLabel">Bảng xếp hạng của bạn</div>
-          <RankingRow
-            entry={playerRow}
-            highlight
-            label="Hạng của bạn"
-          />
+          <RankingRow entry={playerRow} highlight />
         </section>
       )}
     </PanelFrame>
   );
 }
 
+export function LeaderboardScreen({
+  leaderboard,
+  bestScore,
+  onBack,
+}: {
+  leaderboard: LocalScore[];
+  bestScore: number;
+  onBack: () => void;
+}) {
+  const { topEntries, currentPlayer } = buildLeaderboardModel(leaderboard, "Bạn");
+  const playerInTopTen = topEntries.find((entry) => entry.isLocal) ?? null;
+  const playerRow = playerInTopTen ?? currentPlayer;
+
+  return (
+    <main className="leaderboardScreen">
+      <section className="leaderboardCard">
+        <div className="leaderboardTitle">
+          <Trophy size={22} />
+          <span>Kỷ lục</span>
+        </div>
+
+        <div className="leaderboardBestCard">
+          <p className="leaderboardEyebrow">Kỷ lục của bạn</p>
+          <h1>{bestScore.toLocaleString("vi-VN")}</h1>
+          <span>Danh hiệu: {getRank(bestScore)}</span>
+        </div>
+
+        <section className="leaderboardBoard">
+          <div className="dashboardRankHeader">
+            <span>
+              <Trophy size={18} />
+              Ranking 1-10
+            </span>
+            <b>Top điểm</b>
+          </div>
+
+          <div className="dashboardRankList leaderboardRankList">
+            {topEntries.map((entry) => (
+              <RankingRow key={`${entry.name}-${entry.rank}-${entry.score}`} entry={entry} highlight={entry.isLocal} />
+            ))}
+          </div>
+        </section>
+
+        {playerRow && (
+          <div className="leaderboardPlayerRow">
+            <RankingRow entry={playerRow} highlight />
+          </div>
+        )}
+
+        <button className="game-btn leaderboardBackBtn" onClick={onBack}>
+          <ArrowLeft size={16} />
+          Quay lại
+        </button>
+      </section>
+    </main>
+  );
+}
+
 function RankingRow({
   entry,
   highlight = false,
-  label,
 }: {
   entry: RankedLeaderboardEntry;
   highlight?: boolean;
-  label?: string;
 }) {
   const isTopThree = entry.rank != null && entry.rank <= 3;
   const medal = isTopThree ? BADGE_COLORS[entry.rank! - 1] : null;
@@ -116,7 +168,6 @@ function RankingRow({
       <div className="dashboardRankName">
         <span>{entry.name}</span>
         <small>
-          {label && <b>{label}</b>}
           {entry.playTimeSec > 0 && (
             <em>
               <Clock3 size={11} />

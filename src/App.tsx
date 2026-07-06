@@ -2,20 +2,20 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { TopNav } from "./components/ui/TopNav";
 import { HeroSection } from "./components/ui/HeroSection";
 import { GamePage } from "./components/game/GamePage";
+import { LeaderboardScreen } from "./components/game/DashboardPanel";
 import { LoadingScreen } from "./components/ui/LoadingScreen";
 import { audioManager } from "./utils/audio-manager";
 import { preloadGameResources } from "./utils/game-loader";
 
 import { useScoreData } from "./hooks/useScoreData";
 
-type AppView = "loading" | "landing" | "game";
+type AppView = "loading" | "landing" | "game" | "leaderboard";
+type LeaderboardReturnView = "landing" | "game";
 
 export default function App() {
   const {
     bestScore,
-    lastScore,
     leaderboard,
-    totalGamesPlayed,
     onGameOver,
     refreshLeaderboard,
   } = useScoreData();
@@ -23,15 +23,21 @@ export default function App() {
   const [view, setView] = useState<AppView>("loading");
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [resourcesReady, setResourcesReady] = useState(false);
-  const [muted, setMuted] = useState(false);
+  const [musicMuted, setMusicMuted] = useState(false);
+  const [sfxMuted, setSfxMuted] = useState(false);
+  const [leaderboardReturnView, setLeaderboardReturnView] = useState<LeaderboardReturnView>("game");
   // Controls the exit transition of the loading screen
   const [loadingExiting, setLoadingExiting] = useState(false);
   const loadingDoneTimerRef = useRef<number | null>(null);
 
   // Sync mute state to audio manager.
   useEffect(() => {
-    audioManager.setMuted(muted);
-  }, [muted]);
+    audioManager.setMusicMuted(musicMuted);
+  }, [musicMuted]);
+
+  useEffect(() => {
+    audioManager.setSfxMuted(sfxMuted);
+  }, [sfxMuted]);
 
   useEffect(() => {
     const playButtonClick = (event: MouseEvent) => {
@@ -105,6 +111,12 @@ export default function App() {
     setView("landing");
   }, [refreshLeaderboard]);
 
+  const handleOpenLeaderboard = useCallback((returnView: LeaderboardReturnView) => {
+    refreshLeaderboard();
+    setLeaderboardReturnView(returnView);
+    setView("leaderboard");
+  }, [refreshLeaderboard]);
+
   // Loading view — waits for all resources
   if (view === "loading") {
     return (
@@ -121,15 +133,23 @@ export default function App() {
   if (view === "game") {
     return (
       <GamePage
-        muted={muted}
-        onToggleMute={() => setMuted((m) => !m)}
-        bestScore={bestScore}
-        lastScore={lastScore}
-        totalGamesPlayed={totalGamesPlayed}
-        leaderboard={leaderboard}
-        onGameOver={onGameOver}
+        musicMuted={musicMuted}
+        sfxMuted={sfxMuted}
+        onToggleMusic={() => setMusicMuted((m) => !m)}
+        onToggleSfx={() => setSfxMuted((m) => !m)}
+        onSaveScore={onGameOver}
         onHome={handleHome}
-        onRefreshLeaderboard={refreshLeaderboard}
+        onOpenLeaderboard={() => handleOpenLeaderboard("game")}
+      />
+    );
+  }
+
+  if (view === "leaderboard") {
+    return (
+      <LeaderboardScreen
+        leaderboard={leaderboard}
+        bestScore={bestScore}
+        onBack={() => setView(leaderboardReturnView)}
       />
     );
   }
@@ -146,11 +166,15 @@ export default function App() {
       }}
     >
       <TopNav
-        muted={muted}
-        onToggleMute={() => setMuted((m) => !m)}
+        muted={musicMuted}
+        onToggleMute={() => setMusicMuted((m) => !m)}
       />
 
-      <HeroSection onPlay={handlePlay} />
+      <HeroSection
+        onPlay={handlePlay}
+        onOpenLeaderboard={() => handleOpenLeaderboard("landing")}
+        bestScore={bestScore}
+      />
     </div>
   );
 }

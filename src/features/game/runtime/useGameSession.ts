@@ -11,6 +11,7 @@ export function useGameSession({ onGameOver, onStart }: UseGameSessionOptions) {
   const [running, setRunning] = useState(false);
   const [starting, setStarting] = useState(false);
   const [finalScore, setFinalScore] = useState<number | null>(null);
+  const [finalResult, setFinalResult] = useState<GameResult | null>(null);
 
   const playingRef = useRef(false);
   const startedAtRef = useRef(0);
@@ -28,6 +29,7 @@ export function useGameSession({ onGameOver, onStart }: UseGameSessionOptions) {
       startedAtRef.current = performance.now();
       playingRef.current = true;
       setFinalScore(null);
+      setFinalResult(null);
       setRunning(true);
       setCountdown(null);
     } finally {
@@ -41,13 +43,26 @@ export function useGameSession({ onGameOver, onStart }: UseGameSessionOptions) {
     playingRef.current = false;
     setRunning(false);
     setFinalScore(result.score);
+    setFinalResult(result);
     onGameOver?.(result);
   }
 
   function resetSession() {
     setRunning(false);
     setFinalScore(null);
+    setFinalResult(null);
     startCountdown();
+  }
+
+  function resumeSession(elapsedMs: number) {
+    submittedRef.current = false;
+    startedAtRef.current = performance.now() - Math.max(0, elapsedMs);
+    playingRef.current = true;
+    setStarting(false);
+    setRunning(true);
+    setCountdown(null);
+    setFinalScore(null);
+    setFinalResult(null);
   }
 
   useEffect(() => {
@@ -74,6 +89,7 @@ export function useGameSession({ onGameOver, onStart }: UseGameSessionOptions) {
     running,
     starting,
     finalScore,
+    finalResult,
     playingRef,
     startedAtRef,
     submittedRef,
@@ -81,5 +97,6 @@ export function useGameSession({ onGameOver, onStart }: UseGameSessionOptions) {
     startSession,
     finishGame,
     resetSession,
+    resumeSession,
   };
 }

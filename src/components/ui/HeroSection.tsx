@@ -1,11 +1,17 @@
+import { Medal, Trophy } from "lucide-react";
+import { getRank } from "../../lib/localScores";
 import { HeroBackdrop } from "./HeroBackdrop";
 import { HeroPeanutAnimation } from "./HeroPeanutAnimation";
 
 interface Props {
   onPlay: () => void;
+  onOpenLeaderboard: () => void;
+  bestScore: number;
 }
 
-export function HeroSection({ onPlay }: Props) {
+export function HeroSection({ onPlay, onOpenLeaderboard, bestScore }: Props) {
+  const rank = getRank(bestScore);
+
   return (
     <section
       id="gioi-thieu"
@@ -77,6 +83,23 @@ export function HeroSection({ onPlay }: Props) {
           giận đó!
         </p>
 
+        <div className="heroStats" aria-label="Thống kê người chơi">
+          <div className="heroStatCard">
+            <span className="heroStatLabel">
+              <Trophy size={16} />
+              Điểm cao nhất
+            </span>
+            <strong className="heroStatValue">{bestScore.toLocaleString("vi-VN")}</strong>
+          </div>
+          <div className="heroStatCard">
+            <span className="heroStatLabel">
+              <Medal size={16} />
+              Cấp bậc
+            </span>
+            <strong className="heroStatValue">{rank}</strong>
+          </div>
+        </div>
+
         <div className="hero-cta" style={{ display: "flex", gap: 32, justifyContent: "center", alignItems: "center", flexWrap: "wrap", marginTop: 20 }}>
           <button className="hero-play-button" onClick={onPlay} style={{
             padding: "16px 36px", borderRadius: 999,
@@ -99,6 +122,10 @@ export function HeroSection({ onPlay }: Props) {
             Chơi ngay
           </button>
 
+          <button className="hero-leaderboard-button" onClick={onOpenLeaderboard}>
+            <Trophy size={18} />
+            Bảng điểm
+          </button>
         </div>
       </div>
     </section>

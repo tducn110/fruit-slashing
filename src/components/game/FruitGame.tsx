@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import {
-  GAME_DURATION_MS,
   createGame,
-  timeLeftSeconds,
   getGameConfig,
   TICK_RATE,
   type GameState,
@@ -26,18 +24,17 @@ import { useSliceEffects } from "../../features/game/render/useSliceEffects";
 import { getFxPreset } from "../../features/game/render/fxPreset";
 
 interface Props {
-  onGameOver?: (result: GameResult) => void;
+  onSubmitScore?: (result: GameResult) => void;
+  onExitGame?: () => void;
   onGameStart?: () => void;
   muted?: boolean;
   onPlaySlice?: () => void;
   onPlayBomb?: () => void;
 }
 
-const GAME_DURATION_SECONDS = GAME_DURATION_MS / 1000;
-
-export function FruitGame({ onGameOver, onGameStart, muted = false, onPlaySlice, onPlayBomb }: Props) {
-  const callbacksRef = useRef({ onGameOver, onGameStart, muted, onPlaySlice, onPlayBomb });
-  callbacksRef.current = { onGameOver, onGameStart, muted, onPlaySlice, onPlayBomb };
+export function FruitGame({ onSubmitScore, onExitGame, onGameStart, muted = false, onPlaySlice, onPlayBomb }: Props) {
+  const callbacksRef = useRef({ onSubmitScore, onExitGame, onGameStart, muted, onPlaySlice, onPlayBomb });
+  callbacksRef.current = { onSubmitScore, onExitGame, onGameStart, muted, onPlaySlice, onPlayBomb };
   const { wrapRef, appRef, sizeRef, playLayerRef, trailGraphicsRef, ready } = usePixiApp();
   const getCurrentFxPreset = useCallback(() => getFxPreset(sizeRef.current.w), [sizeRef]);
   const { texturesRef, texturesReady } = useFruitTextures({ appRef, appReady: ready });
@@ -66,16 +63,14 @@ export function FruitGame({ onGameOver, onGameStart, muted = false, onPlaySlice,
     callbacksRef,
   });
 
-  const session = useGameSession({
-    onGameOver: (result) => callbacksRef.current.onGameOver?.(result),
-    onStart: handleStart,
-  });
+  const session = useGameSession({ onStart: handleStart });
 
   const {
     countdown,
     running,
     starting,
     finalScore,
+    finalResult,
     playingRef,
     startedAtRef,
   } = session;
@@ -83,22 +78,25 @@ export function FruitGame({ onGameOver, onGameStart, muted = false, onPlaySlice,
   const coreRef = useRef<GameState | null>(null);
   const destroyedRef = useRef(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [reviveUsed, setReviveUsed] = useState(false);
+  const [gameOverMode, setGameOverMode] = useState<"continue" | "summary">("continue");
+  const [scoreMultiplier, setScoreMultiplier] = useState(1);
 
   const { trailPointsRef, addTrailPoint, clearTrail, drawTrail } = useSlashTrail({
     trailGraphicsRef,
     getMaxPoints: () => getCurrentFxPreset().trailPoints,
   });
 
-  const [hud, setHud] = useState<HudState>({ score: 0, lives: 3, combo: 0, time: GAME_DURATION_SECONDS });
+  const [hud, setHud] = useState<HudState>({ score: 0, lives: 3, combo: 0 });
 
   function syncHud(state: GameState) {
-    setHud({ score: state.score, lives: state.lives, combo: state.combo, time: timeLeftSeconds(state) });
+    setHud({ score: state.score, lives: state.lives, combo: state.combo });
   }
 
   function finishGame() {
     const state = coreRef.current;
     if (!state) return;
-    const playTimeSec = Math.min(180, Math.floor(state.tick / TICK_RATE));
+    const playTimeSec = Math.floor(state.tick / TICK_RATE);
     const result: GameResult = {
       score: state.score,
       playTimeSec,
@@ -106,6 +104,8 @@ export function FruitGame({ onGameOver, onGameStart, muted = false, onPlaySlice,
     };
     session.finishGame(result);
     syncHud(state);
+    setScoreMultiplier(1);
+    setGameOverMode(!reviveUsed && result.endReason === "lives" ? "continue" : "summary");
   }
 
   const handleSliceResult = useCallback((
@@ -194,13 +194,54 @@ export function FruitGame({ onGameOver, onGameStart, muted = false, onPlaySlice,
     };
   }, [ready, texturesReady]);
 
-  function handleReplay() {
+  function handleRevive() {
+    const state = coreRef.current;
+    if (!state || !state.ended || state.endReason !== "lives" || reviveUsed) return;
+
+    setReviveUsed(true);
+    setScoreMultiplier(1);
+    setGameOverMode("summary");
+    state.ended = false;
+    state.endReason = null;
+    state.lives = 3;
+    state.combo = 0;
+    state.comboExpiresAtTick = state.tick;
+    state.fruits = [];
+    state.lastPointer = null;
+    state.nextSpawnTick = state.tick + Math.round(0.7 * TICK_RATE);
+
+    clearParticles();
+    clearFeedback();
+    clearFruitSprites();
+    clearTrail();
+    syncHud(state);
+    session.resumeSession((state.tick / TICK_RATE) * 1000);
     callbacksRef.current.onGameStart?.();
-    session.resetSession();
+  }
+
+  function handleDeclineContinue() {
+    setScoreMultiplier(1);
+    setGameOverMode("summary");
+  }
+
+  function handleDoubleScore() {
+    setScoreMultiplier(2);
+  }
+
+  function finalizeGame() {
+    if (!finalResult) return;
+    callbacksRef.current.onSubmitScore?.({
+      ...finalResult,
+      score: finalResult.score * scoreMultiplier,
+    });
+    callbacksRef.current.onExitGame?.();
   }
 
   function handleStart() {
     session.startSession();
+    setReviveUsed(false);
+    setGameOverMode("continue");
+    setScoreMultiplier(1);
     callbacksRef.current.onGameStart?.();
 
     const values = new Uint32Array(1);
@@ -245,9 +286,16 @@ export function FruitGame({ onGameOver, onGameStart, muted = false, onPlaySlice,
 
       <GameOverOverlay
         finalScore={finalScore}
+        displayScore={finalResult ? finalResult.score * scoreMultiplier : finalScore}
         running={running}
         countdown={countdown}
-        onReplay={handleReplay}
+        mode={gameOverMode}
+        canContinue={!reviveUsed && finalResult?.endReason === "lives"}
+        canDoubleScore={scoreMultiplier === 1}
+        onContinue={handleRevive}
+        onDeclineContinue={handleDeclineContinue}
+        onDoubleScore={handleDoubleScore}
+        onEndGame={finalizeGame}
       />
 
       <CountdownOverlay countdown={countdown} starting={starting} />

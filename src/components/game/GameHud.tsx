@@ -4,7 +4,6 @@ export interface HudState {
   score: number;
   lives: number;
   combo: number;
-  time: number;
 }
 
 interface GameHudProps {
@@ -32,13 +31,6 @@ export function GameHud({ hud, running }: GameHudProps) {
   return (
     <div className="gameHud">
       <div key={animKey} className={`score-text ${animClass}`}>Điểm: {hud.score}</div>
-
-      {running && (
-        <div className={`gameTimer ${hud.time <= 15 ? "danger" : ""}`}>
-          {String(Math.floor(hud.time / 60)).padStart(2, "0")}:
-          {String(hud.time % 60).padStart(2, "0")}
-        </div>
-      )}
 
       <div className="gameLives">
         {hud.lives > 0 ? "♥".repeat(hud.lives) : "✕"}

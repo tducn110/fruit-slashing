@@ -1,56 +1,39 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { FruitGame } from "./FruitGame";
 import type { GameResult } from "../../game/types";
 import { Home, Settings, Trophy } from "lucide-react";
-import type { LocalScore } from "../../lib/localScores";
 import { useGameSound } from "../../hooks/useSound";
-import { DashboardPanel } from "./DashboardPanel";
 import { SettingsPanel } from "./SettingsPanel";
 
 interface Props {
-  muted: boolean;
-  onToggleMute: () => void;
-  bestScore: number;
-  lastScore: number | null;
-  totalGamesPlayed: number;
-  leaderboard: LocalScore[];
-  onGameOver: (result: GameResult) => void;
+  musicMuted: boolean;
+  sfxMuted: boolean;
+  onToggleMusic: () => void;
+  onToggleSfx: () => void;
+  onSaveScore: (result: GameResult) => void;
   onHome: () => void;
-  onRefreshLeaderboard: () => void;
+  onOpenLeaderboard: () => void;
 }
 
 export function GamePage({
-  muted,
-  onToggleMute,
-  bestScore,
-  lastScore,
-  totalGamesPlayed,
-  leaderboard,
-  onGameOver,
+  musicMuted,
+  sfxMuted,
+  onToggleMusic,
+  onToggleSfx,
+  onSaveScore,
   onHome,
-  onRefreshLeaderboard,
+  onOpenLeaderboard,
 }: Props) {
-  const [panel, setPanel] = useState<null | "settings" | "dashboard">(null);
+  const [panel, setPanel] = useState<null | "settings">(null);
 
   const handleGameStart = useCallback(() => {
     setPanel(null);
   }, []);
 
   // 🎵 Sound — BGM managed by App.tsx, SFX for in-game slicing
-  const { playSlice, playBomb } = useGameSound(muted);
+  const { playSlice, playBomb } = useGameSound(sfxMuted);
 
-  // Refresh leaderboard when dashboard opens
-  useEffect(() => {
-    if (panel === "dashboard") onRefreshLeaderboard();
-  }, [panel, onRefreshLeaderboard]);
-
-  // Auto-open dashboard on game over
-  const handleGameOver = useCallback((result: GameResult) => {
-    onGameOver(result);
-    setPanel("dashboard");
-  }, [onGameOver]);
-
-  const toggle = (p: "settings" | "dashboard") =>
+  const toggle = (p: "settings") =>
     setPanel((prev) => (prev === p ? null : p));
 
   const btnStyle: React.CSSProperties = {
@@ -82,7 +65,7 @@ export function GamePage({
         flexShrink: 0,
       }}>
         {/* Left: home */}
-        <button onClick={onHome} className="game-btn" style={btnStyle}>
+        <button onClick={onHome} className="game-btn" style={btnStyle} aria-label="Trang chủ">
           <Home size={15} /> <span className="btnLabel">Trang chủ</span>
         </button>
 
@@ -99,18 +82,20 @@ export function GamePage({
         {/* Right: Settings + Dashboard */}
         <div className="gameActions" style={{ display: "flex", gap: 8 }}>
           <button
-            onClick={() => toggle("dashboard")}
+            onClick={onOpenLeaderboard}
             className="game-btn"
-            style={{ ...btnStyle, ...(panel === "dashboard" ? { background: "color-mix(in srgb, var(--primary) 12%, transparent)", border: "2px solid var(--primary)" } : {}) }}
+            aria-label="Bảng điểm"
+            style={btnStyle}
           >
             <Trophy size={15} /> <span className="btnLabel">Bảng điểm</span>
           </button>
           <button
             onClick={() => toggle("settings")}
             className="game-btn"
+            aria-label="Cài đặt"
             style={{ ...btnStyle, ...(panel === "settings" ? { background: "color-mix(in srgb, var(--primary) 12%, transparent)", border: "2px solid var(--primary)" } : {}) }}
           >
-            <Settings size={15} /> Cài đặt
+            <Settings size={15} /> <span className="btnLabel">Cài đặt</span>
           </button>
         </div>
       </div>
@@ -119,9 +104,10 @@ export function GamePage({
       <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
         <div className="game-canvas-layer">
           <FruitGame
-            onGameOver={handleGameOver}
+            onSubmitScore={onSaveScore}
+            onExitGame={onHome}
             onGameStart={handleGameStart}
-            muted={muted}
+            muted={sfxMuted}
             onPlaySlice={playSlice}
             onPlayBomb={playBomb}
           />
@@ -131,20 +117,10 @@ export function GamePage({
           {/* Settings overlay */}
           {panel === "settings" && (
             <SettingsPanel
-              muted={muted}
-              onToggleMute={onToggleMute}
-              bestScore={bestScore}
-              lastScore={lastScore}
-              totalGamesPlayed={totalGamesPlayed}
-              onClose={() => setPanel(null)}
-            />
-          )}
-
-          {/* Dashboard overlay */}
-          {panel === "dashboard" && (
-            <DashboardPanel
-              leaderboard={leaderboard}
-              bestScore={bestScore}
+              musicMuted={musicMuted}
+              sfxMuted={sfxMuted}
+              onToggleMusic={onToggleMusic}
+              onToggleSfx={onToggleSfx}
               onClose={() => setPanel(null)}
             />
           )}
