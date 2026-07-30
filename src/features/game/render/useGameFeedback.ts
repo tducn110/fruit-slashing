@@ -56,7 +56,7 @@ export function useGameFeedback() {
 
   function resetScreenShake(layer?: Container | null) {
     const targetLayer = layer ?? shakenLayerRef.current;
-    if (!targetLayer) return;
+    if (!targetLayer || targetLayer.destroyed || !targetLayer.position) return;
     targetLayer.position.set(0, 0);
   }
 
@@ -120,7 +120,12 @@ export function useGameFeedback() {
   // ── Screen shake update (called from Pixi ticker) ─────────────────────────
 
   function updateScreenShake(playLayer: Container | null) {
-    if (!playLayer) return;
+    if (!playLayer || playLayer.destroyed) {
+      if (shakenLayerRef.current === playLayer) {
+        shakenLayerRef.current = null;
+      }
+      return;
+    }
 
     if (!shakeRef.current.active) {
       if (shakenLayerRef.current === playLayer) {

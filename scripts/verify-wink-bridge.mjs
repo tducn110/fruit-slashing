@@ -39,7 +39,7 @@ function exactOrigin(value) {
   }
 }
 
-function assertRuntimeConfig(config) {
+export function assertRuntimeConfig(config) {
   if (
     !config ||
     typeof config !== 'object' ||
