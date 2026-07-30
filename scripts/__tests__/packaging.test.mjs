@@ -21,6 +21,46 @@ function locationBlock(source, marker) {
 }
 
 describe("R4 static packaging boundary", () => {
+  it("keeps test discovery inside the active checkout", () => {
+    const packageJson = JSON.parse(read("package.json"));
+
+    expect(packageJson.scripts.test).toBe(
+      "vitest run --exclude '**/.worktrees/**'",
+    );
+    expect(packageJson.scripts["test:watch"]).toBe(
+      "vitest --exclude '**/.worktrees/**'",
+    );
+  });
+
+  it("publishes a verifier-ready Wink integration manifest", () => {
+    const manifest = JSON.parse(read("wink-integration.json"));
+
+    expect(manifest).toMatchObject({
+      schemaVersion: 1,
+      game: {
+        id: "11111111-1111-4111-8111-111111111111",
+        slug: "fruit-slashing",
+        devOrigin: "https://dev-fruit-slashing.papastudio.net",
+        localOrigin: "http://127.0.0.1:5173",
+      },
+      wink: {
+        environment: "dev",
+        protocolVersion: 1,
+        bridgeVersion: "9.0.0",
+        bridgeSha256:
+          "afe2a789466c3d68f4eec7d8cf2e718f45a29a19a5d8b9eb8c4cec10b18f31eb",
+        devParentOrigin: "https://dev-winkgames.papastudio.net",
+        harnessOrigin: "http://127.0.0.1:8787",
+        devApiBase:
+          "https://dev-api-winkgames.papastudio.net/api/v1",
+      },
+    });
+    expect(manifest.files.adapters).toEqual([
+      "src/integrations/wink/client.ts",
+      "src/integrations/wink/useWinkIntegration.ts",
+    ]);
+  });
+
   it("builds with the pinned Node toolchain and ships only dist through nginx", () => {
     const dockerfile = read("Dockerfile");
 

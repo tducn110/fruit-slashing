@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "game": {
+    "id": "11111111-1111-4111-8111-111111111111",
+    "slug": "fruit-slashing",
+    "devOrigin": "https://dev-fruit-slashing.papastudio.net",
+    "localOrigin": "http://127.0.0.1:5173"
+  },
+  "wink": {
+    "environment": "dev",
+    "protocolVersion": 1,
+    "bridgeVersion": "9.0.0",
+    "bridgeSha256": "afe2a789466c3d68f4eec7d8cf2e718f45a29a19a5d8b9eb8c4cec10b18f31eb",
+    "devParentOrigin": "https://dev-winkgames.papastudio.net",
+    "harnessOrigin": "http://127.0.0.1:8787",
+    "devApiBase": "https://dev-api-winkgames.papastudio.net/api/v1"
+  },
+  "semantics": {
+    "roundId": "Create one UUID when Fruit Slashing starts a semantic round and retain it through revive, double-score, and finalization.",
+    "completion": "Call complete exactly once at the semantic game-over boundary, independently from score persistence.",
+    "score": "Submit the final qualifying score only when the player selects End Game after the revive and double-score decision.",
+    "pauseResume": "Pause and resume the Pixi ticker and game timers without resetting the round or introducing a time jump.",
+    "muteUnmute": "Apply parent mute independently from the player's persistent music and SFX preferences."
+  },
+  "files": {
+    "runtimeConfig": "public/wink-runtime-config.json",
+    "bridge": "public/wink-bridge.js",
+    "bridgeLock": "public/wink-bridge.lock.json",
+    "adapters": [
+      "src/integrations/wink/client.ts",
+      "src/integrations/wink/useWinkIntegration.ts"
+    ],
+    "tests": [
+      "src/integrations/wink/__tests__/client.test.ts",
+      "src/integrations/wink/__tests__/security-negative.test.ts",
+      "src/integrations/wink/__tests__/useWinkIntegration.test.tsx",
+      "src/hooks/useScoreData.test.tsx",
+      "src/features/game/runtime/useGameSession.test.tsx",
+      "src/features/game/runtime/useGameTicker.test.tsx",
+      "src/utils/audio-manager.test.ts",
+      "scripts/__tests__/runtime-config.test.mjs",
+      "scripts/__tests__/wink-bridge-files.test.mjs",
+      "scripts/__tests__/packaging.test.mjs"
+    ]
+  },
+  "commands": {
+    "install": "npm ci",
+    "test": "npm test",
+    "typecheck": "npm run typecheck",
+    "build": "npm run build",
+    "serve": "npm run dev -- --host 127.0.0.1 --port 5173"
+  }
+}
