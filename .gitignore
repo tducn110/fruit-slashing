@@ -10,3 +10,4 @@ test-load.ts
 firestore-debug.log
 *-debug.log
 functions/lib/
+artifacts/minigame-pilot/

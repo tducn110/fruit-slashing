@@ -1,182 +1,250 @@
-#!/bin/bash
+#!/bin/sh
 
-# ========================================
-# Game Deployment Script
-# ========================================
-# Automatically deploys game to VPS using Docker Stack
-# Usage: ./deploy.sh [--local]
-#   --local: Skip registry push (local deploy only)
-# ========================================
+set -eu
+umask 077
 
-set -e
-
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-# Load configuration
-if [ ! -f "game.config.sh" ]; then
-    echo -e "${RED}❌ Error: game.config.sh not found!${NC}"
-    echo "Please create game.config.sh file. See README.md for details."
-    exit 1
+if [ ! -f "./game.config.sh" ]; then
+  printf '%s\n' 'R5_GAME_CONFIG_MISSING' >&2
+  exit 2
 fi
 
-source ./game.config.sh
+# shellcheck source=/dev/null
+. ./game.config.sh
 
-# Check if --local flag is set
-SKIP_PUSH=false
-if [ "$1" == "--local" ]; then
-    SKIP_PUSH=true
-    echo -e "${YELLOW}ℹ️  Local deploy mode (skipping registry push)${NC}"
+if [ "${ENVIRONMENT}" != "dev" ] || \
+   [ "${STACK_NAME}" != "papastudio-winkgames-dev-games" ] || \
+   [ "${SERVICE_NAME}" != "fruit-slashing" ] || \
+   [ "${ROUTER_NAME}" != "winkgames-minigame-dev-fruit-slashing" ] || \
+   [ "${DOMAIN}" != "dev-fruit-slashing.papastudio.net" ] || \
+   [ "${IMAGE_NAME}" != "winkgames/dev/fruit-slashing" ] || \
+   [ "${ALLOWED_PARENT_ORIGINS}" != "https://dev-winkgames.papastudio.net http://127.0.0.1:8787" ]; then
+  printf '%s\n' 'R5_GAME_CONFIG_INVALID' >&2
+  exit 2
 fi
 
-# Validate configuration
-echo -e "${BLUE}🔍 Validating configuration...${NC}"
-if [ -z "$GAME_NAME" ] || [ "$GAME_NAME" == "my-game" ]; then
-    echo -e "${RED}❌ Error: Please edit game.config and set GAME_NAME${NC}"
-    exit 1
-fi
-
-if [ -z "$DOMAIN" ] || [ "$DOMAIN" == "my-game.papastudio.net" ]; then
-    echo -e "${RED}❌ Error: Please edit game.config and set DOMAIN${NC}"
-    exit 1
-fi
-
-# Check if index.html exists
-if [ ! -f "index.html" ]; then
-    echo -e "${YELLOW}⚠️  Warning: index.html not found${NC}"
-    echo "Make sure you've added your game files before deploying"
-    read -p "Continue anyway? (y/N) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        exit 1
+MODE="${1:-}"
+case "${MODE}" in
+  --check-only|--build-push)
+    if [ "$#" -ne 1 ]; then
+      printf '%s\n' 'R5_GAME_DEPLOY_ARGUMENT_INVALID' >&2
+      exit 2
     fi
-fi
-
-echo ""
-echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}  Deploying: ${GAME_TITLE}${NC}"
-echo -e "${GREEN}========================================${NC}"
-echo "  Domain:      ${DOMAIN}"
-echo "  Stack:       ${STACK_NAME}"
-echo "  Image:       ${FULL_IMAGE}"
-echo "  Network:     ${NETWORK}"
-echo -e "${GREEN}========================================${NC}"
-echo ""
-
-# Build Docker image
-echo -e "${BLUE}📦 Building Docker image...${NC}"
-docker build -t "${FULL_IMAGE}" .
-
-if [ $? -ne 0 ]; then
-    echo -e "${RED}❌ Build failed!${NC}"
-    exit 1
-fi
-
-echo -e "${GREEN}✅ Build successful${NC}"
-
-# Push to registry (unless --local)
-if [ "$SKIP_PUSH" = false ]; then
-    echo ""
-    echo -e "${BLUE}⬆️  Pushing to registry...${NC}"
-    docker push "${FULL_IMAGE}"
-    
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}❌ Push failed!${NC}"
-        echo "Tip: Run 'docker login ${REGISTRY}' first"
-        exit 1
+    ;;
+  --deploy|--rollback)
+    if [ "$#" -ne 3 ]; then
+      printf '%s\n' 'R5_GAME_DEPLOY_ARGUMENT_INVALID' >&2
+      exit 2
     fi
-    
-    echo -e "${GREEN}✅ Push successful${NC}"
-else
-    echo -e "${YELLOW}⏭️  Skipping registry push${NC}"
+    ;;
+  *)
+    printf '%s\n' 'R5_GAME_DEPLOY_ARGUMENT_INVALID' >&2
+    exit 2
+    ;;
+esac
+
+SOURCE_SHA="$(git rev-parse HEAD)"
+if ! printf '%s\n' "${SOURCE_SHA}" | grep -Eq '^[0-9a-f]{40}$' || \
+   ! git diff --quiet || \
+   ! git diff --cached --quiet || \
+   [ -n "$(git status --porcelain --untracked-files=normal)" ]; then
+  printf '%s\n' 'R5_GAME_SOURCE_INVALID' >&2
+  exit 2
 fi
 
-# Generate docker-stack.yml with substituted variables
-echo ""
-echo -e "${BLUE}📝 Generating docker-stack.yml...${NC}"
-cat > docker-stack.yml.tmp << EOF
-version: '3.8'
+IMAGE_TAG="git-${SOURCE_SHA}"
+TAGGED_IMAGE="${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+DIGEST_IMAGE_PREFIX="${REGISTRY}/${IMAGE_NAME}@sha256:"
+DIGEST_PATTERN='^registry2\.papagroup\.net/winkgames/dev/fruit-slashing@sha256:[0-9a-f]{64}$'
 
-services:
-  "${SERVICE_NAME}":
-    image: ${FULL_IMAGE}
-    networks:
-      - ${NETWORK}
-    labels:
-      # Enable Traefik
-      - "traefik.enable=true"
-      
-      # Traefik routing for HTTPS (websecure entrypoint)
-      - 'traefik.http.routers.${GAME_NAME}.rule=Host(\`${DOMAIN}\`)'
-      - "traefik.http.routers.${GAME_NAME}.entrypoints=websecure"
-      - "traefik.http.routers.${GAME_NAME}.tls.certresolver=${CERT_RESOLVER}"
-      
-      # Service configuration (port Nginx listens on)
-      - "traefik.http.services.${GAME_NAME}.loadbalancer.server.port=${NGINX_PORT}"
-    deploy:
-      replicas: ${REPLICAS}
-      restart_policy:
-        condition: ${RESTART_POLICY}
+# These gates precede every immutable image publication and dev stack update.
+# No harness secret or primary/scoped token is consumed by this script.
+export GAME_ID ENVIRONMENT PROTOCOL_VERSION BRIDGE_VERSION
+export ALLOWED_PARENT_ORIGINS
+export OUTPUT_PATH="./public/wink-runtime-config.json"
+node scripts/generate-wink-runtime-config.mjs
+npm run verify:wink-bridge
+npm test
+npm run typecheck
+npm run build
+WINK_DOCKER_ALLOWED_PARENT_ORIGINS="${ALLOWED_PARENT_ORIGINS}" \
+npm run verify:docker-headers
 
-networks:
-  ${NETWORK}:
-    external: true
-EOF
+if [ "${MODE}" = "--check-only" ]; then
+  printf '%s\n' "{\"schemaVersion\":1,\"code\":\"R5_GAME_CHECK_OK\",\"sourceSha\":\"${SOURCE_SHA}\"}"
+  exit 0
+fi
 
-# Deploy stack
-echo ""
-echo -e "${BLUE}🚀 Deploying to Docker Stack...${NC}"
-docker stack deploy --with-registry-auth -c docker-stack.yml.tmp "${STACK_NAME}"
+if [ "${MODE}" = "--build-push" ]; then
+  if docker manifest inspect "${TAGGED_IMAGE}" >/dev/null 2>&1; then
+    printf '%s\n' 'R5_IMAGE_TAG_EXISTS' >&2
+    exit 2
+  fi
 
-if [ $? -ne 0 ]; then
-    echo -e "${RED}❌ Deploy failed!${NC}"
-    rm docker-stack.yml.tmp
+  docker build -t "${TAGGED_IMAGE}" .
+  PUSH_OUTPUT="$(mktemp "${TMPDIR:-/tmp}/fruit-push.XXXXXX")"
+  trap 'rm -f "${PUSH_OUTPUT}"' EXIT HUP INT TERM
+  docker push "${TAGGED_IMAGE}" | tee "${PUSH_OUTPUT}"
+  PUSH_DIGEST="$(
+    sed -n 's/.*digest: \(sha256:[0-9a-f]\{64\}\).*/\1/p' \
+      "${PUSH_OUTPUT}" | tail -n 1
+  )"
+  R5_GAME_IMAGE="${DIGEST_IMAGE_PREFIX}${PUSH_DIGEST#sha256:}"
+  if ! printf '%s\n' "${R5_GAME_IMAGE}" | grep -Eq "${DIGEST_PATTERN}"; then
+    printf '%s\n' 'R5_IMAGE_DIGEST_INVALID' >&2
     exit 1
+  fi
+  printf '%s\n' "{\"schemaVersion\":1,\"code\":\"R5_GAME_IMAGE_PUBLISHED\",\"sourceSha\":\"${SOURCE_SHA}\",\"taggedImage\":\"${TAGGED_IMAGE}\",\"digestImage\":\"${R5_GAME_IMAGE}\"}"
+  exit 0
 fi
 
-# Clean up temp file
-rm docker-stack.yml.tmp
+R5_GAME_IMAGE="$2"
+ROLLBACK_METADATA_PATH="$3"
+if ! printf '%s\n' "${R5_GAME_IMAGE}" | grep -Eq "${DIGEST_PATTERN}"; then
+  printf '%s\n' 'R5_IMAGE_DIGEST_INVALID' >&2
+  exit 2
+fi
+case "${ROLLBACK_METADATA_PATH}" in
+  artifacts/minigame-pilot/*) ;;
+  *)
+    printf '%s\n' 'R5_ROLLBACK_METADATA_PATH_INVALID' >&2
+    exit 2
+    ;;
+esac
+if ! printf '%s\n' "${ROLLBACK_METADATA_PATH}" | \
+     grep -Eq '^artifacts/minigame-pilot/[A-Za-z0-9._/-]+\.json$' || \
+   printf '%s\n' "${ROLLBACK_METADATA_PATH}" | grep -Eq '(^|/)\.\.(/|$)|//'; then
+  printf '%s\n' 'R5_ROLLBACK_METADATA_PATH_INVALID' >&2
+  exit 2
+fi
+ROLLBACK_METADATA_DIR="$(dirname "${ROLLBACK_METADATA_PATH}")"
+if [ ! -d "${ROLLBACK_METADATA_DIR}" ]; then
+  printf '%s\n' 'R5_ROLLBACK_METADATA_PATH_INVALID' >&2
+  exit 2
+fi
+ARTIFACT_ROOT="$(CDPATH= cd -- artifacts/minigame-pilot && pwd -P)"
+ROLLBACK_METADATA_DIR="$(CDPATH= cd -- "${ROLLBACK_METADATA_DIR}" && pwd -P)"
+case "${ROLLBACK_METADATA_DIR}" in
+  "${ARTIFACT_ROOT}"|"${ARTIFACT_ROOT}"/*) ;;
+  *)
+    printf '%s\n' 'R5_ROLLBACK_METADATA_PATH_INVALID' >&2
+    exit 2
+    ;;
+esac
+ROLLBACK_METADATA_PATH="${ROLLBACK_METADATA_DIR}/$(basename "${ROLLBACK_METADATA_PATH}")"
+if [ -L "${ROLLBACK_METADATA_PATH}" ] || [ -e "${ROLLBACK_METADATA_PATH}" ]; then
+  printf '%s\n' 'R5_ROLLBACK_METADATA_PATH_INVALID' >&2
+  exit 2
+fi
 
-echo ""
-echo -e "${GREEN}✅ Deployment successful!${NC}"
+STACK_FILE="$(mktemp "${TMPDIR:-/tmp}/fruit-r5-stack.XXXXXX")"
+ROLLBACK_METADATA_TMP=""
+cleanup() {
+  rm -f "${STACK_FILE}"
+  if [ -n "${ROLLBACK_METADATA_TMP}" ]; then
+    rm -f "${ROLLBACK_METADATA_TMP}"
+  fi
+}
+trap cleanup EXIT HUP INT TERM
 
-# Wait a bit for service to start
-echo ""
-echo -e "${BLUE}⏳ Waiting for service to start...${NC}"
-sleep 3
+{
+  echo "version: '3.8'"
+  echo "services:"
+  echo "  ${SERVICE_NAME}:"
+  echo "    image: ${R5_GAME_IMAGE}"
+  echo "    networks:"
+  echo "      - ${NETWORK}"
+  echo "    labels:"
+  echo "      - \"traefik.enable=true\""
+  echo "      - 'traefik.http.routers.${ROUTER_NAME}.rule=Host(\`${DOMAIN}\`)'"
+  echo "      - \"traefik.http.routers.${ROUTER_NAME}.entrypoints=websecure\""
+  echo "      - \"traefik.http.routers.${ROUTER_NAME}.tls=true\""
+  echo "      - \"traefik.http.routers.${ROUTER_NAME}.tls.certresolver=${CERT_RESOLVER}\""
+  echo "      - \"traefik.http.services.${ROUTER_NAME}.loadbalancer.server.port=${NGINX_PORT}\""
+  echo "    environment:"
+  echo "      - \"ALLOWED_PARENT_ORIGINS=${ALLOWED_PARENT_ORIGINS}\""
+  echo "    deploy:"
+  echo "      replicas: ${REPLICAS}"
+  echo "      restart_policy:"
+  echo "        condition: ${RESTART_POLICY}"
+  echo "      update_config:"
+  echo "        parallelism: 1"
+  echo "        order: start-first"
+  echo "        failure_action: rollback"
+  echo "      rollback_config:"
+  echo "        parallelism: 1"
+  echo "        order: stop-first"
+  echo "      resources:"
+  echo "        limits:"
+  echo "          cpus: '0.50'"
+  echo "          memory: 256M"
+  echo "        reservations:"
+  echo "          cpus: '0.05'"
+  echo "          memory: 64M"
+  echo "    logging:"
+  echo "      driver: json-file"
+  echo "      options:"
+  echo "        max-size: 10m"
+  echo "        max-file: '3'"
+  echo "networks:"
+  echo "  ${NETWORK}:"
+  echo "    external: true"
+} > "${STACK_FILE}"
 
-# Show service status
-echo ""
-echo -e "${BLUE}📊 Service status:${NC}"
-docker service ps "${SERVICE_FULL_NAME}" 2>/dev/null || echo "Service starting..."
+docker stack config -c "${STACK_FILE}" >/dev/null
+PREVIOUS_IMAGE="$(
+  docker service inspect "${SERVICE_FULL_NAME}" \
+    --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}' 2>/dev/null || true
+)"
+if [ -z "${PREVIOUS_IMAGE}" ]; then
+  PREVIOUS_IMAGE="none"
+fi
 
-# Show logs
-echo ""
-echo -e "${BLUE}📋 Recent logs:${NC}"
-docker service logs --tail 10 "${SERVICE_FULL_NAME}" 2>/dev/null || echo "No logs yet (service still starting)"
+docker stack deploy --with-registry-auth \
+  -c "${STACK_FILE}" "${STACK_NAME}"
 
-# Final info
-echo ""
-echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}  ✨ Deployment Complete!${NC}"
-echo -e "${GREEN}========================================${NC}"
-echo ""
-echo -e "${GREEN}🌐 Game URL:${NC}"
-echo "   https://${DOMAIN}"
-echo ""
-echo -e "${BLUE}📊 Useful commands:${NC}"
-echo "   View logs:    docker service logs -f ${SERVICE_FULL_NAME}"
-echo "   Check status: docker service ps ${SERVICE_FULL_NAME}"
-echo "   Inspect:      docker service inspect ${SERVICE_FULL_NAME}"
-echo "   Scale:        docker service scale ${SERVICE_FULL_NAME}=2"
-echo "   Remove:       docker stack rm ${STACK_NAME}"
-echo ""
-echo -e "${YELLOW}💡 Tips:${NC}"
-echo "   - Wait 1-2 minutes for SSL certificate"
-echo "   - Check DNS points to VPS IP"
-echo "   - Add game to web tổng's games.js"
-echo ""
+ATTEMPTS="0"
+CURRENT_REPLICAS=""
+CURRENT_IMAGE=""
+UPDATE_STATE=""
+while [ "${ATTEMPTS}" -lt 24 ]; do
+  CURRENT_REPLICAS="$(
+    docker service ls --filter "name=${SERVICE_FULL_NAME}" \
+      --format '{{.Replicas}}'
+  )"
+  CURRENT_IMAGE="$(
+    docker service inspect "${SERVICE_FULL_NAME}" \
+      --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}' 2>/dev/null || true
+  )"
+  UPDATE_STATE="$(
+    docker service inspect "${SERVICE_FULL_NAME}" \
+      --format '{{if .UpdateStatus}}{{.UpdateStatus.State}}{{end}}' \
+      2>/dev/null || true
+  )"
+  if [ "${CURRENT_REPLICAS}" = "1/1" ] && \
+     [ "${CURRENT_IMAGE}" = "${R5_GAME_IMAGE}" ] && \
+     { [ -z "${UPDATE_STATE}" ] || [ "${UPDATE_STATE}" = "completed" ]; }; then
+    break
+  fi
+  ATTEMPTS=$((ATTEMPTS + 1))
+  sleep 5
+done
+if [ "${CURRENT_REPLICAS}" != "1/1" ] || \
+   [ "${CURRENT_IMAGE}" != "${R5_GAME_IMAGE}" ] || \
+   { [ -n "${UPDATE_STATE}" ] && [ "${UPDATE_STATE}" != "completed" ]; }; then
+  printf '%s\n' 'R5_GAME_DEPLOY_HEALTH_FAILED' >&2
+  exit 1
+fi
+curl --fail --silent --show-error --max-time 10 \
+  "https://${DOMAIN}/health" >/dev/null
+
+ACTION="${MODE#--}"
+CREATED_AT="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+ROLLBACK_METADATA_TMP="$(mktemp "${ROLLBACK_METADATA_PATH}.tmp.XXXXXX")"
+printf '%s\n' \
+  "{\"schemaVersion\":1,\"action\":\"${ACTION}\",\"createdAt\":\"${CREATED_AT}\",\"sourceSha\":\"${SOURCE_SHA}\",\"stack\":\"${STACK_NAME}\",\"service\":\"${SERVICE_NAME}\",\"previousImage\":\"${PREVIOUS_IMAGE}\",\"nextImage\":\"${R5_GAME_IMAGE}\",\"result\":\"healthy\"}" \
+  > "${ROLLBACK_METADATA_TMP}"
+chmod 0600 "${ROLLBACK_METADATA_TMP}"
+mv "${ROLLBACK_METADATA_TMP}" "${ROLLBACK_METADATA_PATH}"
+ROLLBACK_METADATA_TMP=""
+
+printf '%s\n' "{\"schemaVersion\":1,\"code\":\"R5_GAME_DEPLOY_OK\",\"action\":\"${ACTION}\",\"service\":\"${SERVICE_FULL_NAME}\"}"

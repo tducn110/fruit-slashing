@@ -8,17 +8,22 @@ import { audioManager } from "./utils/audio-manager";
 import { preloadGameResources } from "./utils/game-loader";
 
 import { useScoreData } from "./hooks/useScoreData";
+import { IntegrationStatusBanner } from "./components/ui/IntegrationStatusBanner";
+import { useWinkIntegration } from "./integrations/wink/useWinkIntegration";
+import type { GameResult } from "./game/types";
 
 type AppView = "loading" | "landing" | "game" | "leaderboard";
 type LeaderboardReturnView = "landing" | "game";
 
 export default function App() {
+  const integration = useWinkIntegration();
   const {
     bestScore,
     leaderboard,
     onGameOver,
     refreshLeaderboard,
-  } = useScoreData();
+    error: scoreError,
+  } = useScoreData(integration);
 
   const [view, setView] = useState<AppView>("loading");
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -38,6 +43,10 @@ export default function App() {
   useEffect(() => {
     audioManager.setSfxMuted(sfxMuted);
   }, [sfxMuted]);
+
+  useEffect(() => {
+    audioManager.setParentMuted(integration.parentMuted);
+  }, [integration.parentMuted]);
 
   useEffect(() => {
     const playButtonClick = (event: MouseEvent) => {
@@ -107,12 +116,29 @@ export default function App() {
 
   const handleHome = useCallback(() => {
     audioManager.setBgmVolume(audioManager.landingBgmVolume);
-    refreshLeaderboard();
+    void refreshLeaderboard().catch(() => {
+      // useScoreData owns the visible error state for a failed refresh.
+    });
     setView("landing");
   }, [refreshLeaderboard]);
 
+  const handleCompleteRound = useCallback(
+    (result: GameResult) => {
+      if (!result.roundId) return;
+      void integration.completeRound({
+        roundId: result.roundId,
+        playDurationMs: result.playTimeSec * 1000,
+      }).catch(() => {
+        // The integration status banner exposes the typed completion error.
+      });
+    },
+    [integration.completeRound],
+  );
+
   const handleOpenLeaderboard = useCallback((returnView: LeaderboardReturnView) => {
-    refreshLeaderboard();
+    void refreshLeaderboard().catch(() => {
+      // useScoreData owns the visible error state for a failed refresh.
+    });
     setLeaderboardReturnView(returnView);
     setView("leaderboard");
   }, [refreshLeaderboard]);
@@ -120,61 +146,87 @@ export default function App() {
   // Loading view — waits for all resources
   if (view === "loading") {
     return (
-      <LoadingScreen
-        progress={resourcesReady ? 100 : loadingProgress}
-        onDone={handleLoadingDone}
-        completeDelayMs={1150}
-        exiting={loadingExiting}
-      />
+      <>
+        <IntegrationStatusBanner
+          integration={integration}
+          operationError={scoreError}
+        />
+        <LoadingScreen
+          progress={resourcesReady ? 100 : loadingProgress}
+          onDone={handleLoadingDone}
+          completeDelayMs={1150}
+          exiting={loadingExiting}
+        />
+      </>
     );
   }
 
   // Game view — full screen, dashboard panel opens on demand inside GamePage
   if (view === "game") {
     return (
-      <GamePage
-        musicMuted={musicMuted}
-        sfxMuted={sfxMuted}
-        onToggleMusic={() => setMusicMuted((m) => !m)}
-        onToggleSfx={() => setSfxMuted((m) => !m)}
-        onSaveScore={onGameOver}
-        onHome={handleHome}
-        onOpenLeaderboard={() => handleOpenLeaderboard("game")}
-      />
+      <>
+        <IntegrationStatusBanner
+          integration={integration}
+          operationError={scoreError}
+        />
+        <GamePage
+          musicMuted={musicMuted}
+          sfxMuted={sfxMuted}
+          hostPaused={integration.hostPaused}
+          onToggleMusic={() => setMusicMuted((m) => !m)}
+          onToggleSfx={() => setSfxMuted((m) => !m)}
+          onSaveScore={onGameOver}
+          onCompleteRound={handleCompleteRound}
+          onHome={handleHome}
+          onOpenLeaderboard={() => handleOpenLeaderboard("game")}
+        />
+      </>
     );
   }
 
   if (view === "leaderboard") {
     return (
-      <LeaderboardScreen
-        leaderboard={leaderboard}
-        bestScore={bestScore}
-        onBack={() => setView(leaderboardReturnView)}
-      />
+      <>
+        <IntegrationStatusBanner
+          integration={integration}
+          operationError={scoreError}
+        />
+        <LeaderboardScreen
+          leaderboard={leaderboard}
+          bestScore={bestScore}
+          onBack={() => setView(leaderboardReturnView)}
+        />
+      </>
     );
   }
 
   // Landing view — just nav + hero, no dashboard/footer sections
   return (
-    <div
-      className="landing-enter"
-      style={{
-        minHeight: "100vh",
-        background: "#f5ecd7",
-        fontFamily: "'Be Vietnam Pro', sans-serif",
-        color: "#2a2418",
-      }}
-    >
-      <TopNav
-        muted={musicMuted}
-        onToggleMute={() => setMusicMuted((m) => !m)}
+    <>
+      <IntegrationStatusBanner
+        integration={integration}
+        operationError={scoreError}
       />
+      <div
+        className="landing-enter"
+        style={{
+          minHeight: "100vh",
+          background: "#f5ecd7",
+          fontFamily: "'Be Vietnam Pro', sans-serif",
+          color: "#2a2418",
+        }}
+      >
+        <TopNav
+          muted={musicMuted}
+          onToggleMute={() => setMusicMuted((m) => !m)}
+        />
 
-      <HeroSection
-        onPlay={handlePlay}
-        onOpenLeaderboard={() => handleOpenLeaderboard("landing")}
-        bestScore={bestScore}
-      />
-    </div>
+        <HeroSection
+          onPlay={handlePlay}
+          onOpenLeaderboard={() => handleOpenLeaderboard("landing")}
+          bestScore={bestScore}
+        />
+      </div>
+    </>
   );
 }

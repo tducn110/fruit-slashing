@@ -8,9 +8,11 @@ import { SettingsPanel } from "./SettingsPanel";
 interface Props {
   musicMuted: boolean;
   sfxMuted: boolean;
+  hostPaused: boolean;
   onToggleMusic: () => void;
   onToggleSfx: () => void;
   onSaveScore: (result: GameResult) => void;
+  onCompleteRound: (result: GameResult) => void;
   onHome: () => void;
   onOpenLeaderboard: () => void;
 }
@@ -18,9 +20,11 @@ interface Props {
 export function GamePage({
   musicMuted,
   sfxMuted,
+  hostPaused,
   onToggleMusic,
   onToggleSfx,
   onSaveScore,
+  onCompleteRound,
   onHome,
   onOpenLeaderboard,
 }: Props) {
@@ -105,8 +109,10 @@ export function GamePage({
         <div className="game-canvas-layer">
           <FruitGame
             onSubmitScore={onSaveScore}
+            onCompleteRound={onCompleteRound}
             onExitGame={onHome}
             onGameStart={handleGameStart}
+            hostPaused={hostPaused}
             muted={sfxMuted}
             onPlaySlice={playSlice}
             onPlayBomb={playBomb}

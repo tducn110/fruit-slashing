@@ -1,48 +1,28 @@
-#!/bin/bash
-# ========================================
-# Game Configuration File
-# ========================================
-# IMPORTANT: Edit these values for your game
-# After editing, save and run: ./deploy.sh
-# ========================================
+#!/bin/sh
 
-# Game Information
-GAME_NAME="bo-lac-fruit-slashing"                    # Slug name (lowercase, hyphens only)
-GAME_TITLE="Bo Lac Fruit Slashing"                   # Display title
-GAME_DESCRIPTION="A fun fruit slashing game"     # Short description
+# R5 dev-only image handoff. Production names and authority are intentionally
+# absent; a production release requires a separate reviewed revision.
+GAME_NAME="fruit-slashing"
+GAME_TITLE="Chém Lạc Vùng Cao"
+GAME_DESCRIPTION="Winkgames iframe-only Fruit Slashing pilot"
 
-# Domain Configuration
-DOMAIN="bo-lac-fruit-slashing.papastudio.net"        # Full domain for this game
+GAME_ID="11111111-1111-4111-8111-111111111111"
+ENVIRONMENT="dev"
+PROTOCOL_VERSION="1"
+BRIDGE_VERSION="9.0.0"
+ALLOWED_PARENT_ORIGINS="https://dev-winkgames.papastudio.net http://127.0.0.1:8787"
 
-# Docker Configuration
-STACK_NAME="papastudio-winkgames"         # Docker stack name (all games in one stack)
-SERVICE_NAME="bo-lac-fruit-slashing"                     # Service name = game slug (unique per game)
+DOMAIN="dev-fruit-slashing.papastudio.net"
 
-# Registry Configuration
-REGISTRY="registry2.papagroup.net"     # Docker registry URL
-IMAGE_NAME="winkgames/games/bo-lac-fruit-slashing"   # Image name in registry (change 'my-game' to your game name)
-IMAGE_TAG="1.6"                      # Image tag (latest, v1.0, etc.)
+STACK_NAME="papastudio-winkgames-dev-games"
+SERVICE_NAME="fruit-slashing"
+ROUTER_NAME="winkgames-minigame-dev-fruit-slashing"
+REGISTRY="registry2.papagroup.net"
+IMAGE_NAME="winkgames/dev/fruit-slashing"
+NETWORK="traefik-public"
+NGINX_PORT="80"
+CERT_RESOLVER="myresolver"
+REPLICAS="1"
+RESTART_POLICY="on-failure"
 
-# Network Configuration
-NETWORK="traefik-public"                # Traefik network name
-
-# Port Configuration
-NGINX_PORT="80"                         # Nginx internal port (usually 80)
-
-# ========================================
-# Advanced Settings (rarely need changes)
-# ========================================
-
-# Traefik Configuration
-CERT_RESOLVER="myresolver"              # Let's Encrypt resolver name (same as web tổng)
-
-# Deployment Settings
-REPLICAS="1"                            # Number of replicas
-RESTART_POLICY="on-failure"             # Restart policy
-
-# ========================================
-# DO NOT EDIT BELOW (auto-generated)
-# ========================================
-
-FULL_IMAGE="${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
 SERVICE_FULL_NAME="${STACK_NAME}_${SERVICE_NAME}"

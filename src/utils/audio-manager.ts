@@ -28,6 +28,7 @@ class AudioManager {
 
   private _musicMuted = false;
   private _sfxMuted = false;
+  private _parentMuted = false;
   private _loaded = false;
   private _bgmPlaying = false;
   private currentBgmVolume = LANDING_BGM_VOLUME;
@@ -42,8 +43,8 @@ class AudioManager {
       this.bgmGain.connect(this.ctx.destination);
       this.sfxGain.connect(this.ctx.destination);
       
-      this.bgmGain.gain.value = this._musicMuted ? 0 : 1;
-      this.sfxGain.gain.value = this._sfxMuted ? 0 : 1;
+      this.bgmGain.gain.value = this._parentMuted || this._musicMuted ? 0 : 1;
+      this.sfxGain.gain.value = this._parentMuted || this._sfxMuted ? 0 : 1;
     }
   }
 
@@ -58,6 +59,7 @@ class AudioManager {
   get muted() { return this._musicMuted && this._sfxMuted; }
   get musicMuted() { return this._musicMuted; }
   get sfxMuted() { return this._sfxMuted; }
+  get parentMuted() { return this._parentMuted; }
   get loaded() { return this._loaded; }
   get bgmPlaying() { return this._bgmPlaying; }
   get landingBgmVolume() { return LANDING_BGM_VOLUME; }
@@ -320,12 +322,17 @@ class AudioManager {
     this.applyMuteState();
   }
 
+  setParentMuted(m: boolean): void {
+    this._parentMuted = m;
+    this.applyMuteState();
+  }
+
   private applyMuteState(): void {
     if (this.bgmGain) {
-      this.bgmGain.gain.value = this._musicMuted ? 0 : 1;
+      this.bgmGain.gain.value = this._parentMuted || this._musicMuted ? 0 : 1;
     }
     if (this.sfxGain) {
-      this.sfxGain.gain.value = this._sfxMuted ? 0 : 1;
+      this.sfxGain.gain.value = this._parentMuted || this._sfxMuted ? 0 : 1;
     }
   }
 
