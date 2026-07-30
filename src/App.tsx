@@ -8,11 +8,14 @@ import { audioManager } from "./utils/audio-manager";
 import { preloadGameResources } from "./utils/game-loader";
 
 import { useScoreData } from "./hooks/useScoreData";
+import { IntegrationStatusBanner } from "./components/ui/IntegrationStatusBanner";
+import { useWinkIntegration } from "./integrations/wink/useWinkIntegration";
 
 type AppView = "loading" | "landing" | "game" | "leaderboard";
 type LeaderboardReturnView = "landing" | "game";
 
 export default function App() {
+  const integration = useWinkIntegration();
   const {
     bestScore,
     leaderboard,
@@ -120,61 +123,73 @@ export default function App() {
   // Loading view — waits for all resources
   if (view === "loading") {
     return (
-      <LoadingScreen
-        progress={resourcesReady ? 100 : loadingProgress}
-        onDone={handleLoadingDone}
-        completeDelayMs={1150}
-        exiting={loadingExiting}
-      />
+      <>
+        <IntegrationStatusBanner integration={integration} />
+        <LoadingScreen
+          progress={resourcesReady ? 100 : loadingProgress}
+          onDone={handleLoadingDone}
+          completeDelayMs={1150}
+          exiting={loadingExiting}
+        />
+      </>
     );
   }
 
   // Game view — full screen, dashboard panel opens on demand inside GamePage
   if (view === "game") {
     return (
-      <GamePage
-        musicMuted={musicMuted}
-        sfxMuted={sfxMuted}
-        onToggleMusic={() => setMusicMuted((m) => !m)}
-        onToggleSfx={() => setSfxMuted((m) => !m)}
-        onSaveScore={onGameOver}
-        onHome={handleHome}
-        onOpenLeaderboard={() => handleOpenLeaderboard("game")}
-      />
+      <>
+        <IntegrationStatusBanner integration={integration} />
+        <GamePage
+          musicMuted={musicMuted}
+          sfxMuted={sfxMuted}
+          onToggleMusic={() => setMusicMuted((m) => !m)}
+          onToggleSfx={() => setSfxMuted((m) => !m)}
+          onSaveScore={onGameOver}
+          onHome={handleHome}
+          onOpenLeaderboard={() => handleOpenLeaderboard("game")}
+        />
+      </>
     );
   }
 
   if (view === "leaderboard") {
     return (
-      <LeaderboardScreen
-        leaderboard={leaderboard}
-        bestScore={bestScore}
-        onBack={() => setView(leaderboardReturnView)}
-      />
+      <>
+        <IntegrationStatusBanner integration={integration} />
+        <LeaderboardScreen
+          leaderboard={leaderboard}
+          bestScore={bestScore}
+          onBack={() => setView(leaderboardReturnView)}
+        />
+      </>
     );
   }
 
   // Landing view — just nav + hero, no dashboard/footer sections
   return (
-    <div
-      className="landing-enter"
-      style={{
-        minHeight: "100vh",
-        background: "#f5ecd7",
-        fontFamily: "'Be Vietnam Pro', sans-serif",
-        color: "#2a2418",
-      }}
-    >
-      <TopNav
-        muted={musicMuted}
-        onToggleMute={() => setMusicMuted((m) => !m)}
-      />
+    <>
+      <IntegrationStatusBanner integration={integration} />
+      <div
+        className="landing-enter"
+        style={{
+          minHeight: "100vh",
+          background: "#f5ecd7",
+          fontFamily: "'Be Vietnam Pro', sans-serif",
+          color: "#2a2418",
+        }}
+      >
+        <TopNav
+          muted={musicMuted}
+          onToggleMute={() => setMusicMuted((m) => !m)}
+        />
 
-      <HeroSection
-        onPlay={handlePlay}
-        onOpenLeaderboard={() => handleOpenLeaderboard("landing")}
-        bestScore={bestScore}
-      />
-    </div>
+        <HeroSection
+          onPlay={handlePlay}
+          onOpenLeaderboard={() => handleOpenLeaderboard("landing")}
+          bestScore={bestScore}
+        />
+      </div>
+    </>
   );
 }

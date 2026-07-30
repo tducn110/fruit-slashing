@@ -107,6 +107,29 @@ export interface WinkGameClient {
   help(): RedactedWinkDiagnostics;
 }
 
+export interface WinkIntegration {
+  mode: WinkMode;
+  phase: WinkPhase;
+  capabilities: WinkCapabilities;
+  state: RedactedWinkState;
+  client: WinkGameClient | null;
+  hostPaused: boolean;
+  parentMuted: boolean;
+  error: WinkIntegrationError | null;
+  leaderboard: readonly WinkLeaderboardEntry[];
+  refreshLeaderboard(): Promise<void>;
+  submitFinalScore(input: {
+    roundId: string;
+    score: number;
+    playTimeSec: number;
+    qualifies: boolean;
+  }): Promise<void>;
+  completeRound(input: {
+    roundId: string;
+    playDurationMs: number;
+  }): Promise<void>;
+}
+
 export type RawWinkBridgeState = {
   phase: WinkPhase;
   gameId: string | null;
