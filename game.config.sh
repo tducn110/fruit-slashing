@@ -14,7 +14,7 @@ ALLOWED_PARENT_ORIGINS="https://dev-winkgames.papastudio.net http://127.0.0.1:87
 
 DOMAIN="dev-fruit-slashing.papastudio.net"
 
-STACK_NAME="papastudio-winkgames-dev"
+STACK_NAME="papastudio-winkgames-dev-games"
 SERVICE_NAME="fruit-slashing"
 ROUTER_NAME="winkgames-minigame-dev-fruit-slashing"
 REGISTRY="registry2.papagroup.net"

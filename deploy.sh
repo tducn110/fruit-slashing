@@ -12,7 +12,7 @@ fi
 . ./game.config.sh
 
 if [ "${ENVIRONMENT}" != "dev" ] || \
-   [ "${STACK_NAME}" != "papastudio-winkgames-dev" ] || \
+   [ "${STACK_NAME}" != "papastudio-winkgames-dev-games" ] || \
    [ "${SERVICE_NAME}" != "fruit-slashing" ] || \
    [ "${ROUTER_NAME}" != "winkgames-minigame-dev-fruit-slashing" ] || \
    [ "${DOMAIN}" != "dev-fruit-slashing.papastudio.net" ] || \

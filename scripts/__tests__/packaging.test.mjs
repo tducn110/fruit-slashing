@@ -143,13 +143,16 @@ describe("R5 immutable dev image handoff", () => {
       'ALLOWED_PARENT_ORIGINS="https://dev-winkgames.papastudio.net http://127.0.0.1:8787"',
     );
     expect(config).toContain('DOMAIN="dev-fruit-slashing.papastudio.net"');
-    expect(config).toContain('STACK_NAME="papastudio-winkgames-dev"');
+    expect(config).toContain(
+      'STACK_NAME="papastudio-winkgames-dev-games"',
+    );
     expect(config).toContain('SERVICE_NAME="fruit-slashing"');
     expect(config).toContain(
       'ROUTER_NAME="winkgames-minigame-dev-fruit-slashing"',
     );
     expect(config).toContain('IMAGE_NAME="winkgames/dev/fruit-slashing"');
     expect(config).not.toContain('STACK_NAME="papastudio-winkgames"');
+    expect(config).not.toContain('STACK_NAME="papastudio-winkgames-dev"');
     expect(config).not.toContain('IMAGE_TAG="r4-local-only"');
     expect(config).not.toContain("latest");
     expect(runtimeConfig).toEqual({
