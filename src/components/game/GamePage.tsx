@@ -11,6 +11,7 @@ interface Props {
   onToggleMusic: () => void;
   onToggleSfx: () => void;
   onSaveScore: (result: GameResult) => void;
+  onCompleteRound: (result: GameResult) => void;
   onHome: () => void;
   onOpenLeaderboard: () => void;
 }
@@ -21,6 +22,7 @@ export function GamePage({
   onToggleMusic,
   onToggleSfx,
   onSaveScore,
+  onCompleteRound,
   onHome,
   onOpenLeaderboard,
 }: Props) {
@@ -105,6 +107,7 @@ export function GamePage({
         <div className="game-canvas-layer">
           <FruitGame
             onSubmitScore={onSaveScore}
+            onCompleteRound={onCompleteRound}
             onExitGame={onHome}
             onGameStart={handleGameStart}
             muted={sfxMuted}

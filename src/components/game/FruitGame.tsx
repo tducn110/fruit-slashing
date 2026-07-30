@@ -6,7 +6,10 @@ import {
   type GameState,
   type SliceResult,
 } from "../../game/core";
-import type { GameResult } from "../../game/types";
+import {
+  finalizeGameResult,
+  type GameResult,
+} from "../../game/types";
 import { useGameSession } from "../../features/game/runtime/useGameSession";
 import { useSlashTrail, type TrailPoint } from "../../features/game/input/useSlashTrail";
 import { useGamePointerInput } from "../../features/game/input/useGamePointerInput";
@@ -25,6 +28,7 @@ import { getFxPreset } from "../../features/game/render/fxPreset";
 
 interface Props {
   onSubmitScore?: (result: GameResult) => void;
+  onCompleteRound?: (result: GameResult) => void;
   onExitGame?: () => void;
   onGameStart?: () => void;
   muted?: boolean;
@@ -32,9 +36,9 @@ interface Props {
   onPlayBomb?: () => void;
 }
 
-export function FruitGame({ onSubmitScore, onExitGame, onGameStart, muted = false, onPlaySlice, onPlayBomb }: Props) {
-  const callbacksRef = useRef({ onSubmitScore, onExitGame, onGameStart, muted, onPlaySlice, onPlayBomb });
-  callbacksRef.current = { onSubmitScore, onExitGame, onGameStart, muted, onPlaySlice, onPlayBomb };
+export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameStart, muted = false, onPlaySlice, onPlayBomb }: Props) {
+  const callbacksRef = useRef({ onSubmitScore, onCompleteRound, onExitGame, onGameStart, muted, onPlaySlice, onPlayBomb });
+  callbacksRef.current = { onSubmitScore, onCompleteRound, onExitGame, onGameStart, muted, onPlaySlice, onPlayBomb };
   const { wrapRef, appRef, sizeRef, playLayerRef, trailGraphicsRef, ready } = usePixiApp();
   const getCurrentFxPreset = useCallback(() => getFxPreset(sizeRef.current.w), [sizeRef]);
   const { texturesRef, texturesReady } = useFruitTextures({ appRef, appReady: ready });
@@ -63,7 +67,10 @@ export function FruitGame({ onSubmitScore, onExitGame, onGameStart, muted = fals
     callbacksRef,
   });
 
-  const session = useGameSession({ onStart: handleStart });
+  const session = useGameSession({
+    onStart: handleStart,
+    onComplete: (result) => callbacksRef.current.onCompleteRound?.(result),
+  });
 
   const {
     countdown,
@@ -81,6 +88,7 @@ export function FruitGame({ onSubmitScore, onExitGame, onGameStart, muted = fals
   const [reviveUsed, setReviveUsed] = useState(false);
   const [gameOverMode, setGameOverMode] = useState<"continue" | "summary">("continue");
   const [scoreMultiplier, setScoreMultiplier] = useState(1);
+  const finalizeSentRef = useRef(false);
 
   const { trailPointsRef, addTrailPoint, clearTrail, drawTrail } = useSlashTrail({
     trailGraphicsRef,
@@ -229,16 +237,17 @@ export function FruitGame({ onSubmitScore, onExitGame, onGameStart, muted = fals
   }
 
   function finalizeGame() {
-    if (!finalResult) return;
-    callbacksRef.current.onSubmitScore?.({
-      ...finalResult,
-      score: finalResult.score * scoreMultiplier,
-    });
+    if (!finalResult || finalizeSentRef.current) return;
+    finalizeSentRef.current = true;
+    callbacksRef.current.onSubmitScore?.(
+      finalizeGameResult(finalResult, scoreMultiplier),
+    );
     callbacksRef.current.onExitGame?.();
   }
 
   function handleStart() {
     session.startSession();
+    finalizeSentRef.current = false;
     setReviveUsed(false);
     setGameOverMode("continue");
     setScoreMultiplier(1);

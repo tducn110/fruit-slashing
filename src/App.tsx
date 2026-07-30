@@ -10,6 +10,7 @@ import { preloadGameResources } from "./utils/game-loader";
 import { useScoreData } from "./hooks/useScoreData";
 import { IntegrationStatusBanner } from "./components/ui/IntegrationStatusBanner";
 import { useWinkIntegration } from "./integrations/wink/useWinkIntegration";
+import type { GameResult } from "./game/types";
 
 type AppView = "loading" | "landing" | "game" | "leaderboard";
 type LeaderboardReturnView = "landing" | "game";
@@ -115,6 +116,19 @@ export default function App() {
     setView("landing");
   }, [refreshLeaderboard]);
 
+  const handleCompleteRound = useCallback(
+    (result: GameResult) => {
+      if (!result.roundId) return;
+      void integration.completeRound({
+        roundId: result.roundId,
+        playDurationMs: result.playTimeSec * 1000,
+      }).catch(() => {
+        // The integration status banner exposes the typed completion error.
+      });
+    },
+    [integration.completeRound],
+  );
+
   const handleOpenLeaderboard = useCallback((returnView: LeaderboardReturnView) => {
     refreshLeaderboard();
     setLeaderboardReturnView(returnView);
@@ -153,6 +167,7 @@ export default function App() {
           onToggleMusic={() => setMusicMuted((m) => !m)}
           onToggleSfx={() => setSfxMuted((m) => !m)}
           onSaveScore={onGameOver}
+          onCompleteRound={handleCompleteRound}
           onHome={handleHome}
           onOpenLeaderboard={() => handleOpenLeaderboard("game")}
         />
