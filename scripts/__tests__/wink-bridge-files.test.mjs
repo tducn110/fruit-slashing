@@ -85,7 +85,10 @@ describe('R4 certified Wink bridge files', () => {
       environment: 'dev',
       protocolVersion: 1,
       bridgeVersion: '9.0.0',
-      allowedParentOrigins: ['http://127.0.0.1:8787'],
+      allowedParentOrigins: [
+        'https://dev-winkgames.papastudio.net',
+        'http://127.0.0.1:8787',
+      ],
     });
     expect(JSON.stringify(config)).not.toMatch(
       /apiBase|token|secret|anonymous|refresh|primary/i,

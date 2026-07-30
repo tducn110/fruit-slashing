@@ -130,3 +130,117 @@ describe("R4 static packaging boundary", () => {
     }
   });
 });
+
+describe("R5 immutable dev image handoff", () => {
+  it("uses only the dedicated dev stack, service, router, repository, domain, and two exact parents", () => {
+    const config = read("game.config.sh");
+    const runtimeConfig = JSON.parse(
+      read("public/wink-runtime-config.json"),
+    );
+
+    expect(config).toContain('ENVIRONMENT="dev"');
+    expect(config).toContain(
+      'ALLOWED_PARENT_ORIGINS="https://dev-winkgames.papastudio.net http://127.0.0.1:8787"',
+    );
+    expect(config).toContain('DOMAIN="dev-fruit-slashing.papastudio.net"');
+    expect(config).toContain('STACK_NAME="papastudio-winkgames-dev"');
+    expect(config).toContain('SERVICE_NAME="fruit-slashing"');
+    expect(config).toContain(
+      'ROUTER_NAME="winkgames-minigame-dev-fruit-slashing"',
+    );
+    expect(config).toContain('IMAGE_NAME="winkgames/dev/fruit-slashing"');
+    expect(config).not.toContain('STACK_NAME="papastudio-winkgames"');
+    expect(config).not.toContain('IMAGE_TAG="r4-local-only"');
+    expect(config).not.toContain("latest");
+    expect(runtimeConfig).toEqual({
+      gameId: "11111111-1111-4111-8111-111111111111",
+      environment: "dev",
+      protocolVersion: 1,
+      bridgeVersion: "9.0.0",
+      allowedParentOrigins: [
+        "https://dev-winkgames.papastudio.net",
+        "http://127.0.0.1:8787",
+      ],
+    });
+  });
+
+  it("derives an immutable image tag from clean HEAD and separates check, publish, deploy, and rollback modes", () => {
+    const deploy = read("deploy.sh");
+
+    expect(deploy).toContain('SOURCE_SHA="$(git rev-parse HEAD)"');
+    expect(deploy).toContain('IMAGE_TAG="git-${SOURCE_SHA}"');
+    expect(deploy).toContain('TAGGED_IMAGE="${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"');
+    expect(deploy).toContain('DIGEST_IMAGE_PREFIX="${REGISTRY}/${IMAGE_NAME}@sha256:"');
+    expect(deploy).toContain("git diff --quiet");
+    expect(deploy).toContain("git diff --cached --quiet");
+    expect(deploy).toContain("docker manifest inspect");
+    expect(deploy).toContain("R5_IMAGE_TAG_EXISTS");
+    for (const mode of [
+      "--check-only",
+      "--build-push",
+      "--deploy",
+      "--rollback",
+    ]) {
+      expect(deploy).toContain(mode);
+    }
+    expect(deploy).not.toContain("r4-local-only");
+    expect(deploy).not.toMatch(/(?:^|[/:])latest(?:$|[\s"'])/m);
+  });
+
+  it("runs config, checksum, tests, typecheck, build, and header gates before push or stack mutation", () => {
+    const deploy = read("deploy.sh");
+    const indexes = [
+      deploy.indexOf("node scripts/generate-wink-runtime-config.mjs"),
+      deploy.indexOf("npm run verify:wink-bridge"),
+      deploy.indexOf("npm test"),
+      deploy.indexOf("npm run typecheck"),
+      deploy.indexOf("npm run build"),
+      deploy.indexOf("npm run verify:docker-headers"),
+    ];
+    const buildIndex = deploy.indexOf("docker build");
+    const pushIndex = deploy.indexOf("docker push");
+    const deployIndex = deploy.indexOf("docker stack deploy");
+
+    expect(indexes.every((index) => index > -1)).toBe(true);
+    expect(indexes).toEqual([...indexes].sort((left, right) => left - right));
+    expect(deploy).toContain(
+      'WINK_DOCKER_ALLOWED_PARENT_ORIGINS="${ALLOWED_PARENT_ORIGINS}"',
+    );
+    expect(buildIndex).toBeGreaterThan(indexes.at(-1));
+    expect(pushIndex).toBeGreaterThan(buildIndex);
+    expect(deployIndex).toBeGreaterThan(indexes.at(-1));
+    expect(deploy).toContain('image: ${R5_GAME_IMAGE}');
+    expect(deploy).toContain('"${STACK_NAME}"');
+    expect(deploy).toContain('traefik.http.routers.${ROUTER_NAME}');
+    expect(deploy).toContain('CURRENT_IMAGE');
+    expect(deploy).toContain('UPDATE_STATE');
+    expect(deploy).toContain(
+      '[ "${CURRENT_IMAGE}" = "${R5_GAME_IMAGE}" ]',
+    );
+    expect(deploy).toContain('[ "${UPDATE_STATE}" = "completed" ]');
+    expect(deploy).not.toContain("docker service update");
+    expect(deploy).not.toContain("docker system prune");
+    expect(deploy).not.toContain("git pull");
+    expect(deploy).not.toContain("papastudio-winkgames_fruit-slashing");
+  });
+
+  it("writes mode-0600 atomic rollback metadata with previous and digest-pinned next images", () => {
+    const deploy = read("deploy.sh");
+    const gitignore = read(".gitignore");
+
+    expect(deploy).toContain("umask 077");
+    expect(deploy).toContain("previousImage");
+    expect(deploy).toContain("nextImage");
+    expect(deploy).toContain("sourceSha");
+    expect(deploy).toContain("action");
+    expect(deploy).toContain("ROLLBACK_METADATA_TMP");
+    expect(deploy).toContain("R5_ROLLBACK_METADATA_PATH_INVALID");
+    expect(deploy).toContain("pwd -P");
+    expect(deploy).toContain("(^|/)\\.\\.(/|$)|//");
+    expect(deploy).toContain(
+      'mv "${ROLLBACK_METADATA_TMP}" "${ROLLBACK_METADATA_PATH}"',
+    );
+    expect(deploy).toContain("sha256:[0-9a-f]{64}");
+    expect(gitignore).toContain("artifacts/minigame-pilot/");
+  });
+});
