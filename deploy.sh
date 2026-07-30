@@ -155,7 +155,7 @@ trap cleanup EXIT HUP INT TERM
   echo "      - ${NETWORK}"
   echo "    labels:"
   echo "      - \"traefik.enable=true\""
-  echo "      - \"traefik.http.routers.${ROUTER_NAME}.rule=Host(\\\`${DOMAIN}\\\`)\""
+  echo "      - 'traefik.http.routers.${ROUTER_NAME}.rule=Host(\`${DOMAIN}\`)'"
   echo "      - \"traefik.http.routers.${ROUTER_NAME}.entrypoints=websecure\""
   echo "      - \"traefik.http.routers.${ROUTER_NAME}.tls=true\""
   echo "      - \"traefik.http.routers.${ROUTER_NAME}.tls.certresolver=${CERT_RESOLVER}\""

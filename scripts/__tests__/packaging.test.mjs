@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -132,6 +133,32 @@ describe("R4 static packaging boundary", () => {
 });
 
 describe("R5 immutable dev image handoff", () => {
+  it("renders a YAML-safe Traefik Host rule", () => {
+    const deploy = read("deploy.sh");
+    const ruleLine = deploy
+      .split("\n")
+      .find((line) => line.includes(".rule=Host("));
+
+    expect(ruleLine).toBeTruthy();
+    const rendered = execFileSync(
+      "sh",
+      [
+        "-eu",
+        "-c",
+        [
+          "ROUTER_NAME=winkgames-minigame-dev-fruit-slashing",
+          "DOMAIN=dev-fruit-slashing.papastudio.net",
+          ruleLine.trim(),
+        ].join("\n"),
+      ],
+      { encoding: "utf8" },
+    );
+
+    expect(rendered).toBe(
+      "      - 'traefik.http.routers.winkgames-minigame-dev-fruit-slashing.rule=Host(`dev-fruit-slashing.papastudio.net`)'\n",
+    );
+  });
+
   it("uses only the dedicated dev stack, service, router, repository, domain, and two exact parents", () => {
     const config = read("game.config.sh");
     const runtimeConfig = JSON.parse(
