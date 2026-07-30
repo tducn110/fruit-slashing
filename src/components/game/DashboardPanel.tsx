@@ -1,15 +1,37 @@
 import { ArrowLeft, Clock3, Trophy } from "lucide-react";
 import {
   BADGE_COLORS,
-  buildLeaderboardModel,
   getRank,
-  type LocalScore,
+  type LeaderboardEntry,
   type RankedLeaderboardEntry,
 } from "../../lib/localScores";
 import { PanelFrame } from "../ui/primitives";
 
+function buildDisplayModel(entries: readonly LeaderboardEntry[]) {
+  const ranked: RankedLeaderboardEntry[] = entries
+    .slice(0, 100)
+    .map((entry, index) => ({ ...entry, rank: index + 1 }));
+  const topEntries = ranked.slice(0, 10);
+  const localBest = entries
+    .filter((entry) => entry.isLocal)
+    .reduce<LeaderboardEntry | null>(
+      (best, entry) => (!best || entry.score > best.score ? entry : best),
+      null,
+    );
+  const currentPlayer = localBest
+    ? ranked.find(
+        (entry) =>
+          entry.isLocal &&
+          entry.score === localBest.score &&
+          entry.name === localBest.name,
+      ) ?? null
+    : null;
+
+  return { topEntries, currentPlayer };
+}
+
 interface Props {
-  leaderboard: LocalScore[];
+  leaderboard: readonly LeaderboardEntry[];
   bestScore: number;
   onClose: () => void;
 }
@@ -19,7 +41,7 @@ export function DashboardPanel({
   bestScore,
   onClose,
 }: Props) {
-  const { topEntries, currentPlayer } = buildLeaderboardModel(leaderboard, "Người chơi");
+  const { topEntries, currentPlayer } = buildDisplayModel(leaderboard);
   const playerInTopTen = topEntries.find((entry) => entry.isLocal) ?? null;
   const playerRow = playerInTopTen ?? currentPlayer;
 
@@ -73,11 +95,11 @@ export function LeaderboardScreen({
   bestScore,
   onBack,
 }: {
-  leaderboard: LocalScore[];
+  leaderboard: readonly LeaderboardEntry[];
   bestScore: number;
   onBack: () => void;
 }) {
-  const { topEntries, currentPlayer } = buildLeaderboardModel(leaderboard, "Bạn");
+  const { topEntries, currentPlayer } = buildDisplayModel(leaderboard);
   const playerInTopTen = topEntries.find((entry) => entry.isLocal) ?? null;
   const playerRow = playerInTopTen ?? currentPlayer;
 

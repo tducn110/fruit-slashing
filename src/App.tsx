@@ -21,7 +21,8 @@ export default function App() {
     leaderboard,
     onGameOver,
     refreshLeaderboard,
-  } = useScoreData();
+    error: scoreError,
+  } = useScoreData(integration);
 
   const [view, setView] = useState<AppView>("loading");
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -124,7 +125,10 @@ export default function App() {
   if (view === "loading") {
     return (
       <>
-        <IntegrationStatusBanner integration={integration} />
+        <IntegrationStatusBanner
+          integration={integration}
+          operationError={scoreError}
+        />
         <LoadingScreen
           progress={resourcesReady ? 100 : loadingProgress}
           onDone={handleLoadingDone}
@@ -139,7 +143,10 @@ export default function App() {
   if (view === "game") {
     return (
       <>
-        <IntegrationStatusBanner integration={integration} />
+        <IntegrationStatusBanner
+          integration={integration}
+          operationError={scoreError}
+        />
         <GamePage
           musicMuted={musicMuted}
           sfxMuted={sfxMuted}
@@ -156,7 +163,10 @@ export default function App() {
   if (view === "leaderboard") {
     return (
       <>
-        <IntegrationStatusBanner integration={integration} />
+        <IntegrationStatusBanner
+          integration={integration}
+          operationError={scoreError}
+        />
         <LeaderboardScreen
           leaderboard={leaderboard}
           bestScore={bestScore}
@@ -169,7 +179,10 @@ export default function App() {
   // Landing view — just nav + hero, no dashboard/footer sections
   return (
     <>
-      <IntegrationStatusBanner integration={integration} />
+      <IntegrationStatusBanner
+        integration={integration}
+        operationError={scoreError}
+      />
       <div
         className="landing-enter"
         style={{

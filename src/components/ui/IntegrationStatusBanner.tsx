@@ -1,15 +1,22 @@
-import type { WinkIntegration } from "../../integrations/wink/types";
+import type {
+  WinkIntegration,
+  WinkIntegrationError,
+} from "../../integrations/wink/types";
 
 interface Props {
   integration: WinkIntegration;
+  operationError?: WinkIntegrationError | null;
 }
 
-function statusLabel(integration: WinkIntegration): string {
+function statusLabel(
+  integration: WinkIntegration,
+  operationError: WinkIntegrationError | null,
+): string {
   if (integration.mode === "offline") {
     return "Offline development mode — non-certifying";
   }
-  if (integration.error) {
-    return `Wink integration: ${integration.error.code}`;
+  if (operationError) {
+    return `Wink integration: ${operationError.code}`;
   }
   switch (integration.phase) {
     case "ready_anonymous":
@@ -35,8 +42,12 @@ function statusLabel(integration: WinkIntegration): string {
   }
 }
 
-export function IntegrationStatusBanner({ integration }: Props) {
-  const isError = integration.phase === "error" || integration.error !== null;
+export function IntegrationStatusBanner({
+  integration,
+  operationError = null,
+}: Props) {
+  const displayedError = operationError ?? integration.error;
+  const isError = integration.phase === "error" || displayedError !== null;
   return (
     <div
       className="wink-integration-status"
@@ -65,7 +76,7 @@ export function IntegrationStatusBanner({ integration }: Props) {
         pointerEvents: "none",
       }}
     >
-      {statusLabel(integration)}
+      {statusLabel(integration, displayedError)}
       {integration.phase === "ready_anonymous" && (
         <span aria-label="score capability"> · score disabled</span>
       )}
