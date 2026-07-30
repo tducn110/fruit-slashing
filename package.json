@@ -3,12 +3,20 @@
   "private": true,
   "version": "0.0.1",
   "type": "module",
+  "packageManager": "npm@11.3.0",
+  "engines": {
+    "node": "22.x",
+    "npm": "11.x"
+  },
   "scripts": {
     "build": "vite build",
     "dev": "vite",
-    "test": "vitest run src",
+    "prebuild": "npm run verify:wink-bridge",
+    "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "sync:wink-bridge": "node scripts/sync-wink-bridge.mjs",
+    "verify:wink-bridge": "node scripts/verify-wink-bridge.mjs"
   },
   "dependencies": {
     "lucide-react": "0.487.0",
@@ -26,10 +34,5 @@
     "typescript": "^5.8.3",
     "vite": "6.3.5",
     "vitest": "^3.2.4"
-  },
-  "pnpm": {
-    "overrides": {
-      "vite": "6.3.5"
-    }
   }
 }
