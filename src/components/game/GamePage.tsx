@@ -8,6 +8,7 @@ import { SettingsPanel } from "./SettingsPanel";
 interface Props {
   musicMuted: boolean;
   sfxMuted: boolean;
+  hostPaused: boolean;
   onToggleMusic: () => void;
   onToggleSfx: () => void;
   onSaveScore: (result: GameResult) => void;
@@ -19,6 +20,7 @@ interface Props {
 export function GamePage({
   musicMuted,
   sfxMuted,
+  hostPaused,
   onToggleMusic,
   onToggleSfx,
   onSaveScore,
@@ -110,6 +112,7 @@ export function GamePage({
             onCompleteRound={onCompleteRound}
             onExitGame={onHome}
             onGameStart={handleGameStart}
+            hostPaused={hostPaused}
             muted={sfxMuted}
             onPlaySlice={playSlice}
             onPlayBomb={playBomb}

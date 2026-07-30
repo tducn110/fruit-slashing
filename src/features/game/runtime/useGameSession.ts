@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import type { GameResult } from "../../../game/types";
 
 export interface UseGameSessionOptions {
+  hostPaused?: boolean;
   onGameOver?: (result: GameResult) => void;
   onComplete?: (result: GameResult) => void;
   onStart?: () => void;
@@ -46,6 +47,7 @@ function createRoundId(): string {
 }
 
 export function useGameSession({
+  hostPaused = false,
   onGameOver,
   onComplete,
   onStart,
@@ -62,6 +64,33 @@ export function useGameSession({
   const roundIdRef = useRef<string | null>(null);
   const completionSentRef = useRef(false);
   const finishHandledRef = useRef(false);
+  const hostPausedRef = useRef(hostPaused);
+  const pauseStartedAtRef = useRef<number | null>(null);
+  const resumePlayingAfterPauseRef = useRef(false);
+
+  useLayoutEffect(() => {
+    if (hostPausedRef.current === hostPaused) return;
+
+    hostPausedRef.current = hostPaused;
+    if (hostPaused) {
+      resumePlayingAfterPauseRef.current = playingRef.current;
+      if (playingRef.current) {
+        pauseStartedAtRef.current = performance.now();
+        playingRef.current = false;
+      }
+      return;
+    }
+
+    if (
+      resumePlayingAfterPauseRef.current &&
+      pauseStartedAtRef.current !== null
+    ) {
+      startedAtRef.current += performance.now() - pauseStartedAtRef.current;
+    }
+    playingRef.current = resumePlayingAfterPauseRef.current;
+    pauseStartedAtRef.current = null;
+    resumePlayingAfterPauseRef.current = false;
+  }, [hostPaused]);
 
   function startCountdown() {
     if (starting || running) return;
@@ -69,7 +98,7 @@ export function useGameSession({
   }
 
   function startSession() {
-    if (playingRef.current) return;
+    if (playingRef.current || hostPausedRef.current) return;
     setStarting(true);
     try {
       const nextRoundId = createRoundId();
@@ -97,6 +126,8 @@ export function useGameSession({
       roundId: activeRoundId,
     };
     playingRef.current = false;
+    pauseStartedAtRef.current = null;
+    resumePlayingAfterPauseRef.current = false;
     setRunning(false);
     setFinalScore(completedResult.score);
     setFinalResult(completedResult);
@@ -116,6 +147,9 @@ export function useGameSession({
   }
 
   function resetSession() {
+    playingRef.current = false;
+    pauseStartedAtRef.current = null;
+    resumePlayingAfterPauseRef.current = false;
     setRunning(false);
     setFinalScore(null);
     setFinalResult(null);
@@ -125,7 +159,13 @@ export function useGameSession({
   function resumeSession(elapsedMs: number) {
     finishHandledRef.current = false;
     startedAtRef.current = performance.now() - Math.max(0, elapsedMs);
-    playingRef.current = true;
+    if (hostPausedRef.current) {
+      pauseStartedAtRef.current = performance.now();
+      resumePlayingAfterPauseRef.current = true;
+      playingRef.current = false;
+    } else {
+      playingRef.current = true;
+    }
     setStarting(false);
     setRunning(true);
     setCountdown(null);
@@ -134,7 +174,7 @@ export function useGameSession({
   }
 
   useEffect(() => {
-    if (countdown === null || countdown <= 0) return;
+    if (hostPaused || countdown === null || countdown <= 0) return;
     const timer = setTimeout(() => {
       if (countdown === 1) {
         onStart?.();
@@ -143,7 +183,7 @@ export function useGameSession({
       }
     }, 700);
     return () => clearTimeout(timer);
-  }, [countdown, onStart]);
+  }, [countdown, hostPaused, onStart]);
 
   // Initial countdown trigger
   useEffect(() => {
@@ -161,6 +201,7 @@ export function useGameSession({
     roundId,
     playingRef,
     startedAtRef,
+    hostPausedRef,
     submittedRef: completionSentRef,
     roundIdRef,
     startCountdown,

@@ -31,12 +31,13 @@ interface Props {
   onCompleteRound?: (result: GameResult) => void;
   onExitGame?: () => void;
   onGameStart?: () => void;
+  hostPaused?: boolean;
   muted?: boolean;
   onPlaySlice?: () => void;
   onPlayBomb?: () => void;
 }
 
-export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameStart, muted = false, onPlaySlice, onPlayBomb }: Props) {
+export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameStart, hostPaused = false, muted = false, onPlaySlice, onPlayBomb }: Props) {
   const callbacksRef = useRef({ onSubmitScore, onCompleteRound, onExitGame, onGameStart, muted, onPlaySlice, onPlayBomb });
   callbacksRef.current = { onSubmitScore, onCompleteRound, onExitGame, onGameStart, muted, onPlaySlice, onPlayBomb };
   const { wrapRef, appRef, sizeRef, playLayerRef, trailGraphicsRef, ready } = usePixiApp();
@@ -68,6 +69,7 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
   });
 
   const session = useGameSession({
+    hostPaused,
     onStart: handleStart,
     onComplete: (result) => callbacksRef.current.onCompleteRound?.(result),
   });
@@ -80,6 +82,7 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
     finalResult,
     playingRef,
     startedAtRef,
+    hostPausedRef,
   } = session;
 
   const coreRef = useRef<GameState | null>(null);
@@ -155,6 +158,7 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
     gameStateRef: coreRef,
     playingRef,
     startedAtRef,
+    hostPausedRef,
     sizeRef,
     destroyedRef,
     playLayerRef,

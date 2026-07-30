@@ -10,6 +10,7 @@ interface UseGameTickerOptions {
   gameStateRef: RefObject<GameState | null>;
   playingRef: RefObject<boolean>;
   startedAtRef: RefObject<number>;
+  hostPausedRef: RefObject<boolean>;
   sizeRef: RefObject<{ w: number; h: number }>;
   destroyedRef: RefObject<boolean>;
   playLayerRef: RefObject<any>; // Graphics/Container
@@ -27,6 +28,7 @@ export function useGameTicker({
   gameStateRef,
   playingRef,
   startedAtRef,
+  hostPausedRef,
   sizeRef,
   destroyedRef,
   playLayerRef,
@@ -73,6 +75,7 @@ export function useGameTicker({
 
     function tick(ticker: Ticker) {
       if (destroyedRef.current) return;
+      if (hostPausedRef.current) return;
 
       const state = gameStateRef.current;
       const startedAt = startedAtRef.current;
@@ -119,5 +122,5 @@ export function useGameTicker({
         // Ignore teardown races when the Pixi app has already been destroyed.
       }
     };
-  }, [appRef, enabled, destroyedRef, gameStateRef, playingRef, startedAtRef, sizeRef, playLayerRef]);
+  }, [appRef, enabled, destroyedRef, gameStateRef, playingRef, startedAtRef, hostPausedRef, sizeRef, playLayerRef]);
 }

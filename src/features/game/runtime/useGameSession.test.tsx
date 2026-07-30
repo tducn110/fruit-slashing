@@ -42,6 +42,11 @@ async function mountProbe(
     root.render(<Probe options={options} onValue={onValue} />);
   });
   return {
+    rerender: async (nextOptions: UseGameSessionOptions) => {
+      await act(async () => {
+        root.render(<Probe options={nextOptions} onValue={onValue} />);
+      });
+    },
     unmount: async () => {
       await act(async () => root.unmount());
       container.remove();
@@ -151,6 +156,58 @@ describe("useGameSession round identity", () => {
     });
     expect(onComplete).toHaveBeenCalledTimes(1);
     expect(latest.finalResult).toMatchObject({ score: 5 });
+    await mounted.unmount();
+  });
+
+  it("freezes countdown while host-paused and resumes without skipping a step", async () => {
+    vi.useFakeTimers();
+    let latest!: ReturnType<typeof useGameSession>;
+    const mounted = await mountProbe({ hostPaused: true }, (value) => {
+      latest = value;
+    });
+
+    expect(latest.countdown).toBe(3);
+    await act(async () => {
+      vi.advanceTimersByTime(2_100);
+    });
+    expect(latest.countdown).toBe(3);
+
+    await mounted.rerender({ hostPaused: false });
+    await act(async () => {
+      vi.advanceTimersByTime(700);
+    });
+    expect(latest.countdown).toBe(2);
+    await mounted.unmount();
+  });
+
+  it("compensates the game clock once across duplicate pause/resume events", async () => {
+    let now = 1_000;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    let latest!: ReturnType<typeof useGameSession>;
+    const mounted = await mountProbe({ hostPaused: false }, (value) => {
+      latest = value;
+    });
+
+    await act(async () => latest.startSession());
+    const roundId = latest.roundId;
+    expect(latest.startedAtRef.current).toBe(1_000);
+
+    now = 1_500;
+    await mounted.rerender({ hostPaused: true });
+    expect(latest.hostPausedRef.current).toBe(true);
+    expect(latest.playingRef.current).toBe(false);
+
+    now = 6_500;
+    await mounted.rerender({ hostPaused: false });
+    expect(latest.hostPausedRef.current).toBe(false);
+    expect(latest.playingRef.current).toBe(true);
+    expect(latest.startedAtRef.current).toBe(6_000);
+    expect(latest.roundId).toBe(roundId);
+
+    now = 7_000;
+    await mounted.rerender({ hostPaused: false });
+    expect(latest.startedAtRef.current).toBe(6_000);
+    expect(latest.roundId).toBe(roundId);
     await mounted.unmount();
   });
 });

@@ -45,6 +45,10 @@ export default function App() {
   }, [sfxMuted]);
 
   useEffect(() => {
+    audioManager.setParentMuted(integration.parentMuted);
+  }, [integration.parentMuted]);
+
+  useEffect(() => {
     const playButtonClick = (event: MouseEvent) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
@@ -164,6 +168,7 @@ export default function App() {
         <GamePage
           musicMuted={musicMuted}
           sfxMuted={sfxMuted}
+          hostPaused={integration.hostPaused}
           onToggleMusic={() => setMusicMuted((m) => !m)}
           onToggleSfx={() => setSfxMuted((m) => !m)}
           onSaveScore={onGameOver}
