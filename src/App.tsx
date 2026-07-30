@@ -116,7 +116,9 @@ export default function App() {
 
   const handleHome = useCallback(() => {
     audioManager.setBgmVolume(audioManager.landingBgmVolume);
-    refreshLeaderboard();
+    void refreshLeaderboard().catch(() => {
+      // useScoreData owns the visible error state for a failed refresh.
+    });
     setView("landing");
   }, [refreshLeaderboard]);
 
@@ -134,7 +136,9 @@ export default function App() {
   );
 
   const handleOpenLeaderboard = useCallback((returnView: LeaderboardReturnView) => {
-    refreshLeaderboard();
+    void refreshLeaderboard().catch(() => {
+      // useScoreData owns the visible error state for a failed refresh.
+    });
     setLeaderboardReturnView(returnView);
     setView("leaderboard");
   }, [refreshLeaderboard]);

@@ -13,8 +13,10 @@ export const CERTIFIED_BRIDGE = Object.freeze({
   sourceCommit: 'efc50ed4a27cb55f351c257350e1993d385e4a3f',
 });
 
-export const DEFAULT_CERTIFIED_TEMPLATE =
-  '/Users/ddwsc/Desktop/papagroup/web/wink/.worktrees/codex/minigame-runtime-pilot/game-template';
+export const DEFAULT_CERTIFIED_TEMPLATE = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../../../../wink/.worktrees/codex/minigame-runtime-pilot/game-template',
+);
 
 function digest(buffer) {
   return crypto.createHash('sha256').update(buffer).digest('hex');

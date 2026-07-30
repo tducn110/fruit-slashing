@@ -29,7 +29,7 @@ The C4 runner verified the same checksum in `dist/wink-bridge.js` and
 reported this deterministic dist-tree digest:
 
 ```text
-9b034e9d480abb4646bd4ef98dbcbcfff3b701708a4dd81de320633f45280ecb
+4acba124c5ec4ae6098dd9e7b48198c8b53deae7335097b9351c1332446301b
 ```
 
 The browser runner also asserts that each real round consumes the fixed game
@@ -45,13 +45,14 @@ npm test                    0  (12 files, 53 tests)
 npm run typecheck           0
 npm run build               0
 npm run verify:wink-bridge  0
-docker build --pull=false -t winkgames-fruit-slashing:r4-local-only .  0
+npm run verify:docker-headers  0
 ```
 
 The build retains the known non-blocking Vite warning for the
 `pixi-vendor` chunk (`520.66 kB`); no dependency or chunking change was made
 for that warning. The Docker build stage explicitly upgraded the base image's
-npm to the pinned `11.3.0` before `npm ci`; only the local image was created.
+npm to the pinned `11.3.0` before `npm ci`; the header smoke command creates and
+removes a temporary local image/container.
 
 ## Real built-game harness result
 
@@ -68,6 +69,7 @@ stayed in the Node process and are intentionally absent from this record.
 | Path | Result |
 | --- | --- |
 | Top-level load | `PARENT_REQUIRED`; 0 runtime-config/Wink API requests |
+| Top-level negative UI | leaderboard navigation produced 0 unhandled rejections |
 | Anonymous readiness | `ready_anonymous` |
 | Anonymous leaderboard | real read succeeded |
 | Anonymous completion | 1 `wink:complete` |
@@ -100,11 +102,15 @@ fix, but applying it is outside the bounded R4 scope.
 ## Scope and security notes
 
 - The static image contains only Vite output and the pinned bridge/config.
-- Nginx emits an exact non-wildcard `frame-ancestors` policy, serves `/health`,
-  and has no API proxy.
+- Nginx emits the exact non-wildcard `frame-ancestors` policy and the other
+  security headers on `/health`, `/`, deep links, bridge and runtime config;
+  it serves `/health` and has no API proxy.
 - The runtime config is exactly five public fields and contains no token,
   refresh handle, API base, anonymous ID, or secret.
 - A C4-discovered Pixi teardown race was fixed with a destroyed-layer guard in
   `useGameFeedback`; the regression test runs in the full suite.
-- A local image tagged `winkgames-fruit-slashing:r4-local-only` was built for
-  packaging verification. No image was pushed and no deployment was performed.
+- `npm run verify:docker-headers` verified the actual Nginx image boundary with
+  no image push and no deployment.
+- The bridge sync and C4 runner defaults are workspace-relative; explicit
+  `WINK_CERTIFIED_TEMPLATE_DIR`/`WINK_R2_TEMPLATE_DIR` overrides remain
+  available for CI or a different checkout layout.

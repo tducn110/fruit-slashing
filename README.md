@@ -59,6 +59,10 @@ Anonymous có thể đọc leaderboard và complete round nhưng submit score ph
 `CAPABILITY_DENIED`. Seeded authenticated non-guest chỉ submit được khi scoped
 capability cho phép. Completion và score submission là hai operation độc lập.
 
+Nếu checkout Wink không nằm ở sibling path mặc định của workspace, đặt
+`WINK_R2_TEMPLATE_DIR` khi chạy `npm run certify:c4`; `WINK_CERTIFIED_TEMPLATE_DIR`
+có thể dùng cho `npm run sync:wink-bridge` và `npm run verify:wink-bridge`.
+
 ## Offline development — không dùng để certify
 
 Local score chỉ bật bằng flag explicit dưới đây và Vite chỉ chấp nhận flag này
@@ -79,10 +83,17 @@ npm test
 npm run typecheck
 npm run build
 npm run verify:wink-bridge
+npm run verify:docker-headers
 ```
 
 `npm run build` tự chạy bridge verification trước Vite build. Warning hiện tại
 cho `pixi-vendor` khoảng 520 kB là non-blocking trong R4.
+
+`npm run verify:docker-headers` build một image tạm, chạy Nginx thật và kiểm tra
+`Content-Security-Policy`, `X-Content-Type-Options`, `Referrer-Policy` trên
+health route, SPA/deep-link, bridge và runtime config; image/container tạm được
+dọn sau khi kiểm tra. Có thể truyền policy khác bằng
+`WINK_DOCKER_ALLOWED_PARENT_ORIGINS`.
 
 ## Deployment boundary
 

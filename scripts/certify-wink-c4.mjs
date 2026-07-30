@@ -25,8 +25,10 @@ const CERTIFIED_COMMIT =
 const CERTIFIED_SHA256 =
   "afe2a789466c3d68f4eec7d8cf2e718f45a29a19a5d8b9eb8c4cec10b18f31eb";
 const DETERMINISTIC_GAME_SEED = 82_826;
-const DEFAULT_R2_TEMPLATE =
-  "/Users/ddwsc/Desktop/papagroup/web/wink/.worktrees/codex/minigame-runtime-pilot/game-template";
+const DEFAULT_R2_TEMPLATE = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../../../../wink/.worktrees/codex/minigame-runtime-pilot/game-template",
+);
 const ROUND_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -542,6 +544,24 @@ async function run() {
         configurable: false,
         value: messages,
       });
+      const unhandledRejections = [];
+      Object.defineProperty(window, "__C4_UNHANDLED_REJECTIONS__", {
+        configurable: false,
+        value: unhandledRejections,
+      });
+      window.addEventListener("unhandledrejection", (event) => {
+        const reason = event.reason;
+        unhandledRejections.push({
+          code:
+            reason && typeof reason.code === "string"
+              ? reason.code
+              : null,
+          message:
+            reason && typeof reason.message === "string"
+              ? reason.message
+              : String(reason),
+        });
+      });
       window.addEventListener(
         "message",
         (event) => {
@@ -659,6 +679,25 @@ async function run() {
           !url.includes("/api/v1/"),
       ),
       "top-level game made a Wink config/API request",
+    );
+    await topLevel.locator(".hero-leaderboard-button").waitFor({
+      state: "visible",
+      timeout: 20_000,
+    });
+    const topLevelUnhandledBefore = await topLevel.evaluate(
+      () => window.__C4_UNHANDLED_REJECTIONS__.length,
+    );
+    await topLevel.locator(".hero-leaderboard-button").click();
+    await topLevel.locator(".leaderboardScreen").waitFor({
+      state: "visible",
+    });
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    const topLevelUnhandledAfter = await topLevel.evaluate(
+      () => window.__C4_UNHANDLED_REJECTIONS__.length,
+    );
+    invariant(
+      topLevelUnhandledAfter === topLevelUnhandledBefore,
+      "top-level negative UI path produced an unhandled rejection",
     );
     await topLevel.close();
 
@@ -836,6 +875,7 @@ async function run() {
             url.includes("wink-runtime-config.json") ||
             url.includes("/api/v1/"),
         ).length,
+        unhandledRejections: 0,
       },
       anonymous: {
         phase: "ready_anonymous",

@@ -12,6 +12,13 @@ function read(relativePath) {
   return fs.readFileSync(path.join(ROOT, relativePath), "utf8");
 }
 
+function locationBlock(source, marker) {
+  const start = source.indexOf(marker);
+  expect(start).toBeGreaterThan(-1);
+  const end = source.indexOf("\n    }", start);
+  return source.slice(start, end === -1 ? source.length : end);
+}
+
 describe("R4 static packaging boundary", () => {
   it("builds with the pinned Node toolchain and ships only dist through nginx", () => {
     const dockerfile = read("Dockerfile");
@@ -69,6 +76,23 @@ describe("R4 static packaging boundary", () => {
     expect(nginx).toContain('return 200 "OK"');
     expect(nginx).toContain("try_files $uri $uri/ /index.html");
     expect(nginx).not.toMatch(/proxy_pass|location\s+\/api/);
+
+    for (const marker of [
+      "location = /wink-runtime-config.json",
+      "location = /wink-bridge.js",
+      "location / {",
+    ]) {
+      const block = locationBlock(nginx, marker);
+      expect(block).toContain(
+        'add_header Content-Security-Policy "frame-ancestors ${ALLOWED_PARENT_ORIGINS}" always;',
+      );
+      expect(block).toContain(
+        'add_header X-Content-Type-Options "nosniff" always;',
+      );
+      expect(block).toContain(
+        'add_header Referrer-Policy "no-referrer" always;',
+      );
+    }
   });
 
   it("generates and verifies config before any image or deployment mutation", () => {
@@ -95,5 +119,14 @@ describe("R4 static packaging boundary", () => {
     expect(packageJson.scripts["certify:c4"]).toBe(
       "node scripts/certify-wink-c4.mjs",
     );
+    expect(packageJson.scripts["verify:docker-headers"]).toBe(
+      "node scripts/verify-docker-headers.mjs",
+    );
+    for (const runner of [
+      "scripts/sync-wink-bridge.mjs",
+      "scripts/certify-wink-c4.mjs",
+    ]) {
+      expect(read(runner)).not.toMatch(/\/Users\/|[A-Za-z]:\\/);
+    }
   });
 });

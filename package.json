@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit",
     "sync:wink-bridge": "node scripts/sync-wink-bridge.mjs",
     "verify:wink-bridge": "node scripts/verify-wink-bridge.mjs",
+    "verify:docker-headers": "node scripts/verify-docker-headers.mjs",
     "generate:wink-config": "node scripts/generate-wink-runtime-config.mjs",
     "certify:c4": "node scripts/certify-wink-c4.mjs"
   },

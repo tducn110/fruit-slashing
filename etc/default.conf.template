@@ -24,11 +24,17 @@ server {
     }
 
     location = /wink-runtime-config.json {
+        add_header Content-Security-Policy "frame-ancestors ${ALLOWED_PARENT_ORIGINS}" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer" always;
         add_header Cache-Control "no-store" always;
         try_files $uri =404;
     }
 
     location = /wink-bridge.js {
+        add_header Content-Security-Policy "frame-ancestors ${ALLOWED_PARENT_ORIGINS}" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer" always;
         add_header Cache-Control "no-store" always;
         try_files $uri =404;
     }
@@ -39,6 +45,9 @@ server {
     }
 
     location / {
+        add_header Content-Security-Policy "frame-ancestors ${ALLOWED_PARENT_ORIGINS}" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer" always;
         add_header Cache-Control "no-store" always;
         try_files $uri $uri/ /index.html;
     }
