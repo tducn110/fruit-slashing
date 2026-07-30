@@ -41,11 +41,13 @@ npm test                    0  (12 files, 53 tests)
 npm run typecheck           0
 npm run build               0
 npm run verify:wink-bridge  0
+docker build --pull=false -t winkgames-fruit-slashing:r4-local-only .  0
 ```
 
 The build retains the known non-blocking Vite warning for the
 `pixi-vendor` chunk (`520.66 kB`); no dependency or chunking change was made
-for that warning.
+for that warning. The Docker build stage explicitly upgraded the base image's
+npm to the pinned `11.3.0` before `npm ci`; only the local image was created.
 
 ## Real built-game harness result
 
@@ -100,4 +102,5 @@ fix, but applying it is outside the bounded R4 scope.
   refresh handle, API base, anonymous ID, or secret.
 - A C4-discovered Pixi teardown race was fixed with a destroyed-layer guard in
   `useGameFeedback`; the regression test runs in the full suite.
-- No push or deployment was performed.
+- A local image tagged `winkgames-fruit-slashing:r4-local-only` was built for
+  packaging verification. No image was pushed and no deployment was performed.

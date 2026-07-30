@@ -17,6 +17,9 @@ describe("R4 static packaging boundary", () => {
     const dockerfile = read("Dockerfile");
 
     expect(dockerfile).toContain("FROM node:22.11.0-alpine AS build");
+    expect(dockerfile).toContain(
+      "RUN npm install --global npm@11.3.0 && npm --version",
+    );
     expect(dockerfile).toContain("RUN npm ci");
     expect(dockerfile).toContain("RUN npm run build");
     expect(dockerfile).toContain(
