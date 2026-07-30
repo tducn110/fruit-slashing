@@ -32,6 +32,10 @@ reported this deterministic dist-tree digest:
 9b034e9d480abb4646bd4ef98dbcbcfff3b701708a4dd81de320633f45280ecb
 ```
 
+The browser runner also asserts that each real round consumes the fixed game
+seed `82826`. Three consecutive full C4 runs passed with that assertion, so
+the browser gate does not depend on random bomb timing.
+
 ## Verification commands
 
 All four required exit gates passed:

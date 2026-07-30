@@ -24,6 +24,7 @@ const CERTIFIED_COMMIT =
   "efc50ed4a27cb55f351c257350e1993d385e4a3f";
 const CERTIFIED_SHA256 =
   "afe2a789466c3d68f4eec7d8cf2e718f45a29a19a5d8b9eb8c4cec10b18f31eb";
+const DETERMINISTIC_GAME_SEED = 82_826;
 const DEFAULT_R2_TEMPLATE =
   "/Users/ddwsc/Desktop/papagroup/web/wink/.worktrees/codex/minigame-runtime-pilot/game-template";
 const ROUND_ID_PATTERN =
@@ -125,6 +126,32 @@ async function waitForBridgePhase(frame, phase) {
       window.WinkBridge?.getState().phase === expected,
     phase,
     { timeout: 15_000 },
+  );
+}
+
+async function waitForDeterministicGameSeed(frame, expectedCount) {
+  const seeds = await waitUntil(
+    () =>
+      frame.evaluate(
+        ({ expectedCount, expectedSeed }) => {
+          const values = window.__C4_GAME_SEEDS__ || [];
+          return values.length >= expectedCount &&
+            values.slice(0, expectedCount).every(
+              (value) => value === expectedSeed,
+            )
+            ? values
+            : null;
+        },
+        {
+          expectedCount,
+          expectedSeed: DETERMINISTIC_GAME_SEED,
+        },
+      ),
+    "Fruit game did not consume the deterministic C4 seed",
+  );
+  invariant(
+    seeds.length === expectedCount,
+    "Fruit game consumed an unexpected number of round seeds",
   );
 }
 
@@ -330,6 +357,10 @@ async function playRound({
     state: "detached",
     timeout: 10_000,
   });
+  await waitForDeterministicGameSeed(
+    frame,
+    expectedCompletionCount,
+  );
 
   const lifecycle = verifyParentLifecycle
     ? await verifyLifecycle({ frame, page })
@@ -555,21 +586,30 @@ async function run() {
         };
       }
 
-      if (window.Crypto?.prototype?.getRandomValues) {
+      const gameSeeds = [];
+      Object.defineProperty(window, "__C4_GAME_SEEDS__", {
+        configurable: false,
+        value: gameSeeds,
+      });
+      if (window.crypto?.getRandomValues) {
         const originalGetRandomValues =
-          window.Crypto.prototype.getRandomValues;
-        window.Crypto.prototype.getRandomValues = function (array) {
-          if (
-            array instanceof Uint32Array &&
-            array.length === 1
-          ) {
-            array[0] = deterministicSeed;
-            return array;
-          }
-          return originalGetRandomValues.call(this, array);
-        };
+          window.crypto.getRandomValues.bind(window.crypto);
+        Object.defineProperty(window.crypto, "getRandomValues", {
+          configurable: true,
+          value(array) {
+            if (
+              array instanceof Uint32Array &&
+              array.length === 1
+            ) {
+              array[0] = deterministicSeed;
+              gameSeeds.push(deterministicSeed);
+              return array;
+            }
+            return originalGetRandomValues(array);
+          },
+        });
       }
-    }, { deterministicSeed: 1845 });
+    }, { deterministicSeed: DETERMINISTIC_GAME_SEED });
 
     const attachDiagnostics = (page) => {
       page.on("console", (message) => {
@@ -783,6 +823,7 @@ async function run() {
       },
       build: {
         distSha256: await digestTree(DIST_DIR),
+        deterministicGameSeed: DETERMINISTIC_GAME_SEED,
         bridgeVersion: bridgeEvidence.bridgeVersion,
         protocolVersion: bridgeEvidence.protocolVersion,
         bridgeSha256: bridgeEvidence.sha256,
