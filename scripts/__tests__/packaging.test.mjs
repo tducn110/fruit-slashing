@@ -205,6 +205,7 @@ describe("production canary image handoff", () => {
       read("public/wink-runtime-config.json"),
     );
 
+    expect(config).toContain('GAME_SLUG="bo-lac-fruit-slashing"');
     expect(config).toContain('ENVIRONMENT="prod"');
     expect(config).toContain(
       'ALLOWED_PARENT_ORIGINS="https://winkgames.papastudio.net"',

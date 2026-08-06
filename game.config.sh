@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Production canary release. This file contains public metadata only.
-GAME_SLUG="fruit-slashing"
+GAME_SLUG="bo-lac-fruit-slashing"
 GAME_TITLE="Chém Lạc Vùng Cao"
 GAME_DESCRIPTION="Winkgames iframe-only Fruit Slashing pilot"
 
