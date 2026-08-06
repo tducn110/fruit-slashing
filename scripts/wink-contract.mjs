@@ -1,4 +1,4 @@
-export const BRIDGE_VERSION = '9.0.0';
+export const BRIDGE_VERSION = '9.0.1';
 export const PROTOCOL_VERSION = 1;
 export const REGISTRY = 'registry2.papagroup.net';
 export const DOMAIN_SUFFIX = '.papastudio.net';

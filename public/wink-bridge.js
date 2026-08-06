@@ -24,7 +24,7 @@ var WinkBridgeBundle = (() => {
   });
 
   // game-template/src/contract.js
-  var BRIDGE_VERSION = "9.0.0";
+  var BRIDGE_VERSION = "9.0.1";
   var PROTOCOL_VERSION = 1;
   var ENVIRONMENTS = Object.freeze(["dev", "prod"]);
   var MESSAGE_TYPES = Object.freeze([
@@ -914,6 +914,7 @@ var WinkBridgeBundle = (() => {
     let runtimeConfig = null;
     let boundParent = null;
     let boundParentOrigin = null;
+    let pendingParentHello = null;
     const stateMachine = createBridgeStateMachine({
       fetchImpl: targetWindow.fetch.bind(targetWindow),
       sendToParent(message, targetOrigin) {
@@ -972,6 +973,9 @@ var WinkBridgeBundle = (() => {
     }
     function onMessage(event) {
       if (!runtimeConfig) {
+        if (event.source === targetWindow.parent && event.data && typeof event.data === "object" && event.data.type === "wink:hello") {
+          pendingParentHello = event;
+        }
         return;
       }
       if (!boundParent) {
@@ -1033,6 +1037,11 @@ var WinkBridgeBundle = (() => {
         gameOrigin: targetWindow.location.origin,
         environment: config.environment
       });
+      if (pendingParentHello) {
+        const hello = pendingParentHello;
+        pendingParentHello = null;
+        onMessage(hello);
+      }
     }).catch(sendError);
     return bridge;
   }

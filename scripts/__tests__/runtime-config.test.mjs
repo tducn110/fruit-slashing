@@ -11,7 +11,7 @@ const VALID = Object.freeze({
   gameId: "11111111-1111-4111-8111-111111111111",
   environment: "dev",
   protocolVersion: 1,
-  bridgeVersion: "9.0.0",
+  bridgeVersion: "9.0.1",
   allowedParentOrigins: ["http://127.0.0.1:8787"],
 });
 
