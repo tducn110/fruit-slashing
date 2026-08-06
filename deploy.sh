@@ -11,17 +11,6 @@ fi
 # shellcheck source=/dev/null
 . ./game.config.sh
 
-if [ "${ENVIRONMENT}" != "dev" ] || \
-   [ "${STACK_NAME}" != "papastudio-winkgames-dev-games" ] || \
-   [ "${SERVICE_NAME}" != "fruit-slashing" ] || \
-   [ "${ROUTER_NAME}" != "winkgames-minigame-dev-fruit-slashing" ] || \
-   [ "${DOMAIN}" != "dev-fruit-slashing.papastudio.net" ] || \
-   [ "${IMAGE_NAME}" != "winkgames/dev/fruit-slashing" ] || \
-   [ "${ALLOWED_PARENT_ORIGINS}" != "https://dev-winkgames.papastudio.net http://127.0.0.1:8787" ]; then
-  printf '%s\n' 'R5_GAME_CONFIG_INVALID' >&2
-  exit 2
-fi
-
 MODE="${1:-}"
 case "${MODE}" in
   --check-only|--build-push)
@@ -52,22 +41,39 @@ if ! printf '%s\n' "${SOURCE_SHA}" | grep -Eq '^[0-9a-f]{40}$' || \
 fi
 
 IMAGE_TAG="git-${SOURCE_SHA}"
-TAGGED_IMAGE="${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
-DIGEST_IMAGE_PREFIX="${REGISTRY}/${IMAGE_NAME}@sha256:"
-DIGEST_PATTERN='^registry2\.papagroup\.net/winkgames/dev/fruit-slashing@sha256:[0-9a-f]{64}$'
+TAGGED_IMAGE="${IMAGE_REPOSITORY}:${IMAGE_TAG}"
+IMAGE_PLATFORM="${WINK_IMAGE_PLATFORM:-linux/amd64}"
+ESCAPED_REPOSITORY="$(printf '%s' "${IMAGE_REPOSITORY}" | sed 's/[.[\*^$\/]/\\&/g')"
+DIGEST_PATTERN="^${ESCAPED_REPOSITORY}@sha256:[0-9a-f]{64}$"
+
+if [ "${MODE}" = "--deploy" ] || [ "${MODE}" = "--rollback" ]; then
+  SWARM_STATE="$(docker info --format '{{.Swarm.LocalNodeState}}' 2>/dev/null || true)"
+  SWARM_MANAGER="$(docker info --format '{{.Swarm.ControlAvailable}}' 2>/dev/null || true)"
+  if [ "${SWARM_STATE}" != "active" ] || [ "${SWARM_MANAGER}" != "true" ]; then
+    printf '%s\n' 'WINK_SWARM_MANAGER_REQUIRED' >&2
+    exit 2
+  fi
+fi
 
 # These gates precede every immutable image publication and dev stack update.
 # No harness secret or primary/scoped token is consumed by this script.
-export GAME_ID ENVIRONMENT PROTOCOL_VERSION BRIDGE_VERSION
-export ALLOWED_PARENT_ORIGINS
+export GAME_ID GAME_SLUG ENVIRONMENT PROTOCOL_VERSION BRIDGE_VERSION
+export ALLOWED_PARENT_ORIGINS DOMAIN STACK_NAME SERVICE_NAME ROUTER_NAME
+export REGISTRY IMAGE_NAME
 export OUTPUT_PATH="./public/wink-runtime-config.json"
 node scripts/generate-wink-runtime-config.mjs
+node scripts/verify-game-config.mjs
 npm run verify:wink-bridge
 npm test
 npm run typecheck
 npm run build
 WINK_DOCKER_ALLOWED_PARENT_ORIGINS="${ALLOWED_PARENT_ORIGINS}" \
 npm run verify:docker-headers
+
+if ! git diff --quiet -- "${OUTPUT_PATH}"; then
+  printf '%s\n' 'WINK_RUNTIME_CONFIG_NOT_COMMITTED' >&2
+  exit 2
+fi
 
 if [ "${MODE}" = "--check-only" ]; then
   printf '%s\n' "{\"schemaVersion\":1,\"code\":\"R5_GAME_CHECK_OK\",\"sourceSha\":\"${SOURCE_SHA}\"}"
@@ -80,7 +86,7 @@ if [ "${MODE}" = "--build-push" ]; then
     exit 2
   fi
 
-  docker build -t "${TAGGED_IMAGE}" .
+  docker build --platform "${IMAGE_PLATFORM}" -t "${TAGGED_IMAGE}" .
   PUSH_OUTPUT="$(mktemp "${TMPDIR:-/tmp}/fruit-push.XXXXXX")"
   trap 'rm -f "${PUSH_OUTPUT}"' EXIT HUP INT TERM
   docker push "${TAGGED_IMAGE}" | tee "${PUSH_OUTPUT}"
@@ -88,7 +94,7 @@ if [ "${MODE}" = "--build-push" ]; then
     sed -n 's/.*digest: \(sha256:[0-9a-f]\{64\}\).*/\1/p' \
       "${PUSH_OUTPUT}" | tail -n 1
   )"
-  R5_GAME_IMAGE="${DIGEST_IMAGE_PREFIX}${PUSH_DIGEST#sha256:}"
+  R5_GAME_IMAGE="${IMAGE_REPOSITORY}@${PUSH_DIGEST}"
   if ! printf '%s\n' "${R5_GAME_IMAGE}" | grep -Eq "${DIGEST_PATTERN}"; then
     printf '%s\n' 'R5_IMAGE_DIGEST_INVALID' >&2
     exit 1

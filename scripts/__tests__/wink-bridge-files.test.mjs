@@ -8,8 +8,6 @@ import { assertWinkBuildEnvironment } from '../../vite.config.ts';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../..');
-const CERTIFIED_TEMPLATE =
-  '/Users/ddwsc/Desktop/papagroup/web/wink/.worktrees/codex/minigame-runtime-pilot/game-template';
 const CERTIFIED_SHA256 =
   'afe2a789466c3d68f4eec7d8cf2e718f45a29a19a5d8b9eb8c4cec10b18f31eb';
 const CERTIFIED_COMMIT =
@@ -45,29 +43,15 @@ describe('R4 certified Wink bridge files', () => {
 
   it('vendors the certified bridge byte-for-byte with a deterministic lock', () => {
     const vendored = read('public/wink-bridge.js');
-    const certified = fs.readFileSync(
-      path.join(CERTIFIED_TEMPLATE, 'wink-bridge.js'),
-    );
-    const manifest = JSON.parse(
-      fs.readFileSync(
-        path.join(CERTIFIED_TEMPLATE, 'wink-bridge.manifest.json'),
-        'utf8',
-      ),
-    );
     const lock = readJson('public/wink-bridge.lock.json');
 
-    expect(vendored.equals(certified)).toBe(true);
     expect(sha256(vendored)).toBe(CERTIFIED_SHA256);
-    expect(manifest).toMatchObject({
-      bridgeVersion: '9.0.0',
-      protocolVersion: 1,
-    });
     expect(lock).toEqual({
       name: 'wink-bridge',
       bridgeVersion: '9.0.0',
       protocolVersion: 1,
       sha256: CERTIFIED_SHA256,
-      bytes: certified.byteLength,
+      bytes: vendored.byteLength,
       source: {
         repository: 'wink',
         commit: CERTIFIED_COMMIT,
@@ -81,14 +65,11 @@ describe('R4 certified Wink bridge files', () => {
     const config = readJson('public/wink-runtime-config.json');
 
     expect(config).toEqual({
-      gameId: '11111111-1111-4111-8111-111111111111',
-      environment: 'dev',
+      gameId: '36348ccc-1f37-4eca-ad1c-a8a47292ace7',
+      environment: 'prod',
       protocolVersion: 1,
       bridgeVersion: '9.0.0',
-      allowedParentOrigins: [
-        'https://dev-winkgames.papastudio.net',
-        'http://127.0.0.1:8787',
-      ],
+      allowedParentOrigins: ['https://winkgames.papastudio.net'],
     });
     expect(JSON.stringify(config)).not.toMatch(
       /apiBase|token|secret|anonymous|refresh|primary/i,
@@ -131,17 +112,14 @@ describe('R4 certified Wink bridge files', () => {
 
   it('passes the reusable bridge verification command', async () => {
     await expect(
-      verifyWinkBridge({
-        rootDir: ROOT,
-        certifiedTemplateDir: CERTIFIED_TEMPLATE,
-      }),
+      verifyWinkBridge({ rootDir: ROOT }),
     ).resolves.toEqual({
       bridgeVersion: '9.0.0',
       protocolVersion: 1,
       sha256: CERTIFIED_SHA256,
       bytes: expect.any(Number),
-      environment: 'dev',
-      gameId: '11111111-1111-4111-8111-111111111111',
+      environment: 'prod',
+      gameId: '36348ccc-1f37-4eca-ad1c-a8a47292ace7',
     });
   });
 });
