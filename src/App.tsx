@@ -22,7 +22,7 @@ export default function App() {
     leaderboard,
     onGameOver,
     refreshLeaderboard,
-    error: scoreError,
+    scoreSubmissionError,
   } = useScoreData(integration);
 
   const [view, setView] = useState<AppView>("loading");
@@ -149,7 +149,7 @@ export default function App() {
       <>
         <IntegrationStatusBanner
           integration={integration}
-          operationError={scoreError}
+          operationError={scoreSubmissionError}
         />
         <LoadingScreen
           progress={resourcesReady ? 100 : loadingProgress}
@@ -167,7 +167,7 @@ export default function App() {
       <>
         <IntegrationStatusBanner
           integration={integration}
-          operationError={scoreError}
+          operationError={scoreSubmissionError}
         />
         <GamePage
           musicMuted={musicMuted}
@@ -189,7 +189,7 @@ export default function App() {
       <>
         <IntegrationStatusBanner
           integration={integration}
-          operationError={scoreError}
+          operationError={scoreSubmissionError}
         />
         <LeaderboardScreen
           leaderboard={leaderboard}
@@ -205,7 +205,7 @@ export default function App() {
     <>
       <IntegrationStatusBanner
         integration={integration}
-        operationError={scoreError}
+        operationError={scoreSubmissionError}
       />
       <div
         className="landing-enter"

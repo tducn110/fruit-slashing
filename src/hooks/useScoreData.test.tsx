@@ -258,9 +258,42 @@ describe("useScoreData", () => {
     });
     expect(submitFinalScore).toHaveBeenCalledTimes(1);
     expect(latest.error).toMatchObject({ code: "CAPABILITY_DENIED" });
+    expect(latest.scoreSubmissionError).toMatchObject({
+      code: "CAPABILITY_DENIED",
+    });
     expect(localStorage.getItem("fruit-game-scores")).toBeNull();
     expect(latest.lastScore).toBeNull();
     await mounted.unmount();
+  });
+
+  it("dismisses the blocked-score notice after four seconds", async () => {
+    vi.useFakeTimers();
+    try {
+      const integration = makeIntegration({
+        submitFinalScore: vi.fn(async () => {
+          throw { code: "CAPABILITY_DENIED" };
+        }),
+      });
+      let latest!: ReturnType<typeof useScoreData>;
+      const mounted = await mountProbe(integration, (value) => {
+        latest = value;
+      });
+
+      await act(async () => {
+        await latest.onGameOver(gameResult());
+      });
+      expect(latest.scoreSubmissionError).toMatchObject({
+        code: "CAPABILITY_DENIED",
+      });
+
+      await act(async () => {
+        vi.advanceTimersByTime(4_000);
+      });
+      expect(latest.scoreSubmissionError).toBeNull();
+      await mounted.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("submits one qualifying authenticated score without a local write", async () => {
