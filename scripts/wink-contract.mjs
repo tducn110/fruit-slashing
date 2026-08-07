@@ -15,7 +15,10 @@ export const ENVIRONMENT_CONTRACT = Object.freeze({
     routerPrefix: 'winkgames-minigame-dev-',
   }),
   prod: Object.freeze({
-    parentOrigins: Object.freeze(['https://winkgames.papastudio.net']),
+    parentOrigins: Object.freeze([
+      'https://winkgames.papastudio.net',
+      'http://localhost:3000',
+    ]),
     domainPrefix: '',
     stackName: 'papastudio-winkgames-games',
     imagePrefix: 'winkgames/prod/',

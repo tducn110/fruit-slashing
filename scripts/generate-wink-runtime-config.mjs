@@ -5,7 +5,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { assertRuntimeConfig } from "./verify-wink-bridge.mjs";
 
-const PILOT_PRODUCTION_PARENT = "https://winkgames.papastudio.net";
+const PRODUCTION_PARENTS = Object.freeze([
+  "https://winkgames.papastudio.net",
+  "http://localhost:3000",
+]);
 const SECRET_SHAPE =
   /(?:TOKEN|SECRET|API_BASE|ANONYMOUS|PRIMARY|REFRESH)/i;
 
@@ -35,11 +38,13 @@ export function generateWinkRuntimeConfig(input) {
 
   if (input.environment === "prod") {
     if (
-      input.allowedParentOrigins.length !== 1 ||
-      input.allowedParentOrigins[0] !== PILOT_PRODUCTION_PARENT
+      input.allowedParentOrigins.length !== PRODUCTION_PARENTS.length ||
+      input.allowedParentOrigins.some(
+        (origin, index) => origin !== PRODUCTION_PARENTS[index],
+      )
     ) {
       throw new Error(
-        "Production Wink runtime config requires the exact pilot parent",
+        "Production Wink runtime config requires the exact production parents",
       );
     }
   } else {

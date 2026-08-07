@@ -199,7 +199,7 @@ describe("production canary image handoff", () => {
     );
   });
 
-  it("uses the dedicated production stack, origin, repository, and exact parent", () => {
+  it("uses the dedicated production stack, origin, repository, and exact parents", () => {
     const config = read("game.config.sh");
     const runtimeConfig = JSON.parse(
       read("public/wink-runtime-config.json"),
@@ -208,7 +208,7 @@ describe("production canary image handoff", () => {
     expect(config).toContain('GAME_SLUG="bo-lac-fruit-slashing"');
     expect(config).toContain('ENVIRONMENT="prod"');
     expect(config).toContain(
-      'ALLOWED_PARENT_ORIGINS="https://winkgames.papastudio.net"',
+      'ALLOWED_PARENT_ORIGINS="https://winkgames.papastudio.net http://localhost:3000"',
     );
     expect(config).toContain('DOMAIN="${GAME_SLUG}.papastudio.net"');
     expect(config).toContain(
@@ -228,7 +228,10 @@ describe("production canary image handoff", () => {
       environment: "prod",
       protocolVersion: 1,
       bridgeVersion: "9.0.1",
-      allowedParentOrigins: ["https://winkgames.papastudio.net"],
+      allowedParentOrigins: [
+        "https://winkgames.papastudio.net",
+        "http://localhost:3000",
+      ],
     });
   });
 

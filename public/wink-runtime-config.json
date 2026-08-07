@@ -4,6 +4,7 @@
   "protocolVersion": 1,
   "bridgeVersion": "9.0.1",
   "allowedParentOrigins": [
-    "https://winkgames.papastudio.net"
+    "https://winkgames.papastudio.net",
+    "http://localhost:3000"
   ]
 }
