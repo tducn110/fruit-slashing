@@ -43,3 +43,6 @@ docker-stack.yml
 docker-stack.yml.*
 *.bak
 *.backup
+
+# Release worktrees — a 585MB duplicate checkout, never image content
+.worktrees
