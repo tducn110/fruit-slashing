@@ -9,7 +9,7 @@
     "npm": "11.x"
   },
   "scripts": {
-    "build": "vite build",
+    "build": "vite build && node scripts/build-wink-warm.mjs",
     "dev": "vite",
     "prebuild": "npm run verify:wink-bridge",
     "test": "vitest run --exclude '**/.worktrees/**'",
