@@ -761,11 +761,18 @@ var WinkBridgeBundle = (() => {
       }
       return publish({ lifecycle: next });
     }
+    const LIFECYCLE_REPLAY = Object.freeze({
+      pause: () => state.lifecycle.paused,
+      mute: () => state.lifecycle.muted
+    });
     function addLifecycleListener(type, listener) {
       if (typeof listener !== "function") {
         throw bridgeError("MESSAGE_REJECTED", "Listener is invalid");
       }
       lifecycleListeners[type].add(listener);
+      if (LIFECYCLE_REPLAY[type] && LIFECYCLE_REPLAY[type]()) {
+        listener();
+      }
       return () => lifecycleListeners[type].delete(listener);
     }
     function requireClient() {

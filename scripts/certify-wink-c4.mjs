@@ -23,7 +23,7 @@ const HARNESS_ORIGIN = "http://127.0.0.1:8787";
 const CERTIFIED_COMMIT =
   "fa76cdb800377579bb3459164afb92f0bbace379";
 const CERTIFIED_SHA256 =
-  "2c116572babd9d850f19a91ff68669395eb3c8cd268c34f85be3d13d5625e29c";
+  "089b2d6c2261a7b285fa8acf5ff599e6d2aba9c1366f9def4ae1b1f9fefcfbda";
 const DETERMINISTIC_GAME_SEED = 82_826;
 const DEFAULT_R2_TEMPLATE = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
