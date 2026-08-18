@@ -6,6 +6,7 @@ import { elapsedTick, advanceToTick, TICK_RATE } from "../../../game/core";
 
 interface UseGameTickerOptions {
   enabled: boolean;
+  paused?: boolean;
   appRef: RefObject<Application | null>;
   gameStateRef: RefObject<GameState | null>;
   playingRef: RefObject<boolean>;
@@ -24,6 +25,7 @@ interface UseGameTickerOptions {
 
 export function useGameTicker({
   enabled,
+  paused = false,
   appRef,
   gameStateRef,
   playingRef,
@@ -75,7 +77,10 @@ export function useGameTicker({
 
     function tick(ticker: Ticker) {
       if (destroyedRef.current) return;
-      if (hostPausedRef.current) return;
+      // Keep the renderer available for the pause overlay, but do no gameplay
+      // or FX work while paused. Manual pause previously still advanced
+      // particles, screen shake, and trail state every Pixi frame.
+      if (paused || hostPausedRef.current) return;
 
       const state = gameStateRef.current;
       const startedAt = startedAtRef.current;
@@ -86,8 +91,11 @@ export function useGameTicker({
           gameOverHandledRef.current = false;
         }
 
+        const previousTick = state.tick;
         advanceToTick(state, elapsedTick(performance.now() - startedAt));
-        callbacksRef.current.syncFruitSprites(state);
+        if (state.tick !== previousTick) {
+          callbacksRef.current.syncFruitSprites(state);
+        }
 
         if (ticker.lastTime % 250 < ticker.deltaMS) {
           callbacksRef.current.syncHud(state);
@@ -122,5 +130,5 @@ export function useGameTicker({
         // Ignore teardown races when the Pixi app has already been destroyed.
       }
     };
-  }, [appRef, enabled, destroyedRef, gameStateRef, playingRef, startedAtRef, hostPausedRef, sizeRef, playLayerRef]);
+  }, [appRef, enabled, paused, destroyedRef, gameStateRef, playingRef, startedAtRef, hostPausedRef, sizeRef, playLayerRef]);
 }

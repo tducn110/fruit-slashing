@@ -3,6 +3,8 @@ import type { GameResult } from "../../../game/types";
 
 export interface UseGameSessionOptions {
   hostPaused?: boolean;
+  manualPaused?: boolean;
+  resumeRequired?: boolean;
   onGameOver?: (result: GameResult) => void;
   onComplete?: (result: GameResult) => void;
   onStart?: () => void;
@@ -48,6 +50,8 @@ function createRoundId(): string {
 
 export function useGameSession({
   hostPaused = false,
+  manualPaused = false,
+  resumeRequired = false,
   onGameOver,
   onComplete,
   onStart,
@@ -65,14 +69,21 @@ export function useGameSession({
   const completionSentRef = useRef(false);
   const finishHandledRef = useRef(false);
   const hostPausedRef = useRef(hostPaused);
+  const manualPausedRef = useRef(manualPaused);
+  const resumeRequiredRef = useRef(resumeRequired);
+  const gameplayPausedRef = useRef(hostPaused || manualPaused || resumeRequired);
   const pauseStartedAtRef = useRef<number | null>(null);
   const resumePlayingAfterPauseRef = useRef(false);
 
   useLayoutEffect(() => {
-    if (hostPausedRef.current === hostPaused) return;
-
+    const wasPaused = gameplayPausedRef.current;
     hostPausedRef.current = hostPaused;
-    if (hostPaused) {
+    manualPausedRef.current = manualPaused;
+    resumeRequiredRef.current = resumeRequired;
+    const isPaused = hostPaused || manualPaused || resumeRequired;
+    gameplayPausedRef.current = isPaused;
+
+    if (!wasPaused && isPaused) {
       resumePlayingAfterPauseRef.current = playingRef.current;
       if (playingRef.current) {
         pauseStartedAtRef.current = performance.now();
@@ -81,24 +92,21 @@ export function useGameSession({
       return;
     }
 
-    if (
-      resumePlayingAfterPauseRef.current &&
-      pauseStartedAtRef.current !== null
-    ) {
+    if (wasPaused && !isPaused && resumePlayingAfterPauseRef.current && pauseStartedAtRef.current !== null) {
       startedAtRef.current += performance.now() - pauseStartedAtRef.current;
+      playingRef.current = true;
+      pauseStartedAtRef.current = null;
+      resumePlayingAfterPauseRef.current = false;
     }
-    playingRef.current = resumePlayingAfterPauseRef.current;
-    pauseStartedAtRef.current = null;
-    resumePlayingAfterPauseRef.current = false;
-  }, [hostPaused]);
+  }, [hostPaused, manualPaused, resumeRequired]);
 
   function startCountdown() {
-    if (starting || running) return;
+    if (starting || running || gameplayPausedRef.current) return;
     setCountdown(3);
   }
 
   function startSession() {
-    if (playingRef.current || hostPausedRef.current) return;
+    if (playingRef.current || gameplayPausedRef.current) return;
     setStarting(true);
     try {
       const nextRoundId = createRoundId();
@@ -159,7 +167,7 @@ export function useGameSession({
   function resumeSession(elapsedMs: number) {
     finishHandledRef.current = false;
     startedAtRef.current = performance.now() - Math.max(0, elapsedMs);
-    if (hostPausedRef.current) {
+    if (gameplayPausedRef.current) {
       pauseStartedAtRef.current = performance.now();
       resumePlayingAfterPauseRef.current = true;
       playingRef.current = false;
@@ -174,7 +182,7 @@ export function useGameSession({
   }
 
   useEffect(() => {
-    if (hostPaused || countdown === null || countdown <= 0) return;
+    if (hostPaused || manualPaused || resumeRequired || countdown === null || countdown <= 0) return;
     const timer = setTimeout(() => {
       if (countdown === 1) {
         onStart?.();
@@ -183,7 +191,7 @@ export function useGameSession({
       }
     }, 700);
     return () => clearTimeout(timer);
-  }, [countdown, hostPaused, onStart]);
+  }, [countdown, hostPaused, manualPaused, resumeRequired, onStart]);
 
   // Initial countdown trigger
   useEffect(() => {
@@ -191,6 +199,12 @@ export function useGameSession({
       startCountdown();
     }
   }, []);
+
+  useEffect(() => {
+    if (!running && finalScore === null && countdown === null && !gameplayPausedRef.current) {
+      startCountdown();
+    }
+  }, [hostPaused, manualPaused, resumeRequired]);
 
   return {
     countdown,

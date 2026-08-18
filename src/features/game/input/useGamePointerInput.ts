@@ -2,9 +2,8 @@ import { useEffect, useRef, type RefObject } from "react";
 import type { GameState, SliceResult, TrailSegment } from "../../../game/core";
 import {
   elapsedTick,
-  screenToWorld,
+  getWorldRenderTransform,
   normalizePointer,
-  getGameConfig,
   applyInput,
   WORLD_WIDTH,
   WORLD_HEIGHT,
@@ -44,6 +43,7 @@ export function useGamePointerInput({
   onSliceResult,
 }: UseGamePointerInputOptions): UseGamePointerInputResult {
   const pointerDownRef = useRef(false);
+  const trailSegmentsScratchRef = useRef<TrailSegment[]>([]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -72,12 +72,11 @@ export function useGamePointerInput({
       if (!playingRef.current || !state) return;
 
       const tick = elapsedTick(now - startedAt);
-      const worldPoint = screenToWorld(
-        screenX,
-        screenY,
-        size.w,
-        size.h
-      );
+      const transform = getWorldRenderTransform(size.w, size.h);
+      const worldPoint = {
+        x: (screenX - transform.offsetX) / transform.scaleX + WORLD_WIDTH / 2,
+        y: (screenY - transform.offsetY) / transform.scaleY + WORLD_HEIGHT / 2,
+      };
       const sample = normalizePointer(
         worldPoint.x,
         worldPoint.y,
@@ -86,12 +85,21 @@ export function useGamePointerInput({
         tick
       );
 
-      const trailSegments: TrailSegment[] = trailPoints.map((p) =>
-        screenToWorld(p.x, p.y, size.w, size.h)
-      );
+      // Collision only needs the newest ten points. Build that small list
+      // directly instead of mapping the complete trail on every pointer frame.
+      const trailSegments = trailSegmentsScratchRef.current;
+      trailSegments.length = 0;
+      const firstPoint = Math.max(0, trailPoints.length - 10);
+      for (let index = firstPoint; index < trailPoints.length; index += 1) {
+        const point = trailPoints[index];
+        const segmentIndex = index - firstPoint;
+        const segment = trailSegments[segmentIndex] ?? { x: 0, y: 0 };
+        segment.x = (point.x - transform.offsetX) / transform.scaleX + WORLD_WIDTH / 2;
+        segment.y = (point.y - transform.offsetY) / transform.scaleY + WORLD_HEIGHT / 2;
+        trailSegments[segmentIndex] = segment;
+      }
 
-      const config = getGameConfig(size.w);
-      const results = applyInput(state, sample, trailSegments, config);
+      const results = applyInput(state, sample, trailSegments, state.config);
 
       onSliceResult(results, previousTrail, screenX, screenY);
     }

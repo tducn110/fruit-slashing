@@ -1,7 +1,7 @@
 /**
  * Audio Manager — Web Audio API singleton.
  * Manages BGM (loop), SFX slice (polyphonic), SFX bomb.
- * All buffers are preloaded before game starts.
+ * SFX preloads eagerly; BGM preloads on idle or on first play.
  */
 
 type SfxName = "bgm" | "slice" | "bomb";
@@ -25,11 +25,13 @@ class AudioManager {
   
   private bgmSourceNode: AudioBufferSourceNode | null = null;
   private bgmLocalGain: GainNode | null = null;
+  private bgmOffset = 0;
+  private bgmStartedAt = 0;
+  private bgmRequested = false;
 
   private _musicMuted = false;
   private _sfxMuted = false;
   private _parentMuted = false;
-  private _loaded = false;
   private _bgmPlaying = false;
   private currentBgmVolume = LANDING_BGM_VOLUME;
 
@@ -60,36 +62,24 @@ class AudioManager {
   get musicMuted() { return this._musicMuted; }
   get sfxMuted() { return this._sfxMuted; }
   get parentMuted() { return this._parentMuted; }
-  get loaded() { return this._loaded; }
   get bgmPlaying() { return this._bgmPlaying; }
   get landingBgmVolume() { return LANDING_BGM_VOLUME; }
   get gameBgmVolume() { return GAME_BGM_VOLUME; }
 
   /**
-   * Preload all audio buffers. Returns progress 0-1 via onProgress.
+   * Preload gameplay SFX (tiny). BGM is loaded separately on idle — see preloadBgm.
    * `basePath` should point to the folder containing audio files, e.g. "/assets/".
    */
-  async preloadAll(
-    basePath: string,
-    onProgress?: (ratio: number) => void
-  ): Promise<void> {
+  async preloadEssentialAudio(basePath: string): Promise<void> {
     this.ensureContext();
 
     const files: { name: keyof AudioBuffers; url: string }[] = [
       { name: "slice", url: `${basePath}666herohero-slash-21834.mp3` },
       { name: "bomb", url: `${basePath}bomb.mp3` },
-      { name: "bgm", url: `${basePath}moavii-we-are.mp3` },
     ];
 
-    let loaded = 0;
-    const total = files.length;
-
     const loadOne = async (name: keyof AudioBuffers, url: string): Promise<void> => {
-      if (this.buffers[name]) {
-        loaded++;
-        onProgress?.(loaded / total);
-        return;
-      }
+      if (this.buffers[name]) return;
       try {
         const resp = await fetch(url);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -99,91 +89,43 @@ class AudioManager {
       } catch (err) {
         console.warn(`[AudioManager] Failed to load ${name}:`, err);
       }
-      loaded++;
-      onProgress?.(loaded / total);
     };
 
     await Promise.all(files.map((f) => loadOne(f.name, f.url)));
-    this._loaded = true;
   }
 
-  /**
-   * Preload only the BGM file (for landing page auto-play).
-   * Returns true if loaded successfully.
-   */
-  async preloadBgmOnly(basePath: string): Promise<boolean> {
-    this.ensureContext();
-    if (this.buffers.bgm) return true;
+  private bgmLoadPromise: Promise<void> | null = null;
 
-    try {
+  /**
+   * Preload the BGM file. Idempotent — concurrent calls share the same promise,
+   * so the file is never fetched twice. Safe to fire from idle and from playBgm.
+   */
+  async preloadBgm(basePath = "/assets/"): Promise<void> {
+    if (this.buffers.bgm) return;
+    if (this.bgmLoadPromise) return this.bgmLoadPromise;
+    this.bgmLoadPromise = (async () => {
+      this.ensureContext();
       const resp = await fetch(`${basePath}moavii-we-are.mp3`);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const arrayBuf = await resp.arrayBuffer();
-      const audioBuf = await this.ctx!.decodeAudioData(arrayBuf);
-      this.buffers.bgm = audioBuf;
-      return true;
-    } catch (err) {
+      this.buffers.bgm = await this.ctx!.decodeAudioData(arrayBuf);
+    })().catch((err) => {
+      this.bgmLoadPromise = null;
       console.warn("[AudioManager] Failed to preload BGM", err);
-      return false;
-    }
+    });
+    return this.bgmLoadPromise;
   }
 
-  /**
-   * Try to auto-play BGM on page load. If browser blocks AudioContext
-   * (autoplay policy), waits for first user interaction then plays.
-   * Call this when landing page mounts — no extra click needed.
-   */
-  tryAutoPlayBgm(basePath: string): void {
-    const doPlay = async () => {
-      if (this._bgmPlaying) return;
-      this.ensureContext();
-
-      if (this.ctx!.state === "suspended") {
-        try { await this.ctx!.resume(); } catch {}
-      }
-
-      if (!this.buffers.bgm) {
-        const ok = await this.preloadBgmOnly(basePath);
-        if (!ok) return;
-      }
-
-      if (this.ctx!.state === "running") {
-        this.playBgm(LANDING_BGM_VOLUME);
-      }
-    };
-
-    doPlay();
-
-    const resumeOnInteraction = async () => {
-      if (this._bgmPlaying) { cleanup(); return; }
-      this.ensureContext();
-      if (this.ctx!.state === "suspended") {
-        try { await this.ctx!.resume(); } catch {}
-      }
-      if (!this.buffers.bgm) {
-        await this.preloadBgmOnly(basePath);
-      }
-      if (this.ctx!.state === "running" && !this._bgmPlaying) {
-        this.playBgm(LANDING_BGM_VOLUME);
-      }
-      cleanup();
-    };
-
-    const cleanup = () => {
-      document.removeEventListener("click", resumeOnInteraction);
-      document.removeEventListener("touchstart", resumeOnInteraction);
-      document.removeEventListener("keydown", resumeOnInteraction);
-    };
-
-    document.addEventListener("click", resumeOnInteraction, { once: true });
-    document.addEventListener("touchstart", resumeOnInteraction, { once: true });
-    document.addEventListener("keydown", resumeOnInteraction, { once: true });
-  }
-
-  /** Play BGM in a loop at given volume (0-1). */
+  /** Play BGM in a loop at given volume (0-1). If still loading, waits on the shared
+   *  preload promise and starts as soon as the buffer is ready. */
   playBgm(volume = 0.3): void {
-    if (!this.ctx || !this.buffers.bgm) return;
+    if (!this.ctx || this._musicMuted) return;
+    if (!this.buffers.bgm) {
+      void this.preloadBgm().then(() => this.playBgm(volume));
+      return;
+    }
     this.currentBgmVolume = this.clampVolume(volume);
+    this.bgmRequested = true;
     
     if (this.bgmLocalGain) {
       this.bgmLocalGain.gain.value = this.currentBgmVolume;
@@ -208,8 +150,27 @@ class AudioManager {
     this.bgmSourceNode.buffer = this.buffers.bgm;
     this.bgmSourceNode.loop = true;
     this.bgmSourceNode.connect(this.bgmLocalGain);
-    this.bgmSourceNode.start(0);
+    const offset = this.buffers.bgm.duration > 0
+      ? this.bgmOffset % this.buffers.bgm.duration
+      : 0;
+    this.bgmSourceNode.start(0, offset);
+    this.bgmStartedAt = this.ctx.currentTime;
     this._bgmPlaying = true;
+  }
+
+  pauseBgm(): void {
+    if (!this.bgmSourceNode || !this.ctx || !this.buffers.bgm) return;
+    const elapsed = Math.max(0, this.ctx.currentTime - this.bgmStartedAt);
+    this.bgmOffset = (this.bgmOffset + elapsed) % this.buffers.bgm.duration;
+    try { this.bgmSourceNode.stop(); } catch {}
+    this.bgmSourceNode.disconnect();
+    this.bgmSourceNode = null;
+    this._bgmPlaying = false;
+  }
+
+  resumeBgm(): void {
+    if (!this.ctx || !this.bgmRequested || this._musicMuted) return;
+    this.playBgm(this.currentBgmVolume);
   }
 
   stopBgm(): void {
@@ -219,6 +180,9 @@ class AudioManager {
       this.bgmSourceNode = null;
     }
     this._bgmPlaying = false;
+    this.bgmOffset = 0;
+    this.bgmStartedAt = 0;
+    this.bgmRequested = false;
   }
 
   /**
@@ -314,6 +278,8 @@ class AudioManager {
 
   setMusicMuted(m: boolean): void {
     this._musicMuted = m;
+    if (m) this.pauseBgm();
+    else this.resumeBgm();
     this.applyMuteState();
   }
 
@@ -372,7 +338,10 @@ class AudioManager {
       this.ctx = null;
     }
     this.buffers = { slice: null, bomb: null, bgm: null };
-    this._loaded = false;
+    this.bgmLoadPromise = null;
+    this.bgmOffset = 0;
+    this.bgmStartedAt = 0;
+    this.bgmRequested = false;
   }
 
   private clampVolume(volume: number): number {

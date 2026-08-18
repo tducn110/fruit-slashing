@@ -1,9 +1,10 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FruitGame } from "./FruitGame";
 import type { GameResult } from "../../game/types";
-import { Home, Settings, Trophy } from "lucide-react";
+import { Home, Pause, Settings, Trophy } from "lucide-react";
 import { useGameSound } from "../../hooks/useSound";
 import { SettingsPanel } from "./SettingsPanel";
+import { audioManager } from "../../utils/audio-manager";
 
 interface Props {
   musicMuted: boolean;
@@ -29,6 +30,35 @@ export function GamePage({
   onOpenLeaderboard,
 }: Props) {
   const [panel, setPanel] = useState<null | "settings">(null);
+  const [hasActiveRun, setHasActiveRun] = useState(false);
+  const [manualPaused, setManualPaused] = useState(false);
+  const [resumeRequired, setResumeRequired] = useState(false);
+  const [restartKey, setRestartKey] = useState(0);
+
+  useEffect(() => {
+    if (hostPaused && hasActiveRun) setResumeRequired(true);
+  }, [hostPaused, hasActiveRun]);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "hidden" && hasActiveRun) {
+        setResumeRequired(true);
+        audioManager.pauseBgm();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [hasActiveRun]);
+
+  const gameplayPaused = hasActiveRun && (manualPaused || hostPaused || resumeRequired);
+
+  useEffect(() => {
+    if (gameplayPaused) {
+      audioManager.pauseBgm();
+    } else if (hasActiveRun) {
+      audioManager.resumeBgm();
+    }
+  }, [gameplayPaused, hasActiveRun]);
 
   const handleGameStart = useCallback(() => {
     setPanel(null);
@@ -37,8 +67,24 @@ export function GamePage({
   // 🎵 Sound — BGM managed by App.tsx, SFX for in-game slicing
   const { playSlice, playBomb } = useGameSound(sfxMuted);
 
-  const toggle = (p: "settings") =>
-    setPanel((prev) => (prev === p ? null : p));
+  const toggle = () => setPanel((prev) => (prev === "settings" ? null : "settings"));
+
+  const handlePause = () => {
+    setManualPaused(true);
+  };
+
+  const handleResume = () => {
+    setManualPaused(false);
+    setResumeRequired(false);
+    setPanel(null);
+  };
+
+  const handleRestart = () => {
+    setManualPaused(false);
+    setResumeRequired(false);
+    setPanel(null);
+    setRestartKey((key) => key + 1);
+  };
 
   const btnStyle: React.CSSProperties = {
     display: "flex", alignItems: "center", gap: 6,
@@ -94,12 +140,13 @@ export function GamePage({
             <Trophy size={15} /> <span className="btnLabel">Bảng điểm</span>
           </button>
           <button
-            onClick={() => toggle("settings")}
+            onClick={hasActiveRun ? handlePause : toggle}
             className="game-btn"
-            aria-label="Cài đặt"
-            style={{ ...btnStyle, ...(panel === "settings" ? { background: "color-mix(in srgb, var(--primary) 12%, transparent)", border: "2px solid var(--primary)" } : {}) }}
+            aria-label={hasActiveRun ? "Tạm dừng" : "Cài đặt"}
+            style={{ ...btnStyle, ...(panel ? { background: "color-mix(in srgb, var(--primary) 12%, transparent)", border: "2px solid var(--primary)" } : {}) }}
           >
-            <Settings size={15} /> <span className="btnLabel">Cài đặt</span>
+            {hasActiveRun ? <Pause size={15} /> : <Settings size={15} />}
+            <span className="btnLabel">{hasActiveRun ? "Tạm dừng" : "Cài đặt"}</span>
           </button>
         </div>
       </div>
@@ -112,14 +159,25 @@ export function GamePage({
             onCompleteRound={onCompleteRound}
             onExitGame={onHome}
             onGameStart={handleGameStart}
+            onRunStateChange={setHasActiveRun}
+            manualPaused={manualPaused}
+            resumeRequired={resumeRequired}
+            restartKey={restartKey}
             hostPaused={hostPaused}
             muted={sfxMuted}
             onPlaySlice={playSlice}
             onPlayBomb={playBomb}
+            musicMuted={musicMuted}
+            sfxMuted={sfxMuted}
+            onToggleMusic={onToggleMusic}
+            onToggleSfx={onToggleSfx}
+            onResumePause={handleResume}
+            onRestartPause={handleRestart}
           />
         </div>
 
         <div className="game-panel-layer">
+          {panel === "settings" && <div className="gamePanelBackdrop" aria-hidden="true" />}
           {/* Settings overlay */}
           {panel === "settings" && (
             <SettingsPanel

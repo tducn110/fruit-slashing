@@ -25,19 +25,30 @@ import { useParticleSystem } from "../../features/game/render/useParticleSystem"
 import { useGameFeedback } from "../../features/game/render/useGameFeedback";
 import { useSliceEffects } from "../../features/game/render/useSliceEffects";
 import { getFxPreset } from "../../features/game/render/fxPreset";
+import { PauseOverlay } from "./PauseOverlay";
 
 interface Props {
   onSubmitScore?: (result: GameResult) => void;
   onCompleteRound?: (result: GameResult) => void;
   onExitGame?: () => void;
   onGameStart?: () => void;
+  onRunStateChange?: (active: boolean) => void;
+  manualPaused?: boolean;
+  resumeRequired?: boolean;
+  restartKey?: number;
   hostPaused?: boolean;
   muted?: boolean;
   onPlaySlice?: () => void;
   onPlayBomb?: () => void;
+  musicMuted?: boolean;
+  sfxMuted?: boolean;
+  onToggleMusic?: () => void;
+  onToggleSfx?: () => void;
+  onResumePause?: () => void;
+  onRestartPause?: () => void;
 }
 
-export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameStart, hostPaused = false, muted = false, onPlaySlice, onPlayBomb }: Props) {
+export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameStart, onRunStateChange, hostPaused = false, manualPaused = false, resumeRequired = false, restartKey = 0, muted = false, onPlaySlice, onPlayBomb, musicMuted = false, sfxMuted = false, onToggleMusic, onToggleSfx, onResumePause, onRestartPause }: Props) {
   const callbacksRef = useRef({ onSubmitScore, onCompleteRound, onExitGame, onGameStart, muted, onPlaySlice, onPlayBomb });
   callbacksRef.current = { onSubmitScore, onCompleteRound, onExitGame, onGameStart, muted, onPlaySlice, onPlayBomb };
   const { wrapRef, appRef, sizeRef, playLayerRef, trailGraphicsRef, ready } = usePixiApp();
@@ -70,6 +81,8 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
 
   const session = useGameSession({
     hostPaused,
+    manualPaused,
+    resumeRequired,
     onStart: handleStart,
     onComplete: (result) => callbacksRef.current.onCompleteRound?.(result),
   });
@@ -84,6 +97,10 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
     startedAtRef,
     hostPausedRef,
   } = session;
+
+  useEffect(() => {
+    onRunStateChange?.(running || countdown !== null);
+  }, [running, countdown, onRunStateChange]);
 
   const coreRef = useRef<GameState | null>(null);
   const destroyedRef = useRef(false);
@@ -154,6 +171,7 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
 
   useGameTicker({
     enabled: ready && texturesReady,
+    paused: hostPaused || manualPaused || resumeRequired,
     appRef,
     gameStateRef: coreRef,
     playingRef,
@@ -230,6 +248,32 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
     session.resumeSession((state.tick / TICK_RATE) * 1000);
     callbacksRef.current.onGameStart?.();
   }
+
+  const lastRestartKeyRef = useRef(restartKey);
+  useEffect(() => {
+    if (restartKey === lastRestartKeyRef.current) return;
+    lastRestartKeyRef.current = restartKey;
+    const state = coreRef.current;
+    if (state) {
+      state.ended = false;
+      state.endReason = null;
+      state.fruits = [];
+      state.lastPointer = null;
+      state.lives = 3;
+      state.combo = 0;
+      state.comboExpiresAtTick = state.tick;
+      state.nextSpawnTick = state.tick + Math.round(0.7 * TICK_RATE);
+      clearParticles();
+      clearFeedback();
+      clearFruitSprites();
+      clearTrail();
+      syncHud(state);
+    }
+    setReviveUsed(false);
+    setScoreMultiplier(1);
+    setGameOverMode("continue");
+    session.resetSession();
+  }, [restartKey]);
 
   function handleDeclineContinue() {
     setScoreMultiplier(1);
@@ -312,6 +356,16 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
       />
 
       <CountdownOverlay countdown={countdown} starting={starting} />
+
+      <PauseOverlay
+        visible={manualPaused || resumeRequired || hostPaused}
+        musicMuted={musicMuted}
+        sfxMuted={sfxMuted}
+        onResume={onResumePause ?? (() => undefined)}
+        onRestart={onRestartPause ?? (() => undefined)}
+        onToggleMusic={onToggleMusic ?? (() => undefined)}
+        onToggleSfx={onToggleSfx ?? (() => undefined)}
+      />
     </div>
   );
 }

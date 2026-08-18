@@ -24,7 +24,7 @@ export function IntegrationStatusBanner({
       data-error="true"
       style={{
         position: "fixed",
-        top: 8,
+        bottom: "max(10px, env(safe-area-inset-bottom))",
         left: "50%",
         transform: "translateX(-50%)",
         zIndex: 1000,

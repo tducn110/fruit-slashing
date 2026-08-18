@@ -1011,6 +1011,13 @@
   pointer-events: auto;
 }
 
+.gamePanelBackdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(24, 20, 12, 0.32);
+  pointer-events: auto;
+}
+
 .game-canvas-layer {
   position: absolute;
   inset: 0;
@@ -1301,4 +1308,128 @@ body { margin: 0; }
 }
 .score-animate-shake-heavy {
   animation: score-shake-heavy 0.3s ease-in-out;
+}
+
+/* ─── Pause HUD ─────────────────────────────────────────────────────────────── */
+
+:root {
+  --pause-surface: #fff8e8;
+  --pause-border: #e4d4b4;
+  --pause-shadow: rgba(65, 50, 31, 0.18);
+
+  --pause-reset-bg: #ffe4ad;
+  --pause-reset-icon: #7b451e;
+
+  --pause-bgm-bg: #c9ee91;
+  --pause-bgm-icon: #3f7d18;
+
+  --pause-sfx-bg: #d9b8ff;
+  --pause-sfx-icon: #6240a0;
+
+  --pause-play-bg: #ef7a2c;
+  --pause-play-icon: #ffffff;
+
+  --pause-dim: rgba(42, 36, 24, 0.34);
+}
+
+.pauseHudOverlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--pause-dim);
+  z-index: 1000;
+  padding: 16px;
+  backdrop-filter: blur(2px);
+}
+
+.pauseHudCard {
+  width: clamp(320px, 90vw, 400px);
+  aspect-ratio: 1.25;
+  background: var(--pause-surface);
+  border: 2px solid var(--pause-border);
+  border-radius: 24px;
+  box-shadow: 0 14px 40px var(--pause-shadow), 0 2px 0 rgba(255, 255, 255, 0.6) inset;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  padding: 32px 24px;
+}
+
+.pauseHudUtilityRow {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  width: 100%;
+}
+
+.pauseHudButton {
+  width: clamp(72px, 18vw, 88px);
+  height: clamp(72px, 18vw, 88px);
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transform-origin: 50% 50%;
+  transition: transform 0.1s ease;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(42, 36, 24, 0.1);
+}
+
+.pauseHudButton:active {
+  transform: scale(0.94);
+}
+
+.pauseHudButton--reset {
+  background: var(--pause-reset-bg);
+  color: var(--pause-reset-icon);
+}
+
+.pauseHudButton--bgm {
+  background: var(--pause-bgm-bg);
+  color: var(--pause-bgm-icon);
+}
+
+.pauseHudButton--sfx {
+  background: var(--pause-sfx-bg);
+  color: var(--pause-sfx-icon);
+}
+
+.pauseHudPlayButton {
+  width: clamp(104px, 26vw, 124px);
+  height: clamp(104px, 26vw, 124px);
+  border-radius: 50%;
+  background: var(--pause-play-bg);
+  color: var(--pause-play-icon);
+  border: 3px solid rgba(255, 255, 255, 0.94);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transform-origin: 50% 50%;
+  transition: transform 0.1s ease;
+  box-shadow: 0 6px 16px rgba(42, 36, 24, 0.15);
+}
+
+.pauseHudPlayButton:active {
+  transform: scale(0.94);
+}
+
+.pauseHudMuteSlash {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 70%;
+  height: 4px;
+  background: currentColor;
+  border-radius: 2px;
+  transform: translate(-50%, -50%) rotate(-45deg);
+  box-shadow: 0 0 0 2px var(--pause-bgm-bg);
+}
+.pauseHudButton--sfx .pauseHudMuteSlash {
+  box-shadow: 0 0 0 2px var(--pause-sfx-bg);
 }
