@@ -61,6 +61,20 @@ export interface WinkLeaderboardEntry {
   createdAt: string | null;
 }
 
+export interface WinkLeaderboard {
+  entries: readonly WinkLeaderboardEntry[];
+  /**
+   * The signed-in player's own best run, carrying its rank across the whole
+   * board — so it is still here when that run falls outside `entries`, which it
+   * usually does now that the server caps a page at 30 rows.
+   *
+   * Null while the player is anonymous or a guest, and null before they have
+   * scored at all. All three mean the same "no personal best yet" UI; none of
+   * them is an error.
+   */
+  me: WinkLeaderboardEntry | null;
+}
+
 export interface WinkScoreInput {
   score: number;
   playTime?: number;
@@ -97,7 +111,7 @@ export interface WinkGameClient {
   getLeaderboard(options?: {
     limit?: number;
     offset?: number;
-  }): Promise<readonly WinkLeaderboardEntry[]>;
+  }): Promise<WinkLeaderboard>;
   submitScore(input: WinkScoreInput): Promise<void>;
   complete(input: WinkCompletionInput): Promise<void>;
   onPause(listener: () => void): () => void;
@@ -117,6 +131,8 @@ export interface WinkIntegration {
   parentMuted: boolean;
   error: WinkIntegrationError | null;
   leaderboard: readonly WinkLeaderboardEntry[];
+  /** The player's own best run, or null when they have none to show. */
+  personalBest: WinkLeaderboardEntry | null;
   refreshLeaderboard(): Promise<void>;
   submitFinalScore(input: {
     roundId: string;

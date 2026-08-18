@@ -213,6 +213,8 @@ export function useWinkIntegration(): WinkIntegration {
   const [leaderboard, setLeaderboard] = useState<
     readonly WinkLeaderboardEntry[]
   >([]);
+  const [personalBest, setPersonalBest] =
+    useState<WinkLeaderboardEntry | null>(null);
 
   useEffect(() => {
     const client = connection.client;
@@ -281,6 +283,7 @@ export function useWinkIntegration(): WinkIntegration {
   const refreshLeaderboard = useCallback(async () => {
     if (offline) {
       setLeaderboard([]);
+      setPersonalBest(null);
       return;
     }
     if (!connection.client) {
@@ -290,8 +293,11 @@ export function useWinkIntegration(): WinkIntegration {
       throw recordError(undefined, "CAPABILITY_DENIED");
     }
     try {
-      const entries = await connection.client.getLeaderboard({ limit: 10 });
-      setLeaderboard(entries);
+      // The server caps a page at 30; this game asks for the 10 it displays.
+      // `me` comes back regardless of the page size, which is the point of it.
+      const board = await connection.client.getLeaderboard({ limit: 10 });
+      setLeaderboard(board.entries);
+      setPersonalBest(board.me);
       setError(null);
       setState((current) => stateWithError(current, null));
     } catch (value) {
@@ -359,6 +365,7 @@ export function useWinkIntegration(): WinkIntegration {
     parentMuted,
     error,
     leaderboard,
+    personalBest,
     refreshLeaderboard,
     submitFinalScore,
     completeRound,
