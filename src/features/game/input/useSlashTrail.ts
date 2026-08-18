@@ -62,8 +62,17 @@ export function useSlashTrail({
 
     const now = performance.now();
 
-    // Prune stale points.
-    trailPointsRef.current = trailPointsRef.current.filter((point) => now - point.t < maxAgeMs);
+    // Prune in place. filter() allocated a new array on every Pixi frame while
+    // the user was slashing, even though the trail has a tiny fixed upper bound.
+    const points = trailPointsRef.current;
+    let writeIndex = 0;
+    for (let readIndex = 0; readIndex < points.length; readIndex += 1) {
+      if (now - points[readIndex].t < maxAgeMs) {
+        points[writeIndex] = points[readIndex];
+        writeIndex += 1;
+      }
+    }
+    points.length = writeIndex;
 
     // ── Skip redraw if trail is empty and already cleared ──────────────────
     if (trailPointsRef.current.length === 0) {

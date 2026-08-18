@@ -329,8 +329,6 @@ export function applyInput(state: GameState, sample: InputSample, trail: TrailSe
   state.lastPointer = point;
 
   const hitboxScale = config?.hitboxScale ?? 1.1;
-  const checkSegments = trail.length >= 2 ? trail.slice(-10) : [];
-
   const results: SliceResult[] = [];
   for (let index = state.fruits.length - 1; index >= 0; index -= 1) {
     const fruit = state.fruits[index];
@@ -344,10 +342,12 @@ export function applyInput(state: GameState, sample: InputSample, trail: TrailSe
       hit = true;
     }
 
-    if (!hit && checkSegments.length >= 2) {
-      for (let i = 1; i < checkSegments.length; i++) {
-        const seg1 = checkSegments[i - 1];
-        const seg2 = checkSegments[i];
+    if (!hit && trail.length >= 2) {
+      // Inspect only the newest ten points without allocating trail.slice().
+      const firstSegmentPoint = Math.max(1, trail.length - 9);
+      for (let i = firstSegmentPoint; i < trail.length; i++) {
+        const seg1 = trail[i - 1];
+        const seg2 = trail[i];
         const dist = distancePointToSegment(fruit.x, fruit.y, seg1.x, seg1.y, seg2.x, seg2.y);
         if (dist < hitRadius) {
           hit = true;

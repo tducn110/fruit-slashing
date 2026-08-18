@@ -1,9 +1,8 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { TopNav } from "./components/ui/TopNav";
 import { HeroSection } from "./components/ui/HeroSection";
 import { GamePage } from "./components/game/GamePage";
 import { LeaderboardScreen } from "./components/game/DashboardPanel";
-import { LoadingScreen } from "./components/ui/LoadingScreen";
 import { audioManager } from "./utils/audio-manager";
 import { preloadGameResources } from "./utils/game-loader";
 
@@ -12,7 +11,7 @@ import { IntegrationStatusBanner } from "./components/ui/IntegrationStatusBanner
 import { useWinkIntegration } from "./integrations/wink/useWinkIntegration";
 import type { GameResult } from "./game/types";
 
-type AppView = "loading" | "landing" | "game" | "leaderboard";
+type AppView = "landing" | "game" | "leaderboard";
 type LeaderboardReturnView = "landing" | "game";
 
 export default function App() {
@@ -25,15 +24,10 @@ export default function App() {
     error: scoreError,
   } = useScoreData(integration);
 
-  const [view, setView] = useState<AppView>("loading");
-  const [loadingProgress, setLoadingProgress] = useState(0);
-  const [resourcesReady, setResourcesReady] = useState(false);
+  const [view, setView] = useState<AppView>("landing");
   const [musicMuted, setMusicMuted] = useState(false);
   const [sfxMuted, setSfxMuted] = useState(false);
   const [leaderboardReturnView, setLeaderboardReturnView] = useState<LeaderboardReturnView>("game");
-  // Controls the exit transition of the loading screen
-  const [loadingExiting, setLoadingExiting] = useState(false);
-  const loadingDoneTimerRef = useRef<number | null>(null);
 
   // Sync mute state to audio manager.
   useEffect(() => {
@@ -47,6 +41,18 @@ export default function App() {
   useEffect(() => {
     audioManager.setParentMuted(integration.parentMuted);
   }, [integration.parentMuted]);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        audioManager.pauseBgm();
+      } else if (view !== "game") {
+        audioManager.resumeBgm();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [view]);
 
   useEffect(() => {
     const playButtonClick = (event: MouseEvent) => {
@@ -63,40 +69,20 @@ export default function App() {
     return () => document.removeEventListener("click", playButtonClick, true);
   }, []);
 
-  // Bootstrap once: audio decoding, web fonts and a Pixi renderer preflight.
+  // Bootstrap once in background: SFX decoding and web fonts.
   useEffect(() => {
-    let active = true;
-    void preloadGameResources((progress) => {
-      if (active) setLoadingProgress(progress);
-    }).then(() => {
-      if (active) setResourcesReady(true);
-    }).catch((error) => {
+    void preloadGameResources().catch((error) => {
       console.error("Game resource preload failed", error);
     });
-    return () => { active = false; };
   }, []);
 
-  // When loading finishes, start exit transition then go to landing
-  const handleLoadingDone = useCallback(() => {
-    setLoadingExiting(true);
-
-    if (loadingDoneTimerRef.current !== null) {
-      window.clearTimeout(loadingDoneTimerRef.current);
-    }
-
-    loadingDoneTimerRef.current = window.setTimeout(() => {
-      setView("landing");
-      setLoadingExiting(false);
-      loadingDoneTimerRef.current = null;
-    }, 850);
-  }, []);
-
+  // BGM is heavy (~1.5MB) — fetch it during browser idle, never block UI.
   useEffect(() => {
-    return () => {
-      if (loadingDoneTimerRef.current !== null) {
-        window.clearTimeout(loadingDoneTimerRef.current);
-      }
-    };
+    const id = window.requestIdleCallback(
+      () => { void audioManager.preloadBgm(); },
+      { timeout: 3000 },
+    );
+    return () => window.cancelIdleCallback(id);
   }, []);
 
   // "Chơi ngay" -> directly enter game (countdown handled by FruitGame)
@@ -142,24 +128,6 @@ export default function App() {
     setLeaderboardReturnView(returnView);
     setView("leaderboard");
   }, [refreshLeaderboard]);
-
-  // Loading view — waits for all resources
-  if (view === "loading") {
-    return (
-      <>
-        <IntegrationStatusBanner
-          integration={integration}
-          operationError={scoreError}
-        />
-        <LoadingScreen
-          progress={resourcesReady ? 100 : loadingProgress}
-          onDone={handleLoadingDone}
-          completeDelayMs={1150}
-          exiting={loadingExiting}
-        />
-      </>
-    );
-  }
 
   // Game view — full screen, dashboard panel opens on demand inside GamePage
   if (view === "game") {

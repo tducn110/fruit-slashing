@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Container, Sprite, Texture } from "pixi.js";
-import { getWorldRenderTransform, worldToScreen, type GameState } from "../../../game/core";
+import { getWorldRenderTransform, WORLD_HEIGHT, WORLD_WIDTH, type GameState } from "../../../game/core";
 import { VISUAL_RADIUS } from "./fruitVisuals";
 
 interface Props {
@@ -12,6 +12,7 @@ interface Props {
 
 export function useFruitSprites({ playLayerRef, texturesRef, texturesReady, sizeRef }: Props) {
   const spriteMapRef = useRef(new Map<number, Sprite>());
+  const activeIdsRef = useRef(new Set<number>());
 
   function destroySprite(sprite: Sprite) {
     if (sprite.parent) {
@@ -39,7 +40,10 @@ export function useFruitSprites({ playLayerRef, texturesRef, texturesReady, size
         viewportWidth <= 640 ? 1.45 :
           1.0;
 
-    const activeIds = new Set(state.fruits.map((f) => f.id));
+    // Reuse this Set because syncFruitSprites runs from the render loop.
+    const activeIds = activeIdsRef.current;
+    activeIds.clear();
+    for (const fruit of state.fruits) activeIds.add(fruit.id);
     for (const [id, sprite] of spriteMapRef.current.entries()) {
       if (!activeIds.has(id)) {
         destroySprite(sprite);
@@ -58,9 +62,10 @@ export function useFruitSprites({ playLayerRef, texturesRef, texturesReady, size
         layer.addChild(sprite);
         spriteMapRef.current.set(fruit.id, sprite);
       }
-      const { x, y } = worldToScreen(fruit.x, fruit.y, sizeRef.current.w, sizeRef.current.h);
-      sprite.x = x;
-      sprite.y = y;
+      // Reuse the transform already calculated above instead of recomputing it
+      // through worldToScreen() for every fruit.
+      sprite.x = (fruit.x - WORLD_WIDTH / 2) * transform.scaleX + transform.offsetX;
+      sprite.y = (fruit.y - WORLD_HEIGHT / 2) * transform.scaleY + transform.offsetY;
       sprite.rotation = fruit.rotation;
       sprite.scale.set((VISUAL_RADIUS[fruit.kind] / 20) * renderScale * 0.9 * fruitScale);
     }
@@ -69,6 +74,7 @@ export function useFruitSprites({ playLayerRef, texturesRef, texturesReady, size
   function clearFruitSprites() {
     spriteMapRef.current.forEach((sprite) => destroySprite(sprite));
     spriteMapRef.current.clear();
+    activeIdsRef.current.clear();
   }
 
   useEffect(() => {

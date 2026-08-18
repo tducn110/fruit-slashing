@@ -7,6 +7,7 @@ interface PanelFrameProps {
   width?: number;
   maxHeight?: string;
   onClose: () => void;
+  showClose?: boolean;
   className?: string;
   style?: React.CSSProperties;
   children: React.ReactNode;
@@ -17,6 +18,7 @@ export function PanelFrame({
   width = 340,
   maxHeight,
   onClose,
+  showClose = true,
   className = "",
   style,
   children,
@@ -39,7 +41,8 @@ export function PanelFrame({
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <span style={{ fontWeight: 800, fontSize: 15 }}>{title}</span>
-        <button
+        {showClose && <button
+          type="button"
           aria-label="Đóng"
           onClick={onClose}
           style={{
@@ -57,7 +60,7 @@ export function PanelFrame({
           }}
         >
           <X size={16} strokeWidth={3} />
-        </button>
+        </button>}
       </div>
       {children}
     </div>
