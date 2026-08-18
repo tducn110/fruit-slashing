@@ -21,9 +21,9 @@ const GAME_ID = "11111111-1111-4111-8111-111111111111";
 const GAME_ORIGIN = "http://127.0.0.1:5173";
 const HARNESS_ORIGIN = "http://127.0.0.1:8787";
 const CERTIFIED_COMMIT =
-  "efc50ed4a27cb55f351c257350e1993d385e4a3f";
+  "fa76cdb800377579bb3459164afb92f0bbace379";
 const CERTIFIED_SHA256 =
-  "afe2a789466c3d68f4eec7d8cf2e718f45a29a19a5d8b9eb8c4cec10b18f31eb";
+  "089b2d6c2261a7b285fa8acf5ff599e6d2aba9c1366f9def4ae1b1f9fefcfbda";
 const DETERMINISTIC_GAME_SEED = 82_826;
 const DEFAULT_R2_TEMPLATE = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -489,7 +489,7 @@ async function run() {
     runtimeConfig.environment === "dev" &&
       runtimeConfig.gameId === GAME_ID &&
       runtimeConfig.protocolVersion === 1 &&
-      runtimeConfig.bridgeVersion === "9.0.0" &&
+      runtimeConfig.bridgeVersion === "9.0.1" &&
       JSON.stringify(runtimeConfig.allowedParentOrigins) ===
         JSON.stringify([HARNESS_ORIGIN]),
     "dist runtime config is not the exact local C4 config",

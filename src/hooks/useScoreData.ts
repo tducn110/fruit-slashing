@@ -28,6 +28,8 @@ const SAFE_ERROR_MESSAGES: Record<WinkIntegrationErrorCode, string> = {
   INVALID_ROUND: "Mã vòng chơi không hợp lệ.",
 };
 
+const SCORE_BLOCKED_NOTICE_MS = 4_000;
+
 type GameResultWithRound = GameResult & {
   roundId?: string;
   qualifies?: boolean;
@@ -106,11 +108,22 @@ export function useScoreData(integration: WinkIntegration) {
   const [error, setError] = useState<WinkIntegrationError | null>(
     integration.error,
   );
+  const [scoreSubmissionError, setScoreSubmissionError] =
+    useState<WinkIntegrationError | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (integration.error) setError(integration.error);
   }, [integration.error]);
+
+  useEffect(() => {
+    if (!scoreSubmissionError) return;
+    const timeoutId = window.setTimeout(
+      () => setScoreSubmissionError(null),
+      SCORE_BLOCKED_NOTICE_MS,
+    );
+    return () => window.clearTimeout(timeoutId);
+  }, [scoreSubmissionError]);
 
   const refreshLeaderboard = useCallback(async () => {
     if (offline) {
@@ -204,6 +217,7 @@ export function useScoreData(integration: WinkIntegration) {
       }
 
       try {
+        setScoreSubmissionError(null);
         await integration.submitFinalScore({
           roundId: result.roundId,
           score: result.score,
@@ -214,7 +228,11 @@ export function useScoreData(integration: WinkIntegration) {
         setError(null);
       } catch (value) {
         // A denied or failed remote mutation is never converted into a local row.
-        setError(visibleError(value));
+        const nextError = visibleError(value);
+        setError(nextError);
+        setScoreSubmissionError(
+          nextError.code === "CAPABILITY_DENIED" ? nextError : null,
+        );
       }
     },
     [offline, integration.submitFinalScore],
@@ -231,6 +249,7 @@ export function useScoreData(integration: WinkIntegration) {
     leaderboard: scores,
     loading,
     error,
+    scoreSubmissionError,
     onGameOver: handleGameOver,
     refreshLeaderboard,
   };

@@ -46,9 +46,9 @@ describe("R4 static packaging boundary", () => {
       wink: {
         environment: "dev",
         protocolVersion: 1,
-        bridgeVersion: "9.0.0",
+        bridgeVersion: "9.0.1",
         bridgeSha256:
-          "afe2a789466c3d68f4eec7d8cf2e718f45a29a19a5d8b9eb8c4cec10b18f31eb",
+          "089b2d6c2261a7b285fa8acf5ff599e6d2aba9c1366f9def4ae1b1f9fefcfbda",
         devParentOrigin: "https://dev-winkgames.papastudio.net",
         harnessOrigin: "http://127.0.0.1:8787",
         devApiBase:
@@ -172,7 +172,7 @@ describe("R4 static packaging boundary", () => {
   });
 });
 
-describe("R5 immutable dev image handoff", () => {
+describe("production canary image handoff", () => {
   it("renders a YAML-safe Traefik Host rule", () => {
     const deploy = read("deploy.sh");
     const ruleLine = deploy
@@ -199,37 +199,38 @@ describe("R5 immutable dev image handoff", () => {
     );
   });
 
-  it("uses only the dedicated dev stack, service, router, repository, domain, and two exact parents", () => {
+  it("uses the dedicated production stack, origin, repository, and exact parents", () => {
     const config = read("game.config.sh");
     const runtimeConfig = JSON.parse(
       read("public/wink-runtime-config.json"),
     );
 
-    expect(config).toContain('ENVIRONMENT="dev"');
+    expect(config).toContain('GAME_SLUG="bo-lac-fruit-slashing"');
+    expect(config).toContain('ENVIRONMENT="prod"');
     expect(config).toContain(
-      'ALLOWED_PARENT_ORIGINS="https://dev-winkgames.papastudio.net http://127.0.0.1:8787"',
+      'ALLOWED_PARENT_ORIGINS="https://winkgames.papastudio.net http://localhost:3000"',
     );
-    expect(config).toContain('DOMAIN="dev-fruit-slashing.papastudio.net"');
+    expect(config).toContain('DOMAIN="${GAME_SLUG}.papastudio.net"');
     expect(config).toContain(
-      'STACK_NAME="papastudio-winkgames-dev-games"',
+      'STACK_NAME="papastudio-winkgames-games"',
     );
-    expect(config).toContain('SERVICE_NAME="fruit-slashing"');
+    expect(config).toContain('SERVICE_NAME="${GAME_SLUG}"');
     expect(config).toContain(
-      'ROUTER_NAME="winkgames-minigame-dev-fruit-slashing"',
+      'ROUTER_NAME="winkgames-minigame-prod-${GAME_SLUG}"',
     );
-    expect(config).toContain('IMAGE_NAME="winkgames/dev/fruit-slashing"');
+    expect(config).toContain('IMAGE_NAME="winkgames/prod/${GAME_SLUG}"');
     expect(config).not.toContain('STACK_NAME="papastudio-winkgames"');
     expect(config).not.toContain('STACK_NAME="papastudio-winkgames-dev"');
     expect(config).not.toContain('IMAGE_TAG="r4-local-only"');
     expect(config).not.toContain("latest");
     expect(runtimeConfig).toEqual({
-      gameId: "11111111-1111-4111-8111-111111111111",
-      environment: "dev",
+      gameId: "36348ccc-1f37-4eca-ad1c-a8a47292ace7",
+      environment: "prod",
       protocolVersion: 1,
-      bridgeVersion: "9.0.0",
+      bridgeVersion: "9.0.1",
       allowedParentOrigins: [
-        "https://dev-winkgames.papastudio.net",
-        "http://127.0.0.1:8787",
+        "https://winkgames.papastudio.net",
+        "http://localhost:3000",
       ],
     });
   });
@@ -239,8 +240,9 @@ describe("R5 immutable dev image handoff", () => {
 
     expect(deploy).toContain('SOURCE_SHA="$(git rev-parse HEAD)"');
     expect(deploy).toContain('IMAGE_TAG="git-${SOURCE_SHA}"');
-    expect(deploy).toContain('TAGGED_IMAGE="${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"');
-    expect(deploy).toContain('DIGEST_IMAGE_PREFIX="${REGISTRY}/${IMAGE_NAME}@sha256:"');
+    expect(deploy).toContain('TAGGED_IMAGE="${IMAGE_REPOSITORY}:${IMAGE_TAG}"');
+    expect(deploy).toContain('R5_GAME_IMAGE="${IMAGE_REPOSITORY}@${PUSH_DIGEST}"');
+    expect(deploy).toContain('docker build --platform "${IMAGE_PLATFORM}"');
     expect(deploy).toContain("git diff --quiet");
     expect(deploy).toContain("git diff --cached --quiet");
     expect(deploy).toContain("docker manifest inspect");

@@ -30,10 +30,10 @@ npm run verify:wink-bridge
 
 Bridge certification hiện tại:
 
-- bridge `9.0.0`;
+- bridge `9.0.1`;
 - protocol `1`;
 - game ID `11111111-1111-4111-8111-111111111111`;
-- SHA-256 `afe2a789466c3d68f4eec7d8cf2e718f45a29a19a5d8b9eb8c4cec10b18f31eb`.
+- SHA-256 `089b2d6c2261a7b285fa8acf5ff599e6d2aba9c1366f9def4ae1b1f9fefcfbda`.
 
 ## Chạy qua R2 iframe harness
 

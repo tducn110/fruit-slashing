@@ -21,7 +21,7 @@ export default function App() {
     leaderboard,
     onGameOver,
     refreshLeaderboard,
-    error: scoreError,
+    scoreSubmissionError,
   } = useScoreData(integration);
 
   const [view, setView] = useState<AppView>("landing");
@@ -129,13 +129,14 @@ export default function App() {
     setView("leaderboard");
   }, [refreshLeaderboard]);
 
+
   // Game view — full screen, dashboard panel opens on demand inside GamePage
   if (view === "game") {
     return (
       <>
         <IntegrationStatusBanner
           integration={integration}
-          operationError={scoreError}
+          operationError={scoreSubmissionError}
         />
         <GamePage
           musicMuted={musicMuted}
@@ -157,7 +158,7 @@ export default function App() {
       <>
         <IntegrationStatusBanner
           integration={integration}
-          operationError={scoreError}
+          operationError={scoreSubmissionError}
         />
         <LeaderboardScreen
           leaderboard={leaderboard}
@@ -173,7 +174,7 @@ export default function App() {
     <>
       <IntegrationStatusBanner
         integration={integration}
-        operationError={scoreError}
+        operationError={scoreSubmissionError}
       />
       <div
         className="landing-enter"

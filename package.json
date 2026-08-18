@@ -9,7 +9,7 @@
     "npm": "11.x"
   },
   "scripts": {
-    "build": "vite build",
+    "build": "vite build && node scripts/build-wink-warm.mjs",
     "dev": "vite",
     "prebuild": "npm run verify:wink-bridge",
     "test": "vitest run --exclude '**/.worktrees/**'",
@@ -30,6 +30,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.12",
+    "@types/node": "22.20.1",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "4.7.0",

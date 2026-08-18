@@ -7,10 +7,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const CERTIFIED_BRIDGE = Object.freeze({
-  bridgeVersion: '9.0.0',
+  bridgeVersion: '9.0.1',
   protocolVersion: 1,
-  sha256: 'afe2a789466c3d68f4eec7d8cf2e718f45a29a19a5d8b9eb8c4cec10b18f31eb',
-  sourceCommit: 'efc50ed4a27cb55f351c257350e1993d385e4a3f',
+  sha256: '089b2d6c2261a7b285fa8acf5ff599e6d2aba9c1366f9def4ae1b1f9fefcfbda',
+  sourceCommit: 'fa76cdb800377579bb3459164afb92f0bbace379',
 });
 
 export const DEFAULT_CERTIFIED_TEMPLATE = path.resolve(

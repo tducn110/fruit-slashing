@@ -11,7 +11,7 @@ const VALID = Object.freeze({
   gameId: "11111111-1111-4111-8111-111111111111",
   environment: "dev",
   protocolVersion: 1,
-  bridgeVersion: "9.0.0",
+  bridgeVersion: "9.0.1",
   allowedParentOrigins: ["http://127.0.0.1:8787"],
 });
 
@@ -34,22 +34,33 @@ describe("Wink runtime config generation", () => {
     );
   });
 
-  it("locks prod to the exact pilot parent and rejects a third environment", () => {
+  it("locks prod to the exact production and localhost FE parents", () => {
     expect(
       generateWinkRuntimeConfig({
         ...VALID,
         environment: "prod",
-        allowedParentOrigins: ["https://winkgames.papastudio.net"],
+        allowedParentOrigins: [
+          "https://winkgames.papastudio.net",
+          "http://localhost:3000",
+        ],
       }),
     ).toMatchObject({
       environment: "prod",
-      allowedParentOrigins: ["https://winkgames.papastudio.net"],
+      allowedParentOrigins: [
+        "https://winkgames.papastudio.net",
+        "http://localhost:3000",
+      ],
     });
 
     for (const input of [
       { ...VALID, environment: "integration" },
       { ...VALID, allowedParentOrigins: ["*"] },
       { ...VALID, VITE_WINK_API_BASE: "https://api.example.test" },
+      {
+        ...VALID,
+        environment: "prod",
+        allowedParentOrigins: ["https://winkgames.papastudio.net"],
+      },
       {
         ...VALID,
         environment: "prod",
