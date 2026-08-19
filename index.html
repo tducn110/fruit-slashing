@@ -4,14 +4,34 @@
     <head>
       
       <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
       <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🥜</text></svg>" />
       <title>Chém Lạc Vùng Cao — Fruit Ninja Style</title>
       <meta name="description" content="Mini game chém trái cây vùng cao — chơi nhanh, vui, gây nghiện!" />
       <meta name="robots" content="noindex, nofollow" />
       <style>
-        html, body { height: 100%; margin: 0; background: #f5ecd7; }
-        #root { height: 100%; }
+        html,
+        body,
+        #root {
+          margin: 0;
+          padding: 0;
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+          overscroll-behavior: none;
+          touch-action: none;
+          background: #f5ecd7;
+        }
+
+        .game-container,
+        canvas {
+          width: 100%;
+          height: 100%;
+          touch-action: none;
+          overscroll-behavior: none;
+          user-select: none;
+          -webkit-user-select: none;
+        }
       </style>
       
     </head>
