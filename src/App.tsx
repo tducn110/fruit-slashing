@@ -50,8 +50,20 @@ export default function App() {
         audioManager.resumeBgm();
       }
     };
+    const handleBlur = () => {
+      audioManager.pauseBgm();
+    };
+    const handleFocus = () => {
+      if (view !== "game") audioManager.resumeBgm();
+    };
     document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("blur", handleBlur);
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("focus", handleFocus);
+    };
   }, [view]);
 
   useEffect(() => {

@@ -87,6 +87,7 @@ function mapRemoteScores(
     score: entry.score,
     playTimeSec: entry.playTime ?? 0,
     isLocal: false,
+    rank: entry.rank,
   }));
 }
 

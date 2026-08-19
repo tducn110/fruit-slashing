@@ -14,10 +14,11 @@ export interface LeaderboardEntry {
   score: number;
   playTimeSec: number;
   isLocal?: boolean;
+  rank?: number;
 }
 
 export interface RankedLeaderboardEntry extends LeaderboardEntry {
-  rank: number | null;
+  rank: number | undefined;
 }
 
 export const BADGE_COLORS = [
