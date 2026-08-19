@@ -1035,9 +1035,36 @@
   pointer-events: auto;
 }
 
-/* Global App Styles */
-html { scroll-behavior: smooth; }
-body { margin: 0; }
+/* Root & Game Viewport */
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+.game-container {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.game-container,
+canvas {
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: var(--paper-warm, #efe3c4); }
 ::-webkit-scrollbar-thumb { background: #c8bfa6; border-radius: 999px; }

@@ -136,8 +136,13 @@ export function useGamePointerInput({
       clearTrail();
     };
 
+    const preventTouchScroll = (event: TouchEvent) => {
+      event.preventDefault();
+    };
+
     canvas.addEventListener("pointerdown", handlePointerDown);
     canvas.addEventListener("pointermove", handlePointerMove);
+    canvas.addEventListener("touchmove", preventTouchScroll, { passive: false });
     window.addEventListener("pointerup", handlePointerUp);
     canvas.addEventListener("pointerleave", handlePointerUp);
     canvas.addEventListener("pointercancel", handlePointerUp);
@@ -145,6 +150,7 @@ export function useGamePointerInput({
     return () => {
       canvas.removeEventListener("pointerdown", handlePointerDown);
       canvas.removeEventListener("pointermove", handlePointerMove);
+      canvas.removeEventListener("touchmove", preventTouchScroll);
       window.removeEventListener("pointerup", handlePointerUp);
       canvas.removeEventListener("pointerleave", handlePointerUp);
       canvas.removeEventListener("pointercancel", handlePointerUp);

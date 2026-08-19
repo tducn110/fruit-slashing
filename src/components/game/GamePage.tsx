@@ -98,12 +98,20 @@ export function GamePage({
   };
 
   return (
-    <div style={{
-      position: "fixed", inset: 0,
-      background: "var(--rice-paper)",
-      display: "flex", flexDirection: "column",
-      zIndex: 100,
-    }}>
+    <div
+      className="game-container"
+      style={{
+        position: "fixed",
+        inset: 0,
+        width: "100vw",
+        height: "100dvh",
+        background: "var(--rice-paper)",
+        display: "flex",
+        flexDirection: "column",
+        zIndex: 100,
+        overflow: "hidden",
+      }}
+    >
       {/* Top bar */}
       <div className="gameTopBar" style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
