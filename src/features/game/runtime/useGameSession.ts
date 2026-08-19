@@ -101,7 +101,7 @@ export function useGameSession({
   }, [hostPaused, manualPaused, resumeRequired]);
 
   function startCountdown() {
-    if (starting || running || gameplayPausedRef.current) return;
+    if (starting || running) return;
     setCountdown(3);
   }
 
@@ -201,7 +201,7 @@ export function useGameSession({
   }, []);
 
   useEffect(() => {
-    if (!running && finalScore === null && countdown === null && !gameplayPausedRef.current) {
+    if (!running && finalScore === null && countdown === null) {
       startCountdown();
     }
   }, [hostPaused, manualPaused, resumeRequired]);

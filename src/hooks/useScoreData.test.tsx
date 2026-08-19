@@ -180,12 +180,14 @@ describe("useScoreData", () => {
         score: 720,
         playTimeSec: 92,
         isLocal: false,
+        rank: 1,
       },
       {
         name: "Anonymous player",
         score: 610,
         playTimeSec: 0,
         isLocal: false,
+        rank: 2,
       },
     ]);
     expect(latest.leaderboard).not.toContainEqual(

@@ -46,8 +46,18 @@ export function GamePage({
         audioManager.pauseBgm();
       }
     };
+    const handleBlur = () => {
+      if (hasActiveRun) {
+        setResumeRequired(true);
+        audioManager.pauseBgm();
+      }
+    };
     document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("blur", handleBlur);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("blur", handleBlur);
+    };
   }, [hasActiveRun]);
 
   const gameplayPaused = hasActiveRun && (manualPaused || hostPaused || resumeRequired);

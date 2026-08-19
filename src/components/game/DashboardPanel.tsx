@@ -9,8 +9,8 @@ import { PanelFrame } from "../ui/primitives";
 
 function buildDisplayModel(entries: readonly LeaderboardEntry[]) {
   const ranked: RankedLeaderboardEntry[] = entries
-    .slice(0, 100)
-    .map((entry, index) => ({ ...entry, rank: index + 1 }));
+    .slice(0, 10)
+    .map((entry, index) => ({ ...entry, rank: entry.rank ?? index + 1 }));
   const topEntries = ranked.slice(0, 10);
   const localBest = entries
     .filter((entry) => entry.isLocal)

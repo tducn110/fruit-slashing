@@ -38,7 +38,7 @@ describe("R4 static packaging boundary", () => {
     expect(manifest).toMatchObject({
       schemaVersion: 1,
       game: {
-        id: "11111111-1111-4111-8111-111111111111",
+        id: "36348ccc-1f37-4eca-ad1c-a8a47292ace7",
         slug: "fruit-slashing",
         devOrigin: "https://dev-fruit-slashing.papastudio.net",
         localOrigin: "http://127.0.0.1:5173",

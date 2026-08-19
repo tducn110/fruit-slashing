@@ -290,7 +290,7 @@ export function useWinkIntegration(): WinkIntegration {
       throw recordError(undefined, "CAPABILITY_DENIED");
     }
     try {
-      const entries = await connection.client.getLeaderboard({ limit: 100 });
+      const entries = await connection.client.getLeaderboard({ limit: 10 });
       setLeaderboard(entries);
       setError(null);
       setState((current) => stateWithError(current, null));
