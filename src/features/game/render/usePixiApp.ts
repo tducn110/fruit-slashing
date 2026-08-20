@@ -61,7 +61,8 @@ export function usePixiApp() {
       background: 0xf5ecd7,
       antialias: preset.antialias,
       resolution,
-      autoDensity: true
+      autoDensity: true,
+      preference: "webgl"
     })
       .then(() => {
         if (cancelled) {
