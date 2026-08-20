@@ -30,7 +30,8 @@ export function usePixiApp() {
       const backgroundLayer = backgroundLayerRef.current;
       if (!backgroundLayer) return;
 
-      backgroundLayer.children.forEach((child) => child.destroy({ children: true }));
+      const children = [...backgroundLayer.children];
+      children.forEach((child) => child.destroy({ children: true }));
       backgroundLayer.removeChildren();
 
       drawBackground(backgroundLayer, nextWidth, nextHeight);
