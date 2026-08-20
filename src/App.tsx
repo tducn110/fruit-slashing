@@ -90,11 +90,22 @@ export default function App() {
 
   // BGM is heavy (~1.5MB) — fetch it during browser idle, never block UI.
   useEffect(() => {
-    const id = window.requestIdleCallback(
-      () => { void audioManager.preloadBgm(); },
-      { timeout: 3000 },
-    );
-    return () => window.cancelIdleCallback(id);
+    const preloadBgm = () => { void audioManager.preloadBgm(); };
+
+    // requestIdleCallback is not available in every mobile Safari/WebView.
+    // This preload is optional, so fall back to a cancellable timer instead
+    // of allowing a missing API to crash the whole React tree on mount.
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(preloadBgm, { timeout: 3000 });
+      return () => {
+        if (typeof window.cancelIdleCallback === "function") {
+          window.cancelIdleCallback(id);
+        }
+      };
+    }
+
+    const timeoutId = window.setTimeout(preloadBgm, 0);
+    return () => window.clearTimeout(timeoutId);
   }, []);
 
   // "Chơi ngay" -> directly enter game (countdown handled by FruitGame)
