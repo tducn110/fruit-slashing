@@ -30,7 +30,7 @@ export function GameHud({ hud, running }: GameHudProps) {
 
   return (
     <div className="gameHud">
-      <div key={animKey} className={`score-text ${animClass}`}>Điểm: {hud.score}</div>
+      <div key={animKey} className={`score-text ${animClass}`}>{hud.score}</div>
 
       <div className="gameLives">
         {hud.lives > 0 ? "♥".repeat(hud.lives) : "✕"}

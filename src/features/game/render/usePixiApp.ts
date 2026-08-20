@@ -28,23 +28,12 @@ export function usePixiApp() {
 
     function redrawBackground(nextWidth: number, nextHeight: number) {
       const backgroundLayer = backgroundLayerRef.current;
-      if (!backgroundLayer || !appRef.current) return;
+      if (!backgroundLayer) return;
 
-      // Clean up old background textures to prevent memory leaks on resize
-      backgroundLayer.children.forEach((child) => {
-        if (child instanceof Sprite && child.texture) {
-          child.texture.destroy(true);
-        }
-        child.destroy({ children: true });
-      });
+      backgroundLayer.children.forEach((child) => child.destroy({ children: true }));
       backgroundLayer.removeChildren();
 
-      const background = new Container();
-      drawBackground(background, nextWidth, nextHeight);
-      const texture = appRef.current.renderer.generateTexture(background);
-      const sprite = new Sprite(texture);
-      backgroundLayer.addChild(sprite);
-      background.destroy({ children: true });
+      drawBackground(backgroundLayer, nextWidth, nextHeight);
     }
 
     const applyResize = () => {
@@ -89,12 +78,7 @@ export function usePixiApp() {
         });
 
         const backgroundLayer = new Container();
-        const background = new Container();
-        drawBackground(background, width, height);
-        const texture = app.renderer.generateTexture(background);
-        const sprite = new Sprite(texture);
-        backgroundLayer.addChild(sprite);
-        background.destroy({ children: true });
+        drawBackground(backgroundLayer, width, height);
         app.stage.addChild(backgroundLayer);
         backgroundLayerRef.current = backgroundLayer;
 
@@ -119,16 +103,6 @@ export function usePixiApp() {
       if (resizeFrame) window.cancelAnimationFrame(resizeFrame);
       window.visualViewport?.removeEventListener("resize", scheduleResize);
       window.removeEventListener("orientationchange", scheduleResize);
-
-      // Clean up background texture resources to prevent memory leaks on unmount
-      const bgLayer = backgroundLayerRef.current;
-      if (bgLayer) {
-        bgLayer.children.forEach((child) => {
-          if (child instanceof Sprite && child.texture) {
-            child.texture.destroy(true);
-          }
-        });
-      }
 
       app.stage.destroy({ children: true });
       app.destroy({ removeView: true });

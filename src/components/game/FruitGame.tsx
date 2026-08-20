@@ -301,9 +301,16 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
     setScoreMultiplier(1);
     callbacksRef.current.onGameStart?.();
 
-    const values = new Uint32Array(1);
-    crypto.getRandomValues(values);
-    const seed = values[0] || Date.now();
+    let seed = Date.now();
+    try {
+      if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+        const values = new Uint32Array(1);
+        crypto.getRandomValues(values);
+        if (values[0]) seed = values[0];
+      }
+    } catch {
+      // Ignore
+    }
     const debugTrajectory =
       typeof window !== "undefined" &&
       new URLSearchParams(window.location.search).has("fruitDebug");
