@@ -68,7 +68,7 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
     clearFeedback,
   } = useGameFeedback();
 
-  const { showSliceEffect, destroySlashPool } = useSliceEffects({
+  const { showSliceEffect, initHalfPool, destroySlashPool, destroyHalfPool } = useSliceEffects({
     playLayerRef,
     texturesRef,
     sizeRef,
@@ -203,6 +203,7 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
       const preset = getCurrentFxPreset();
       initPool(layer, circleTexture, preset.maxParticles);
     }
+    if (layer) initHalfPool(layer);
 
     const resizeObserver = new ResizeObserver(() => {
       if (coreRef.current) syncFruitSprites(coreRef.current);
@@ -221,6 +222,7 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
       clearParticles();
       clearTrail();
       destroySlashPool();
+      destroyHalfPool();
     };
   }, [ready, texturesReady]);
 
