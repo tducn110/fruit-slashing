@@ -3,6 +3,14 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import {
+  BRIDGE_SHA256,
+  BRIDGE_VERSION,
+  HARNESS_ORIGIN,
+  LOCAL_GAME_ORIGIN,
+  PROTOCOL_VERSION,
+  deriveGamePlan,
+} from "../wink-contract.mjs";
 
 const ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -32,27 +40,34 @@ describe("R4 static packaging boundary", () => {
     );
   });
 
+  // Every expectation below is derived from wink-contract.mjs rather than typed
+  // out. The literals this replaced were written against dev-winkgames, which
+  // was decommissioned on 2026-08-20: the test then asserted a manifest nobody
+  // could ship, and stayed red through a bridge upgrade instead of catching it.
+  // A test that re-states constants only proves someone edited two files.
   it("publishes a verifier-ready Wink integration manifest", () => {
     const manifest = JSON.parse(read("wink-integration.json"));
+    const plan = deriveGamePlan({
+      slug: manifest.game.slug,
+      environment: manifest.wink.environment,
+    });
 
     expect(manifest).toMatchObject({
       schemaVersion: 1,
       game: {
         id: "36348ccc-1f37-4eca-ad1c-a8a47292ace7",
-        slug: "fruit-slashing",
-        devOrigin: "https://dev-fruit-slashing.papastudio.net",
-        localOrigin: "http://127.0.0.1:5173",
+        slug: "bo-lac-fruit-slashing",
+        devOrigin: plan.gameOrigin,
+        localOrigin: LOCAL_GAME_ORIGIN,
       },
       wink: {
-        environment: "dev",
-        protocolVersion: 1,
-        bridgeVersion: "9.1.0",
-        bridgeSha256:
-          "1193bfc2ebab1151806bb09f1fe9226c61da9efa674135ccf0bd92da977acfc4",
-        devParentOrigin: "https://dev-winkgames.papastudio.net",
-        harnessOrigin: "http://127.0.0.1:8787",
-        devApiBase:
-          "https://dev-api-winkgames.papastudio.net/api/v1",
+        environment: "prod",
+        protocolVersion: PROTOCOL_VERSION,
+        bridgeVersion: BRIDGE_VERSION,
+        bridgeSha256: BRIDGE_SHA256,
+        devParentOrigin: plan.allowedParentOrigins[0],
+        harnessOrigin: HARNESS_ORIGIN,
+        devApiBase: plan.apiBase,
       },
     });
     expect(manifest.files.adapters).toEqual([
