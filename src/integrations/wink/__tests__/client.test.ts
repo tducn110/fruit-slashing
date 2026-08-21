@@ -76,7 +76,7 @@ function bridge(
     onMute: vi.fn(() => vi.fn()),
     onUnmute: vi.fn(() => vi.fn()),
     help: vi.fn(() => ({
-      bridgeVersion: '9.0.1',
+      bridgeVersion: '9.1.0',
       protocolVersion: 1,
       phase: state.phase,
       gameId: state.gameId,

@@ -623,7 +623,7 @@ export function createWinkGameClient(
     help(): RedactedWinkDiagnostics {
       const state = projectState(bridge.getState());
       return Object.freeze({
-        bridgeVersion: '9.0.1',
+        bridgeVersion: '9.1.0',
         protocolVersion: 1,
         phase: state.phase,
         gameId: state.gameId,

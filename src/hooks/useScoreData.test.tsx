@@ -80,7 +80,7 @@ function makeIntegration(
       onMute: () => () => {},
       onUnmute: () => () => {},
       help: () => ({
-        bridgeVersion: "9.0.1",
+        bridgeVersion: "9.1.0",
         protocolVersion: 1,
         phase: READY_ANONYMOUS.phase,
         gameId: READY_ANONYMOUS.gameId,

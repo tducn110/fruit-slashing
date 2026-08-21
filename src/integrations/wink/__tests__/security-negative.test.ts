@@ -70,7 +70,7 @@ function validConfig(overrides: Record<string, unknown> = {}) {
     gameId: GAME_ID,
     environment: "dev",
     protocolVersion: 1,
-    bridgeVersion: "9.0.1",
+    bridgeVersion: "9.1.0",
     allowedParentOrigins: [PARENT_ORIGIN],
     ...overrides,
   };
@@ -230,7 +230,7 @@ describe("certified bridge security negatives", () => {
       error: { code: "PARENT_REQUIRED" },
     });
     expect(harness.target.WinkBridge.help()).toMatchObject({
-      bridgeVersion: "9.0.1",
+      bridgeVersion: "9.1.0",
       protocolVersion: 1,
       errorCode: "PARENT_REQUIRED",
       hasSession: false,
