@@ -339,7 +339,7 @@ describe("useScoreData", () => {
     await mounted.unmount();
   });
 
-  it("uses local storage only in explicit offline mode", async () => {
+  it("does not create local score authority in explicit offline mode", async () => {
     const integration = makeIntegration({
       mode: "offline",
       phase: "ready_anonymous",
@@ -358,14 +358,9 @@ describe("useScoreData", () => {
     await act(async () => {
       await latest.onGameOver(gameResult({ score: 88 }));
     });
-    expect(latest.leaderboard).toEqual([
-      expect.objectContaining({
-        name: "Người chơi",
-        score: 88,
-        isLocal: true,
-      }),
-    ]);
-    expect(localStorage.getItem("fruit-game-scores")).toContain("88");
+    expect(latest.leaderboard).toEqual([]);
+    expect(latest.error?.code).toBe("PARENT_REQUIRED");
+    expect(localStorage.getItem("fruit-game-scores")).toBeNull();
     await mounted.unmount();
   });
 });

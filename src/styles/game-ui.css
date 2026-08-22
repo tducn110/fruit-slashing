@@ -737,14 +737,9 @@
   text-align: center;
 }
 
-.gameOverChoiceRow {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  width: 100%;
-  gap: 12px;
-}
 
-.scoreCard {
+
+.decisionCard {
   width: 100%;
   padding: 18px 28px;
   border-radius: 20px;
@@ -774,36 +769,13 @@
   margin-top: 8px;
 }
 
-.scoreCard-continue {
-  margin-bottom: 0;
-}
 
-.continueChoiceButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  min-height: 56px;
-  border: 2px solid rgba(138, 125, 101, 0.34);
-  border-radius: 999px;
-  background: rgba(255, 250, 240, 0.94);
-  color: var(--ink-dark);
-  font-family: inherit;
-  font-size: 17px;
-  font-weight: 900;
-  cursor: pointer;
-  box-shadow: 0 8px 18px rgba(42, 36, 24, 0.1);
-}
 
-.continueChoiceButton.is-primary {
-  border-color: rgba(211, 54, 82, 0.8);
-  background: linear-gradient(180deg, #fff7f7, #ffd6dc);
-  color: #b71d38;
-}
 
-.adDoubleScoreButton,
-.adReviveButton {
+
+
+
+.rewardAdButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -823,26 +795,23 @@
   transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.adDoubleScoreButton:hover,
-.adReviveButton:hover {
+.rewardAdButton:hover {
   transform: translateY(-1px);
   box-shadow: 0 10px 26px rgba(232, 116, 50, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
-.adDoubleScoreButton:active,
-.adReviveButton:active {
+.rewardAdButton:active {
   transform: translateY(1px) scale(0.98);
 }
 
-.adDoubleScoreButton:disabled {
+.rewardAdButton:disabled {
   cursor: default;
   opacity: 0.78;
   transform: none;
   box-shadow: 0 6px 16px rgba(42, 36, 24, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 
-.adDoubleScoreIcon,
-.adReviveIcon {
+.rewardAdIcon {
   display: grid;
   place-items: center;
   width: 34px;
@@ -853,57 +822,32 @@
   box-shadow: inset 0 -2px 0 rgba(143, 67, 24, 0.24);
 }
 
-.adDoubleScoreText,
-.adReviveText {
-  display: grid;
-  gap: 1px;
-  text-align: center;
-  line-height: 1.05;
-}
 
-.adDoubleScoreButton-compact {
+
+.rewardAdButton-compact {
   gap: 12px;
 }
 
-.adDoubleScoreLabel {
+.rewardAdLabel {
   color: var(--primary);
   font-size: 22px;
   text-transform: uppercase;
   letter-spacing: 0;
 }
 
-.adDoubleScoreValue,
-.adReviveValue {
-  color: var(--ink-dark);
-  font-size: 13px;
-}
 
-.adReviveButton {
-  min-width: 186px;
-  border-color: rgba(211, 54, 82, 0.8);
-  background: linear-gradient(180deg, #fff7f7, #ffd6dc);
-  box-shadow: 0 8px 22px rgba(211, 54, 82, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-}
 
-.adReviveButton:hover {
-  box-shadow: 0 10px 26px rgba(211, 54, 82, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.92);
-}
 
-.adReviveIcon {
-  background: linear-gradient(180deg, #ff6b7d, #d93652);
-}
 
-.adReviveText {
-  text-align: center;
-}
 
-.adReviveValue {
-  color: #b71d38;
-  font-size: 18px;
-  font-weight: 900;
-}
 
-.endGameButton {
+
+
+
+
+
+
+.secondaryButton {
   width: 100%;
   min-height: 72px;
   padding: 18px 38px;
@@ -919,58 +863,46 @@
   transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.endGameButton:hover {
+.secondaryButton:hover {
   transform: scale(1.03);
 }
-.endGameButton:active {
+.secondaryButton:active {
   transform: scale(0.95);
 }
 
 @media (max-width: 640px) {
-  .scoreCard {
+  .decisionCard {
     width: min(268px, calc(100vw - 64px));
     margin-left: auto;
     margin-right: auto;
     padding: 16px 22px;
   }
 
-  .adDoubleScoreButton {
+  .rewardAdButton {
     min-height: 68px;
     padding: 10px 15px;
   }
 
-  .gameOverChoiceRow {
-    gap: 10px;
-  }
+  
 
-  .continueChoiceButton {
-    min-height: 52px;
-    font-size: 15px;
-  }
+  
 
-  .adReviveButton {
-    padding: 10px 15px;
-  }
+  
 
-  .adDoubleScoreIcon,
-  .adReviveIcon {
+  .rewardAdIcon {
     width: 31px;
     height: 31px;
   }
 
-  .adDoubleScoreLabel {
+  .rewardAdLabel {
     font-size: 20px;
   }
 
-  .adDoubleScoreValue {
-    font-size: 12px;
-  }
+  
 
-  .adReviveValue {
-    font-size: 17px;
-  }
+  
 
-  .endGameButton {
+  .secondaryButton {
     min-height: 68px;
     font-size: 18px;
   }
@@ -1459,4 +1391,12 @@ canvas {
 }
 .pauseHudButton--sfx .pauseHudMuteSlash {
   box-shadow: 0 0 0 2px var(--pause-sfx-bg);
+}
+
+.heartHUD__hearts {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
 }

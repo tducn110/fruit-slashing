@@ -26,6 +26,7 @@ import { useGameFeedback } from "../../features/game/render/useGameFeedback";
 import { useSliceEffects } from "../../features/game/render/useSliceEffects";
 import { getFxPreset } from "../../features/game/render/fxPreset";
 import { PauseOverlay } from "./PauseOverlay";
+import { showRewardedVideo } from "../../integrations/ads/googleH5Ads";
 
 interface Props {
   onSubmitScore?: (result: GameResult) => void;
@@ -51,10 +52,16 @@ interface Props {
 export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameStart, onRunStateChange, hostPaused = false, manualPaused = false, resumeRequired = false, restartKey = 0, muted = false, onPlaySlice, onPlayBomb, musicMuted = false, sfxMuted = false, onToggleMusic, onToggleSfx, onResumePause, onRestartPause }: Props) {
   const callbacksRef = useRef({ onSubmitScore, onCompleteRound, onExitGame, onGameStart, muted, onPlaySlice, onPlayBomb });
   callbacksRef.current = { onSubmitScore, onCompleteRound, onExitGame, onGameStart, muted, onPlaySlice, onPlayBomb };
-  const { wrapRef, appRef, sizeRef, playLayerRef, trailGraphicsRef, ready } = usePixiApp();
+  const onViewportResizeRef = useRef<(() => void) | null>(null);
+  const { wrapRef, appRef, sizeRef, playLayerRef, trailGraphicsRef, ready } = usePixiApp({
+    onViewportResize: () => onViewportResizeRef.current?.(),
+  });
   const getCurrentFxPreset = useCallback(() => getFxPreset(sizeRef.current.w), [sizeRef]);
   const { texturesRef, texturesReady } = useFruitTextures({ appRef, appReady: ready });
   const { syncFruitSprites, clearFruitSprites } = useFruitSprites({ playLayerRef, texturesRef, texturesReady, sizeRef });
+  onViewportResizeRef.current = () => {
+    if (coreRef.current) syncFruitSprites(coreRef.current);
+  };
   const { addParticle, updateParticles, clearParticles, initPool, spawnPooledParticle } = useParticleSystem({
     getMaxParticles: () => getCurrentFxPreset().maxParticles,
   });
@@ -108,6 +115,7 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
   const [reviveUsed, setReviveUsed] = useState(false);
   const [gameOverMode, setGameOverMode] = useState<"continue" | "summary">("continue");
   const [scoreMultiplier, setScoreMultiplier] = useState(1);
+  const [adPending, setAdPending] = useState(false);
   const finalizeSentRef = useRef(false);
 
   const { trailPointsRef, addTrailPoint, clearTrail, drawTrail } = useSlashTrail({
@@ -205,18 +213,12 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
     }
     if (layer) initHalfPool(layer);
 
-    const resizeObserver = new ResizeObserver(() => {
-      if (coreRef.current) syncFruitSprites(coreRef.current);
-    });
-    resizeObserver.observe(wrapRef.current);
-
     if (!playingRef.current && !countdown) {
       session.startCountdown();
     }
 
     return () => {
       destroyedRef.current = true;
-      resizeObserver.disconnect();
 
       clearFruitSprites();
       clearParticles();
@@ -226,9 +228,15 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
     };
   }, [ready, texturesReady]);
 
-  function handleRevive() {
+  async function handleRevive() {
+    if (adPending) return;
     const state = coreRef.current;
     if (!state || !state.ended || state.endReason !== "lives" || reviveUsed) return;
+
+    setAdPending(true);
+    const rewarded = await showRewardedVideo({ name: "revive_after_death" });
+    setAdPending(false);
+    if (!rewarded) return;
 
     setReviveUsed(true);
     setScoreMultiplier(1);
@@ -282,7 +290,12 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
     setGameOverMode("summary");
   }
 
-  function handleDoubleScore() {
+  async function handleDoubleScore() {
+    if (adPending || scoreMultiplier !== 1) return;
+    setAdPending(true);
+    const rewarded = await showRewardedVideo({ name: "double_final_score" });
+    setAdPending(false);
+    if (!rewarded) return;
     setScoreMultiplier(2);
   }
 
@@ -358,6 +371,7 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
         mode={gameOverMode}
         canContinue={!reviveUsed && finalResult?.endReason === "lives"}
         canDoubleScore={scoreMultiplier === 1}
+        adPending={adPending}
         onContinue={handleRevive}
         onDeclineContinue={handleDeclineContinue}
         onDoubleScore={handleDoubleScore}

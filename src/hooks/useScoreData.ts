@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { GameResult } from "../game/types";
-import {
-  getLocalScores,
-  saveLocalScore,
-  type LeaderboardEntry,
-} from "../lib/localScores";
+import type { LeaderboardEntry } from "../lib/localScores";
 import type {
   WinkIntegration,
   WinkIntegrationError,
@@ -63,17 +59,6 @@ function visibleError(
   });
 }
 
-function readOfflineScores(): LeaderboardEntry[] {
-  return getLocalScores()
-    .slice(0, 100)
-    .map((score) => ({
-      name: score.playerName,
-      score: score.score,
-      playTimeSec: score.playTimeSec,
-      isLocal: true,
-    }));
-}
-
 function mapRemoteScores(
   entries: readonly {
     rank: number;
@@ -91,21 +76,10 @@ function mapRemoteScores(
   }));
 }
 
-function bestLocalScore(scores: readonly LeaderboardEntry[]): number {
-  return scores.reduce(
-    (best, entry) => (entry.score > best ? entry.score : best),
-    0,
-  );
-}
-
 export function useScoreData(integration: WinkIntegration) {
   const offline = integration.mode === "offline";
-  const [scores, setScores] = useState<LeaderboardEntry[]>(() =>
-    offline ? readOfflineScores() : [],
-  );
-  const [lastScore, setLastScore] = useState<number | null>(() =>
-    offline ? bestLocalScore(readOfflineScores()) || null : null,
-  );
+  const [scores, setScores] = useState<LeaderboardEntry[]>([]);
+  const [lastScore, setLastScore] = useState<number | null>(null);
   const [error, setError] = useState<WinkIntegrationError | null>(
     integration.error,
   );
@@ -128,9 +102,10 @@ export function useScoreData(integration: WinkIntegration) {
 
   const refreshLeaderboard = useCallback(async () => {
     if (offline) {
-      setScores(readOfflineScores());
-      setError(null);
-      return;
+      setScores([]);
+      const nextError = visibleError(undefined, "PARENT_REQUIRED");
+      setError(nextError);
+      throw nextError;
     }
 
     if (!integration.client) {
@@ -193,22 +168,7 @@ export function useScoreData(integration: WinkIntegration) {
       if (!qualifies) return;
 
       if (offline) {
-        const saved = saveLocalScore({
-          uid: "local-player",
-          playerName: "Người chơi",
-          photoURL: null,
-          score: result.score,
-          playTimeSec: result.playTimeSec,
-          createdAt: Date.now(),
-        });
-        if (saved) {
-          const nextScores = readOfflineScores();
-          setScores(nextScores);
-          setLastScore(result.score);
-          setError(null);
-        } else {
-          setError(visibleError(undefined, "API_NETWORK_ERROR"));
-        }
+        setError(visibleError(undefined, "PARENT_REQUIRED"));
         return;
       }
 
@@ -239,9 +199,7 @@ export function useScoreData(integration: WinkIntegration) {
     [offline, integration.submitFinalScore],
   );
 
-  const bestScore = offline
-    ? bestLocalScore(scores)
-    : lastScore ?? 0;
+  const bestScore = lastScore ?? 0;
 
   return {
     bestScore,

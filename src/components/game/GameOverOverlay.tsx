@@ -1,5 +1,6 @@
-import { Clapperboard } from "lucide-react";
-import { AdDoubleScoreButton } from "./AdDoubleScoreButton";
+import { ReactNode } from "react";
+import { Heart } from "lucide-react";
+import { RewardAdButton } from "./RewardAdButton";
 
 interface GameOverOverlayProps {
   finalScore: number | null;
@@ -9,10 +10,47 @@ interface GameOverOverlayProps {
   mode: "continue" | "summary";
   canContinue: boolean;
   canDoubleScore: boolean;
+  adPending: boolean;
   onContinue: () => void;
   onDeclineContinue: () => void;
   onDoubleScore: () => void;
   onEndGame: () => void;
+}
+
+function DecisionCard({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <div className={`decisionCard ${className}`}>{children}</div>;
+}
+
+function HeartHUD() {
+  return (
+    <DecisionCard className="heartHUD">
+      <div className="heartHUD__hearts">
+        <Heart fill="#ffffff" color="var(--pencil-gray)" size={42} strokeWidth={2} />
+        <Heart fill="#ffffff" color="var(--pencil-gray)" size={42} strokeWidth={2} />
+        <Heart fill="#ffffff" color="var(--pencil-gray)" size={42} strokeWidth={2} />
+      </div>
+    </DecisionCard>
+  );
+}
+
+function ScoreCard({ displayScore, canDoubleScore }: { displayScore: number; canDoubleScore: boolean }) {
+  return (
+    <DecisionCard>
+      <div className="scoreLabel">Điểm số</div>
+      <div className="scoreValue">{displayScore.toLocaleString("vi-VN")} điểm</div>
+      <div className="scoreMeta">
+        {canDoubleScore ? "Chọn nhân đôi điểm hoặc kết thúc game." : "Điểm đã được nhân đôi. Chọn kết thúc game."}
+      </div>
+    </DecisionCard>
+  );
+}
+
+function SecondaryButton({ onClick, disabled, children }: { onClick: () => void; disabled?: boolean; children: ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} className="secondaryButton" disabled={disabled}>
+      {children}
+    </button>
+  );
 }
 
 export function GameOverOverlay({
@@ -23,6 +61,7 @@ export function GameOverOverlay({
   mode,
   canContinue,
   canDoubleScore,
+  adPending,
   onContinue,
   onDeclineContinue,
   onDoubleScore,
@@ -34,20 +73,15 @@ export function GameOverOverlay({
     return (
       <div className="gameOverOverlay">
         <div className="gameOverCard">
-          <div className="scoreCard scoreCard-continue">
-            <div className="scoreLabel">Tiếp tục?</div>
-            <div className="scoreMeta">Bạn muốn hồi lại 3 máu để chơi tiếp hay chốt điểm hiện tại?</div>
-          </div>
-
-          <div className="gameOverChoiceRow">
-            <button type="button" className="continueChoiceButton is-primary" onClick={onContinue}>
-              <Clapperboard size={18} strokeWidth={2.6} />
-              Tiếp tục chơi
-            </button>
-            <button type="button" className="continueChoiceButton" onClick={onDeclineContinue}>
-              Không
-            </button>
-          </div>
+          <HeartHUD />
+          <RewardAdButton 
+            label="Tiếp tục chơi" 
+            onClick={onContinue} 
+            disabled={adPending} 
+          />
+          <SecondaryButton onClick={onDeclineContinue} disabled={adPending}>
+            Không
+          </SecondaryButton>
         </div>
       </div>
     );
@@ -56,19 +90,18 @@ export function GameOverOverlay({
   return (
     <div className="gameOverOverlay">
       <div className="gameOverCard">
-        <div className="scoreCard">
-          <div className="scoreLabel">Điểm số</div>
-          <div className="scoreValue">{displayScore.toLocaleString("vi-VN")} điểm</div>
-          <div className="scoreMeta">
-            {canDoubleScore ? "Chọn nhân đôi điểm hoặc kết thúc game." : "Điểm đã được nhân đôi. Chọn kết thúc game."}
-          </div>
-        </div>
-
-        <AdDoubleScoreButton score={finalScore} onClick={onDoubleScore} disabled={!canDoubleScore} />
-
-        <button type="button" onClick={onEndGame} className="endGameButton">
+        <ScoreCard 
+          displayScore={displayScore} 
+          canDoubleScore={canDoubleScore} 
+        />
+        <RewardAdButton 
+          label="x2" 
+          onClick={onDoubleScore} 
+          disabled={!canDoubleScore || adPending} 
+        />
+        <SecondaryButton onClick={onEndGame} disabled={adPending}>
           Kết thúc game
-        </button>
+        </SecondaryButton>
       </div>
     </div>
   );
