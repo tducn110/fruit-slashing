@@ -5,6 +5,7 @@ import type {
   WinkIntegration,
   WinkIntegrationError,
   WinkIntegrationErrorCode,
+  WinkLeaderboardEntry,
 } from "../integrations/wink/types";
 import { WinkGameClientError } from "../integrations/wink/client";
 
@@ -85,6 +86,8 @@ export function useScoreData(integration: WinkIntegration) {
   );
   const [scoreSubmissionError, setScoreSubmissionError] =
     useState<WinkIntegrationError | null>(null);
+  const [personalBest, setPersonalBest] =
+    useState<WinkLeaderboardEntry | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -102,10 +105,10 @@ export function useScoreData(integration: WinkIntegration) {
 
   const refreshLeaderboard = useCallback(async () => {
     if (offline) {
-      setScores([]);
-      const nextError = visibleError(undefined, "PARENT_REQUIRED");
-      setError(nextError);
-      throw nextError;
+      setScores(readOfflineScores());
+      setPersonalBest(null);
+      setError(null);
+      return;
     }
 
     if (!integration.client) {
@@ -121,8 +124,10 @@ export function useScoreData(integration: WinkIntegration) {
 
     setLoading(true);
     try {
-      const entries = await integration.client.getLeaderboard({ limit: 100 });
-      setScores(mapRemoteScores(entries));
+      // 30 is the server's cap; anything larger is trimmed to it server-side.
+      const board = await integration.client.getLeaderboard({ limit: 30 });
+      setScores(mapRemoteScores(board.entries));
+      setPersonalBest(board.me);
       setError(null);
     } catch (value) {
       const nextError = visibleError(value);
@@ -199,13 +204,20 @@ export function useScoreData(integration: WinkIntegration) {
     [offline, integration.submitFinalScore],
   );
 
-  const bestScore = lastScore ?? 0;
+  // Online, the player's best now comes from the server rather than from the
+  // last score this tab happened to submit — those differ for anyone who has
+  // played before, and the page cap means the old fallback of scanning the
+  // returned rows could not find them either.
+  const bestScore = offline
+    ? bestLocalScore(scores)
+    : personalBest?.score ?? lastScore ?? 0;
 
   return {
     bestScore,
     lastScore,
     totalGamesPlayed: scores.length,
     leaderboard: scores,
+    personalBest,
     loading,
     error,
     scoreSubmissionError,

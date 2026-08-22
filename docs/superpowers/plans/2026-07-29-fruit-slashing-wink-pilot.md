@@ -177,6 +177,15 @@ recoverable AI stash by this R4 plan.
 
 ## 4. Public adapter API
 
+> **Amended 2026-08-18 — leaderboard shape.** The `WinkGameClient.getLeaderboard`
+> signature recorded below is the R4 contract as frozen on 2026-07-29 and is no
+> longer current. It now resolves to `WinkLeaderboard`
+> (`{ entries, me }`) instead of a bare entry array, and the server caps a page
+> at 30 rows. `me` is the signed-in player's own best run with its rank across
+> the whole board, or null for an anonymous or guest reader. The rest of this
+> section is left as written, as the record of what R4 shipped.
+
+
 The following is the only API visible to game/UI code. Raw `window.WinkBridge`
 is confined to `src/integrations/wink/client.ts`.
 

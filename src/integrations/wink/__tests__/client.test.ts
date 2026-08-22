@@ -76,7 +76,7 @@ function bridge(
     onMute: vi.fn(() => vi.fn()),
     onUnmute: vi.fn(() => vi.fn()),
     help: vi.fn(() => ({
-      bridgeVersion: '9.0.1',
+      bridgeVersion: '9.1.0',
       protocolVersion: 1,
       phase: state.phase,
       gameId: state.gameId,
@@ -123,16 +123,60 @@ describe('createWinkGameClient', () => {
 
     await expect(
       client.getLeaderboard({ limit: 10, offset: 0 }),
-    ).resolves.toEqual([
-      {
-        rank: 1,
-        score: 321,
-        playTime: 18,
-        displayName: 'Winkgames Pilot User',
-        avatarUrl: null,
-        createdAt: '2026-07-29T15:00:00.000Z',
-      },
-    ]);
+    ).resolves.toEqual({
+      entries: [
+        {
+          rank: 1,
+          score: 321,
+          playTime: 18,
+          displayName: 'Winkgames Pilot User',
+          avatarUrl: null,
+          createdAt: '2026-07-29T15:00:00.000Z',
+        },
+      ],
+      me: null,
+    });
+  });
+
+  it('projects the viewer own best, which need not appear in the page', async () => {
+    const client = createWinkGameClient(
+      bridge({
+        getLeaderboard: vi.fn(async () => ({
+          entries: [rawEntry()],
+          total: 4213,
+          me: rawEntry({ rank: 812, score: 99 }),
+        })),
+      }),
+    );
+
+    await expect((await client.getLeaderboard()).me).toEqual({
+      rank: 812,
+      score: 99,
+      playTime: 18,
+      displayName: 'Winkgames Pilot User',
+      avatarUrl: null,
+      createdAt: '2026-07-29T15:00:00.000Z',
+    });
+  });
+
+  it('reads a null me, and an absent me, as no personal best', async () => {
+    const nulled = createWinkGameClient(
+      bridge({
+        getLeaderboard: vi.fn(async () => ({ entries: [], total: 0, me: null })),
+      }),
+    );
+
+    expect((await nulled.getLeaderboard()).me).toBeNull();
+
+    // A server that predates the field must read as "nothing to show" rather
+    // than as a broken response, or rollout order alone breaks the board.
+    const absent = createWinkGameClient(
+      bridge({
+        getLeaderboard: vi.fn(async () => ({ entries: [], total: 0 })),
+      }),
+    );
+
+    expect((await absent.getLeaderboard()).me).toBeNull();
   });
 
   it.each([
