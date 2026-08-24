@@ -177,7 +177,11 @@ export default function App() {
           onSaveScore={onGameOver}
           onCompleteRound={handleCompleteRound}
           onHome={handleHome}
-          onOpenLeaderboard={() => handleOpenLeaderboard("game")}
+          onRefreshLeaderboard={() => {
+            void refreshLeaderboard().catch(() => {});
+          }}
+          leaderboard={leaderboard}
+          bestScore={personalBest?.score ?? bestScore}
         />
       </>
     );

@@ -38,21 +38,18 @@ describe("R4 static packaging boundary", () => {
     expect(manifest).toMatchObject({
       schemaVersion: 1,
       game: {
-        id: "36348ccc-1f37-4eca-ad1c-a8a47292ace7",
-        slug: "fruit-slashing",
-        devOrigin: "https://dev-fruit-slashing.papastudio.net",
-        localOrigin: "http://127.0.0.1:5173",
+        id: '36348ccc-1f37-4eca-ad1c-a8a47292ace7',
+        slug: 'fruit-slashing',
+        devOrigin: 'https://fruit-slashing.papastudio.net',
+        localOrigin: 'http://127.0.0.1:5173',
       },
       wink: {
-        environment: "dev",
+        environment: 'prod',
         protocolVersion: 1,
-        bridgeVersion: "9.2.0",
-        bridgeSha256:
-          "ec64697cd9912cd4ff8ed007ff14969280a723f4acb48dfe5bcd27c48e6ec8bc",
-        devParentOrigin: "https://dev-winkgames.papastudio.net",
-        harnessOrigin: "http://127.0.0.1:8787",
-        devApiBase:
-          "https://dev-api-winkgames.papastudio.net/api/v1",
+        bridgeVersion: '9.2.0',
+        devParentOrigin: 'https://winkgames.papastudio.net',
+        harnessOrigin: 'http://127.0.0.1:8787',
+        devApiBase: 'https://api-winkgames.papastudio.net/api/v1',
       },
     });
     expect(manifest.files.adapters).toEqual([

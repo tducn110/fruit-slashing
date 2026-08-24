@@ -65,6 +65,15 @@ export function usePixiApp({ onViewportResize }: UsePixiAppOptions = {}) {
 
     const resizeObserver = new ResizeObserver(scheduleResize);
 
+    let appDestroyed = false;
+    function safeDestroy() {
+      if (appDestroyed) return;
+      appDestroyed = true;
+      try { app.ticker?.stop?.(); } catch {}
+      try { app.stage?.destroy({ children: true }); } catch {}
+      try { app.destroy({ removeView: true }); } catch {}
+    }
+
     app.init({
       width,
       height,
@@ -76,7 +85,7 @@ export function usePixiApp({ onViewportResize }: UsePixiAppOptions = {}) {
     })
       .then(() => {
         if (cancelled) {
-          app.destroy({ removeView: true });
+          safeDestroy();
           return;
         }
         appRef.current = app;
@@ -116,8 +125,9 @@ export function usePixiApp({ onViewportResize }: UsePixiAppOptions = {}) {
       window.visualViewport?.removeEventListener("resize", scheduleResize);
       window.removeEventListener("orientationchange", scheduleResize);
 
-      app.stage.destroy({ children: true });
-      app.destroy({ removeView: true });
+      if (appRef.current) {
+        safeDestroy();
+      }
       appRef.current = null;
       backgroundLayerRef.current = null;
       playLayerRef.current = null;

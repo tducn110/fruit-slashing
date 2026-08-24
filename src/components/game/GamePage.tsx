@@ -3,8 +3,10 @@ import { FruitGame } from "./FruitGame";
 import type { GameResult } from "../../game/types";
 import { Home, Pause, Settings, Trophy } from "lucide-react";
 import { useGameSound } from "../../hooks/useSound";
+import { DashboardPanel } from "./DashboardPanel";
 import { SettingsPanel } from "./SettingsPanel";
 import { audioManager } from "../../utils/audio-manager";
+import type { LeaderboardEntry } from "../../lib/localScores";
 
 interface Props {
   musicMuted: boolean;
@@ -15,7 +17,9 @@ interface Props {
   onSaveScore: (result: GameResult) => void;
   onCompleteRound: (result: GameResult) => void;
   onHome: () => void;
-  onOpenLeaderboard: () => void;
+  onRefreshLeaderboard: () => void;
+  leaderboard: readonly LeaderboardEntry[];
+  bestScore: number;
 }
 
 export function GamePage({
@@ -27,9 +31,11 @@ export function GamePage({
   onSaveScore,
   onCompleteRound,
   onHome,
-  onOpenLeaderboard,
+  onRefreshLeaderboard,
+  leaderboard,
+  bestScore,
 }: Props) {
-  const [panel, setPanel] = useState<null | "settings">(null);
+  const [panel, setPanel] = useState<null | "settings" | "leaderboard">(null);
   const [hasActiveRun, setHasActiveRun] = useState(false);
   const [manualPaused, setManualPaused] = useState(false);
   const [resumeRequired, setResumeRequired] = useState(false);
@@ -60,7 +66,7 @@ export function GamePage({
     };
   }, [hasActiveRun]);
 
-  const gameplayPaused = hasActiveRun && (manualPaused || hostPaused || resumeRequired);
+  const gameplayPaused = hasActiveRun && (manualPaused || hostPaused || resumeRequired || panel === "leaderboard");
 
   useEffect(() => {
     if (gameplayPaused) {
@@ -77,7 +83,15 @@ export function GamePage({
   // 🎵 Sound — BGM managed by App.tsx, SFX for in-game slicing
   const { playSlice, playBomb } = useGameSound(sfxMuted);
 
-  const toggle = () => setPanel((prev) => (prev === "settings" ? null : "settings"));
+  const toggleSettings = () => setPanel((prev) => (prev === "settings" ? null : "settings"));
+  const toggleLeaderboard = () => {
+    setPanel((prev) => {
+      if (prev === "leaderboard") return null;
+      if (hasActiveRun) setManualPaused(true);
+      onRefreshLeaderboard();
+      return "leaderboard";
+    });
+  };
 
   const handlePause = () => {
     setManualPaused(true);
@@ -140,18 +154,18 @@ export function GamePage({
         {/* Right: Settings + Dashboard */}
         <div className="gameActions" style={{ display: "flex", gap: 8 }}>
           <button
-            onClick={onOpenLeaderboard}
+            onClick={toggleLeaderboard}
             className="game-btn"
             aria-label="Bảng điểm"
-            style={btnStyle}
+            style={{ ...btnStyle, ...(panel === "leaderboard" ? { background: "color-mix(in srgb, var(--primary) 12%, transparent)", border: "2px solid var(--primary)" } : {}) }}
           >
             <Trophy size={15} />
           </button>
           <button
-            onClick={hasActiveRun ? handlePause : toggle}
+            onClick={hasActiveRun ? handlePause : toggleSettings}
             className="game-btn"
             aria-label={hasActiveRun ? "Tạm dừng" : "Cài đặt"}
-            style={{ ...btnStyle, ...(panel ? { background: "color-mix(in srgb, var(--primary) 12%, transparent)", border: "2px solid var(--primary)" } : {}) }}
+            style={{ ...btnStyle, ...(panel === "settings" ? { background: "color-mix(in srgb, var(--primary) 12%, transparent)", border: "2px solid var(--primary)" } : {}) }}
           >
             {hasActiveRun ? <Pause size={15} /> : <Settings size={15} />}
           </button>
@@ -184,7 +198,7 @@ export function GamePage({
         </div>
 
         <div className="game-panel-layer">
-          {panel === "settings" && <div className="gamePanelBackdrop" aria-hidden="true" />}
+          {panel !== null && <div className="gamePanelBackdrop" aria-hidden="true" />}
           {/* Settings overlay */}
           {panel === "settings" && (
             <SettingsPanel
@@ -192,6 +206,13 @@ export function GamePage({
               sfxMuted={sfxMuted}
               onToggleMusic={onToggleMusic}
               onToggleSfx={onToggleSfx}
+              onClose={() => setPanel(null)}
+            />
+          )}
+          {panel === "leaderboard" && (
+            <DashboardPanel
+              leaderboard={leaderboard}
+              bestScore={bestScore}
               onClose={() => setPanel(null)}
             />
           )}

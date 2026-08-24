@@ -193,18 +193,8 @@ export function useGameSession({
     return () => clearTimeout(timer);
   }, [countdown, hostPaused, manualPaused, resumeRequired, onStart]);
 
-  // Initial countdown trigger
-  useEffect(() => {
-    if (!running && finalScore === null && countdown === null) {
-      startCountdown();
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!running && finalScore === null && countdown === null) {
-      startCountdown();
-    }
-  }, [hostPaused, manualPaused, resumeRequired]);
+  // Countdown is now fully owned and managed externally by the caller (FruitGame.tsx).
+  // Automatic triggers inside this hook have been removed to prevent race conditions.
 
   return {
     countdown,

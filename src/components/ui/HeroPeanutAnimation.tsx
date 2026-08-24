@@ -8,16 +8,17 @@ export function HeroPeanutAnimation() {
     const host = hostRef.current;
     if (!host) return;
 
-    let cancelled = false;
-    let appDestroyed = false;
+    let initComplete = false;
+    let destroyRequested = false;
+    let actuallyDestroyed = false;
     const app = new Application();
 
     function destroyApp() {
-      if (appDestroyed) {
-        return;
-      }
-      appDestroyed = true;
+      if (actuallyDestroyed) return;
+      destroyRequested = true;
+      if (!initComplete) return; // Wait for init to finish before destroying
 
+      actuallyDestroyed = true;
       try {
         app.ticker?.stop?.();
       } catch {
@@ -45,7 +46,8 @@ export function HeroPeanutAnimation() {
       resolution: Math.min(window.devicePixelRatio || 1, 2),
       autoDensity: true,
     }).then(async () => {
-      if (cancelled) {
+      initComplete = true;
+      if (destroyRequested) {
         destroyApp();
         return;
       }
@@ -58,7 +60,10 @@ export function HeroPeanutAnimation() {
       });
 
       const sheet = await Assets.load<Spritesheet>("/assets/peanut_idle_wave_spritesheet.json");
-      if (cancelled) return;
+      if (destroyRequested) {
+        destroyApp();
+        return;
+      }
 
       const frames = [
         sheet.textures["peanut_idle_wave_00.png"],
@@ -96,7 +101,7 @@ export function HeroPeanutAnimation() {
     }).catch((error) => console.error("Hero peanut animation failed to load", error));
 
     return () => {
-      cancelled = true;
+      destroyRequested = true;
       destroyApp();
     };
   }, []);

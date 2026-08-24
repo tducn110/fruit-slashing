@@ -213,7 +213,7 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
     }
     if (layer) initHalfPool(layer);
 
-    if (!playingRef.current && !countdown) {
+    if (!playingRef.current && countdown === null && finalScore === null) {
       session.startCountdown();
     }
 
