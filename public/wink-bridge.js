@@ -24,7 +24,7 @@ var WinkBridgeBundle = (() => {
   });
 
   // game-template/src/contract.js
-  var BRIDGE_VERSION = "9.2.0";
+  var BRIDGE_VERSION = "9.1.0";
   var PROTOCOL_VERSION = 1;
   var ENVIRONMENTS = Object.freeze([
     "local",
@@ -48,11 +48,7 @@ var WinkBridgeBundle = (() => {
     "wink:api-request",
     "wink:api-response"
   ]);
-  var API_METHODS = Object.freeze([
-    "getLeaderboard",
-    "getPersonalBest",
-    "submitScore"
-  ]);
+  var API_METHODS = Object.freeze(["getLeaderboard", "submitScore"]);
   var BRIDGE_ERROR_CODES = Object.freeze([
     "GAME_NOT_FOUND",
     "GAME_IFRAME_DISABLED",
@@ -195,15 +191,6 @@ var WinkBridgeBundle = (() => {
     }
     if (!hasExactKeys(value, [], ["limit", "offset"]) || Object.hasOwn(value, "limit") && (!Number.isInteger(value.limit) || value.limit < 1 || value.limit > 500) || Object.hasOwn(value, "offset") && (!Number.isInteger(value.offset) || value.offset < 0)) {
       throw bridgeError("MESSAGE_REJECTED", "Leaderboard options are invalid");
-    }
-    return value;
-  }
-  function assertPersonalBestOptions(value) {
-    if (value === void 0) {
-      return {};
-    }
-    if (!hasExactKeys(value, [])) {
-      throw bridgeError("MESSAGE_REJECTED", "Personal best takes no options");
     }
     return value;
   }
@@ -835,14 +822,6 @@ var WinkBridgeBundle = (() => {
         requireApi();
         return callParent("getLeaderboard", assertLeaderboardOptions(options));
       },
-      getPersonalBest: async (options) => {
-        requireApi();
-        assertPersonalBestOptions(options);
-        if (!state.capabilities.submitScore) {
-          return deepFreeze({ me: null });
-        }
-        return callParent("getPersonalBest");
-      },
       submitScore: async (input) => {
         requireApi();
         if (!state.capabilities.submitScore) {
@@ -962,7 +941,6 @@ var WinkBridgeBundle = (() => {
       getState: stateMachine.getState,
       getCapabilities: stateMachine.getCapabilities,
       getLeaderboard: stateMachine.getLeaderboard,
-      getPersonalBest: stateMachine.getPersonalBest,
       submitScore: stateMachine.submitScore,
       complete: stateMachine.complete,
       onPause: stateMachine.onPause,

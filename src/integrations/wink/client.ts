@@ -7,8 +7,8 @@ import type {
   WinkCompletionInput,
   WinkGameClient,
   WinkIntegrationErrorCode,
+  WinkLeaderboard,
   WinkLeaderboardEntry,
-  WinkPersonalBest,
   WinkPhase,
   WinkScoreInput,
 } from './types';
@@ -23,8 +23,6 @@ const BRIDGE_METHODS = [
   'subscribe',
   'getState',
   'getCapabilities',
-  'getPersonalBest',
-  'getPersonalBest',
   'getLeaderboard',
   'submitScore',
   'complete',
@@ -346,19 +344,12 @@ function projectLeaderboardEntry(value: unknown): WinkLeaderboardEntry {
   });
 }
 
-function projectPersonalBest(value: unknown): WinkPersonalBest {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('WINK_MALFORMED_PERSONAL_BEST');
-  }
-  const payload = value as Record<string, unknown>;
-  return {
-    me: payload.me ? projectLeaderboardEntry(payload.me) : null,
-  };
-}
-
-function projectLeaderboard(value: unknown): readonly WinkLeaderboardEntry[] {
+function projectLeaderboard(value: unknown): WinkLeaderboard {
+  // `me` is accepted as an optional key, not a required one: a server that does
+  // not send it yet, and a reader with no personal best, must both come out as
+  // null rather than as a rejected response.
   if (
-    !hasExactKeys(value, ['entries', 'total']) ||
+    !hasExactKeys(value, ['entries', 'total'], ['me']) ||
     !Array.isArray(value.entries) ||
     !Number.isInteger(value.total) ||
     (value.total as number) < 0
@@ -369,7 +360,14 @@ function projectLeaderboard(value: unknown): readonly WinkLeaderboardEntry[] {
       true,
     );
   }
-  return Object.freeze(value.entries.map(projectLeaderboardEntry));
+
+  return Object.freeze({
+    entries: Object.freeze(value.entries.map(projectLeaderboardEntry)),
+    me:
+      value.me === undefined || value.me === null
+        ? null
+        : projectLeaderboardEntry(value.me),
+  });
 }
 
 function validateScoreInput(input: unknown): {
@@ -601,10 +599,6 @@ export function createWinkGameClient(
         throw normalizeError(error, 'MESSAGE_REJECTED');
       }
     },
-    async getPersonalBest() {
-      const result = await bridge.getPersonalBest();
-      return projectPersonalBest(result);
-    },
     async getLeaderboard(options?: { limit?: number; offset?: number }) {
       try {
         return projectLeaderboard(
@@ -629,7 +623,7 @@ export function createWinkGameClient(
     help(): RedactedWinkDiagnostics {
       const state = projectState(bridge.getState());
       return Object.freeze({
-        bridgeVersion: '9.2.0',
+        bridgeVersion: '9.1.0',
         protocolVersion: 1,
         phase: state.phase,
         gameId: state.gameId,

@@ -57,7 +57,10 @@ const REMOTE_ENTRIES: readonly WinkLeaderboardEntry[] = [
 function makeIntegration(
   overrides: Partial<WinkIntegration> = {},
 ): WinkIntegration {
-  const getLeaderboard = vi.fn(async () => REMOTE_ENTRIES);
+  const getLeaderboard = vi.fn(async () => ({
+    entries: REMOTE_ENTRIES,
+    me: null,
+  }));
   const submitFinalScore = vi.fn(async () => undefined);
   const completeRound = vi.fn(async () => undefined);
   const base: WinkIntegration = {
@@ -70,7 +73,6 @@ function makeIntegration(
       getState: () => READY_ANONYMOUS,
       getCapabilities: () => READY_ANONYMOUS.capabilities,
       getLeaderboard,
-      getPersonalBest: vi.fn(async () => ({ me: null })),
       submitScore: async () => undefined,
       complete: async () => undefined,
       onPause: () => () => {},
@@ -78,7 +80,7 @@ function makeIntegration(
       onMute: () => () => {},
       onUnmute: () => () => {},
       help: () => ({
-        bridgeVersion: "9.2.0",
+        bridgeVersion: "9.1.0",
         protocolVersion: 1,
         phase: READY_ANONYMOUS.phase,
         gameId: READY_ANONYMOUS.gameId,
@@ -93,8 +95,6 @@ function makeIntegration(
     parentMuted: false,
     error: null,
     leaderboard: [],
-    personalBest: null,
-    refreshPersonalBest: async () => undefined,
     refreshLeaderboard: async () => undefined,
     submitFinalScore,
     completeRound,
@@ -203,7 +203,7 @@ describe("useScoreData", () => {
     const integration = makeIntegration({
       client: {
         ...makeIntegration().client!,
-        getLeaderboard: vi.fn(async () => []),
+        getLeaderboard: vi.fn(async () => ({ entries: [], me: null })),
       },
     });
     let latest!: ReturnType<typeof useScoreData>;
@@ -215,7 +215,41 @@ describe("useScoreData", () => {
       await latest.refreshLeaderboard();
     });
     expect(latest.leaderboard).toEqual([]);
+    expect(latest.personalBest).toBeNull();
     expect(latest.error).toBeNull();
+    await mounted.unmount();
+  });
+
+  it("takes bestScore from the server's own-best, not from the page", async () => {
+    // This player sits at rank 812, far outside the 30 rows the server returns,
+    // so no amount of scanning `entries` could recover their best.
+    const integration = makeIntegration({
+      client: {
+        ...makeIntegration().client!,
+        getLeaderboard: vi.fn(async () => ({
+          entries: REMOTE_ENTRIES,
+          me: {
+            rank: 812,
+            score: 455,
+            playTime: 61,
+            displayName: "Người chơi",
+            avatarUrl: null,
+            createdAt: "2026-07-29T13:00:00.000Z",
+          },
+        })),
+      },
+    });
+    let latest!: ReturnType<typeof useScoreData>;
+    const mounted = await mountProbe(integration, (value) => {
+      latest = value;
+    });
+
+    await act(async () => {
+      await latest.refreshLeaderboard();
+    });
+
+    expect(latest.personalBest?.rank).toBe(812);
+    expect(latest.bestScore).toBe(455);
     await mounted.unmount();
   });
 

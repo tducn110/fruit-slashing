@@ -40,7 +40,7 @@ export interface WinkCapabilities {
 export interface RedactedWinkState {
   phase: WinkPhase;
   gameId: string | null;
-  environment: 'local' | 'dev' | 'prod' | null;
+  environment: 'dev' | 'prod' | null;
   sessionId: string | null;
   identityType: 'anonymous' | 'user' | null;
   capabilities: WinkCapabilities;
@@ -52,10 +52,6 @@ export interface RedactedWinkState {
   error: WinkIntegrationError | null;
 }
 
-export interface WinkPersonalBest {
-  me: WinkLeaderboardEntry | null;
-}
-
 export interface WinkLeaderboardEntry {
   rank: number;
   score: number;
@@ -63,6 +59,20 @@ export interface WinkLeaderboardEntry {
   displayName: string | null;
   avatarUrl: string | null;
   createdAt: string | null;
+}
+
+export interface WinkLeaderboard {
+  entries: readonly WinkLeaderboardEntry[];
+  /**
+   * The signed-in player's own best run, carrying its rank across the whole
+   * board — so it is still here when that run falls outside `entries`, which it
+   * usually does now that the server caps a page at 30 rows.
+   *
+   * Null while the player is anonymous or a guest, and null before they have
+   * scored at all. All three mean the same "no personal best yet" UI; none of
+   * them is an error.
+   */
+  me: WinkLeaderboardEntry | null;
 }
 
 export interface WinkScoreInput {
@@ -84,7 +94,7 @@ export interface RedactedWinkDiagnostics {
   protocolVersion: number;
   phase: WinkPhase;
   gameId: string | null;
-  environment: 'local' | 'dev' | 'prod' | null;
+  environment: 'dev' | 'prod' | null;
   hasSession: boolean;
   capabilities: WinkCapabilities;
   lifecycle: {
@@ -98,11 +108,10 @@ export interface WinkGameClient {
   subscribe(listener: (state: RedactedWinkState) => void): () => void;
   getState(): RedactedWinkState;
   getCapabilities(): WinkCapabilities;
-  getPersonalBest(): Promise<WinkPersonalBest>;
   getLeaderboard(options?: {
     limit?: number;
     offset?: number;
-  }): Promise<readonly WinkLeaderboardEntry[]>;
+  }): Promise<WinkLeaderboard>;
   submitScore(input: WinkScoreInput): Promise<void>;
   complete(input: WinkCompletionInput): Promise<void>;
   onPause(listener: () => void): () => void;
@@ -122,8 +131,8 @@ export interface WinkIntegration {
   parentMuted: boolean;
   error: WinkIntegrationError | null;
   leaderboard: readonly WinkLeaderboardEntry[];
+  /** The player's own best run, or null when they have none to show. */
   personalBest: WinkLeaderboardEntry | null;
-  refreshPersonalBest(): Promise<void>;
   refreshLeaderboard(): Promise<void>;
   submitFinalScore(input: {
     roundId: string;
@@ -140,7 +149,7 @@ export interface WinkIntegration {
 export type RawWinkBridgeState = {
   phase: WinkPhase;
   gameId: string | null;
-  environment: 'local' | 'dev' | 'prod' | null;
+  environment: 'dev' | 'prod' | null;
   sessionId: string | null;
   identityType: 'anonymous' | 'user' | null;
   capabilities: WinkCapabilities;
@@ -160,7 +169,6 @@ export interface RawWinkBridge {
   subscribe(listener: (state: RawWinkBridgeState) => void): () => void;
   getState(): RawWinkBridgeState;
   getCapabilities(): WinkCapabilities;
-  getPersonalBest(): Promise<unknown>;
   getLeaderboard(options?: {
     limit?: number;
     offset?: number;

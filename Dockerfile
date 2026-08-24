@@ -7,7 +7,7 @@ RUN npm install --global npm@11.3.0 && npm --version
 RUN npm ci
 
 COPY tsconfig.json vite.config.ts index.html ./
-COPY scripts/verify-wink-bridge.mjs scripts/sync-wink-bridge.mjs scripts/build-wink-warm.mjs scripts/wink-contract.mjs ./scripts/
+COPY scripts ./scripts/
 COPY public ./public
 COPY src ./src
 
