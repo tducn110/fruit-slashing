@@ -24,6 +24,8 @@ export default function App() {
     scoreSubmissionError,
   } = useScoreData(integration);
 
+  const { personalBest, refreshPersonalBest } = integration;
+
   const [view, setView] = useState<AppView>("landing");
   const [musicMuted, setMusicMuted] = useState(false);
   const [sfxMuted, setSfxMuted] = useState(false);
@@ -81,6 +83,10 @@ export default function App() {
     return () => document.removeEventListener("click", playButtonClick, true);
   }, []);
 
+  useEffect(() => {
+    void refreshPersonalBest().catch(() => {});
+  }, []);
+
   // Bootstrap once in background: SFX decoding and web fonts.
   useEffect(() => {
     void preloadGameResources().catch((error) => {
@@ -128,8 +134,9 @@ export default function App() {
     void refreshLeaderboard().catch(() => {
       // useScoreData owns the visible error state for a failed refresh.
     });
+    void refreshPersonalBest().catch(() => {});
     setView("landing");
-  }, [refreshLeaderboard]);
+  }, [refreshLeaderboard, refreshPersonalBest]);
 
   const handleCompleteRound = useCallback(
     (result: GameResult) => {
@@ -185,7 +192,7 @@ export default function App() {
         />
         <LeaderboardScreen
           leaderboard={leaderboard}
-          bestScore={bestScore}
+          bestScore={personalBest?.score ?? bestScore}
           onBack={() => setView(leaderboardReturnView)}
         />
       </>

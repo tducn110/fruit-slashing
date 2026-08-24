@@ -46,3 +46,4 @@ docker-stack.yml.*
 
 # Release worktrees — a 585MB duplicate checkout, never image content
 .worktrees
+.codegraph

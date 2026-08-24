@@ -40,7 +40,7 @@ export interface WinkCapabilities {
 export interface RedactedWinkState {
   phase: WinkPhase;
   gameId: string | null;
-  environment: 'dev' | 'prod' | null;
+  environment: 'local' | 'dev' | 'prod' | null;
   sessionId: string | null;
   identityType: 'anonymous' | 'user' | null;
   capabilities: WinkCapabilities;
@@ -50,6 +50,10 @@ export interface RedactedWinkState {
     muted: boolean;
   };
   error: WinkIntegrationError | null;
+}
+
+export interface WinkPersonalBest {
+  me: WinkLeaderboardEntry | null;
 }
 
 export interface WinkLeaderboardEntry {
@@ -80,7 +84,7 @@ export interface RedactedWinkDiagnostics {
   protocolVersion: number;
   phase: WinkPhase;
   gameId: string | null;
-  environment: 'dev' | 'prod' | null;
+  environment: 'local' | 'dev' | 'prod' | null;
   hasSession: boolean;
   capabilities: WinkCapabilities;
   lifecycle: {
@@ -94,6 +98,7 @@ export interface WinkGameClient {
   subscribe(listener: (state: RedactedWinkState) => void): () => void;
   getState(): RedactedWinkState;
   getCapabilities(): WinkCapabilities;
+  getPersonalBest(): Promise<WinkPersonalBest>;
   getLeaderboard(options?: {
     limit?: number;
     offset?: number;
@@ -117,6 +122,8 @@ export interface WinkIntegration {
   parentMuted: boolean;
   error: WinkIntegrationError | null;
   leaderboard: readonly WinkLeaderboardEntry[];
+  personalBest: WinkLeaderboardEntry | null;
+  refreshPersonalBest(): Promise<void>;
   refreshLeaderboard(): Promise<void>;
   submitFinalScore(input: {
     roundId: string;
@@ -133,7 +140,7 @@ export interface WinkIntegration {
 export type RawWinkBridgeState = {
   phase: WinkPhase;
   gameId: string | null;
-  environment: 'dev' | 'prod' | null;
+  environment: 'local' | 'dev' | 'prod' | null;
   sessionId: string | null;
   identityType: 'anonymous' | 'user' | null;
   capabilities: WinkCapabilities;
@@ -153,6 +160,7 @@ export interface RawWinkBridge {
   subscribe(listener: (state: RawWinkBridgeState) => void): () => void;
   getState(): RawWinkBridgeState;
   getCapabilities(): WinkCapabilities;
+  getPersonalBest(): Promise<unknown>;
   getLeaderboard(options?: {
     limit?: number;
     offset?: number;

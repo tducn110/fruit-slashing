@@ -46,9 +46,9 @@ describe("R4 static packaging boundary", () => {
       wink: {
         environment: "dev",
         protocolVersion: 1,
-        bridgeVersion: "9.0.1",
+        bridgeVersion: "9.2.0",
         bridgeSha256:
-          "089b2d6c2261a7b285fa8acf5ff599e6d2aba9c1366f9def4ae1b1f9fefcfbda",
+          "ec64697cd9912cd4ff8ed007ff14969280a723f4acb48dfe5bcd27c48e6ec8bc",
         devParentOrigin: "https://dev-winkgames.papastudio.net",
         harnessOrigin: "http://127.0.0.1:8787",
         devApiBase:
@@ -227,7 +227,7 @@ describe("production canary image handoff", () => {
       gameId: "36348ccc-1f37-4eca-ad1c-a8a47292ace7",
       environment: "prod",
       protocolVersion: 1,
-      bridgeVersion: "9.0.1",
+      bridgeVersion: "9.2.0",
       allowedParentOrigins: [
         "https://winkgames.papastudio.net",
         "http://localhost:3000",

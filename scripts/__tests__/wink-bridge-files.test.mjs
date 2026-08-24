@@ -9,9 +9,9 @@ import { assertWinkBuildEnvironment } from '../../vite.config.ts';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../..');
 const CERTIFIED_SHA256 =
-  '089b2d6c2261a7b285fa8acf5ff599e6d2aba9c1366f9def4ae1b1f9fefcfbda';
+  'ec64697cd9912cd4ff8ed007ff14969280a723f4acb48dfe5bcd27c48e6ec8bc';
 const CERTIFIED_COMMIT =
-  'fa76cdb800377579bb3459164afb92f0bbace379';
+  'dfcfdafb7f9a85120a7d2db4a40d5c1060d4275a';
 
 function read(relativePath) {
   return fs.readFileSync(path.join(ROOT, relativePath));
@@ -48,7 +48,7 @@ describe('R4 certified Wink bridge files', () => {
     expect(sha256(vendored)).toBe(CERTIFIED_SHA256);
     expect(lock).toEqual({
       name: 'wink-bridge',
-      bridgeVersion: '9.0.1',
+      bridgeVersion: '9.2.0',
       protocolVersion: 1,
       sha256: CERTIFIED_SHA256,
       bytes: vendored.byteLength,
@@ -68,7 +68,7 @@ describe('R4 certified Wink bridge files', () => {
       gameId: '36348ccc-1f37-4eca-ad1c-a8a47292ace7',
       environment: 'prod',
       protocolVersion: 1,
-      bridgeVersion: '9.0.1',
+      bridgeVersion: '9.2.0',
       allowedParentOrigins: [
         'https://winkgames.papastudio.net',
         'http://localhost:3000',
@@ -117,12 +117,13 @@ describe('R4 certified Wink bridge files', () => {
     await expect(
       verifyWinkBridge({ rootDir: ROOT }),
     ).resolves.toEqual({
-      bridgeVersion: '9.0.1',
+      bridgeVersion: '9.2.0',
       protocolVersion: 1,
       sha256: CERTIFIED_SHA256,
       bytes: expect.any(Number),
       environment: 'prod',
       gameId: '36348ccc-1f37-4eca-ad1c-a8a47292ace7',
+      parents: 2,
     });
   });
 });

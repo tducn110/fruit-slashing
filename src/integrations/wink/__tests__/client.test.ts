@@ -61,6 +61,7 @@ function bridge(
     }),
     getState: vi.fn(() => state),
     getCapabilities: vi.fn(() => state.capabilities),
+    getPersonalBest: vi.fn(async () => ({ me: null })),
     getLeaderboard: vi.fn(async () => ({
       entries: [rawEntry()],
       total: 1,

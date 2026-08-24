@@ -210,6 +210,7 @@ export function useWinkIntegration(): WinkIntegration {
   const [parentMuted, setParentMuted] = useState(
     connection.state.lifecycle.muted,
   );
+  const [personalBest, setPersonalBest] = useState<WinkLeaderboardEntry | null>(null);
   const [leaderboard, setLeaderboard] = useState<
     readonly WinkLeaderboardEntry[]
   >([]);
@@ -299,6 +300,21 @@ export function useWinkIntegration(): WinkIntegration {
     }
   }, [connection, offline, recordError, state.capabilities.getLeaderboard]);
 
+  const refreshPersonalBest = useCallback(async () => {
+    if (offline || !state.capabilities.submitScore) {
+      setPersonalBest(null);
+      return;
+    }
+    if (!connection.client) {
+      throw recordError(undefined, "BRIDGE_MISSING");
+    }
+    try {
+      const result = await connection.client.getPersonalBest();
+      setPersonalBest(result.me);
+    } catch (value) {
+    }
+  }, [connection, offline, recordError, state.capabilities.submitScore]);
+
   const submitFinalScore = useCallback(
     async (input: {
       roundId: string;
@@ -359,7 +375,9 @@ export function useWinkIntegration(): WinkIntegration {
     parentMuted,
     error,
     leaderboard,
+    personalBest,
     refreshLeaderboard,
+    refreshPersonalBest,
     submitFinalScore,
     completeRound,
   };

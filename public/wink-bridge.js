@@ -24,9 +24,14 @@ var WinkBridgeBundle = (() => {
   });
 
   // game-template/src/contract.js
-  var BRIDGE_VERSION = "9.0.1";
+  var BRIDGE_VERSION = "9.2.0";
   var PROTOCOL_VERSION = 1;
-  var ENVIRONMENTS = Object.freeze(["dev", "prod"]);
+  var ENVIRONMENTS = Object.freeze([
+    "local",
+    "dev",
+    "staging",
+    "prod"
+  ]);
   var MESSAGE_TYPES = Object.freeze([
     "wink:hello",
     "wink:ready",
@@ -34,7 +39,19 @@ var WinkBridgeBundle = (() => {
     "wink:session",
     "wink:lifecycle",
     "wink:complete",
-    "wink:bridge-error"
+    "wink:bridge-error",
+    // 9.1.0. The game asks the parent to make an HTTP call and the parent answers
+    // with the result. The envelope protocolVersion deliberately stays 1: an older
+    // bridge already refuses an unknown message type, and bumping it would have
+    // invalidated every catalog row, runtime config, and session request in the
+    // fleet at once — the simultaneous deploy this whole design exists to avoid.
+    "wink:api-request",
+    "wink:api-response"
+  ]);
+  var API_METHODS = Object.freeze([
+    "getLeaderboard",
+    "getPersonalBest",
+    "submitScore"
   ]);
   var BRIDGE_ERROR_CODES = Object.freeze([
     "GAME_NOT_FOUND",
@@ -50,6 +67,10 @@ var WinkBridgeBundle = (() => {
     "CAPABILITY_DENIED",
     "PARENT_REQUIRED",
     "API_NETWORK_ERROR",
+    // 429 used to be folded into API_NETWORK_ERROR, which told a player their
+    // connection had failed when the truth was "too fast, wait a moment". Older
+    // games map an unknown code to their generic sentence, so adding it is safe.
+    "API_RATE_LIMITED",
     "MESSAGE_REJECTED"
   ]);
   var STATE_PHASES = Object.freeze([
@@ -76,6 +97,9 @@ var WinkBridgeBundle = (() => {
     "scopes",
     "sessionId"
   ];
+  var PROXIED_SESSION_FIELDS = SESSION_FIELDS.filter(
+    (field) => field !== "accessToken" && field !== "apiBase"
+  );
   var RUNTIME_CONFIG_FIELDS = [
     "allowedParentOrigins",
     "bridgeVersion",
@@ -103,6 +127,9 @@ var WinkBridgeBundle = (() => {
   }
   function isUuid(value) {
     return typeof value === "string" && UUID_PATTERN.test(value);
+  }
+  function isVersionString(value) {
+    return typeof value === "string" && /^\d+\.\d+\.\d+$/.test(value);
   }
   function isExactOrigin(value) {
     if (typeof value !== "string" || value === "*" || value.length === 0) {
@@ -159,6 +186,35 @@ var WinkBridgeBundle = (() => {
         deepFreeze(child);
       }
       Object.freeze(value);
+    }
+    return value;
+  }
+  function assertLeaderboardOptions(value) {
+    if (value === void 0) {
+      return {};
+    }
+    if (!hasExactKeys(value, [], ["limit", "offset"]) || Object.hasOwn(value, "limit") && (!Number.isInteger(value.limit) || value.limit < 1 || value.limit > 500) || Object.hasOwn(value, "offset") && (!Number.isInteger(value.offset) || value.offset < 0)) {
+      throw bridgeError("MESSAGE_REJECTED", "Leaderboard options are invalid");
+    }
+    return value;
+  }
+  function assertPersonalBestOptions(value) {
+    if (value === void 0) {
+      return {};
+    }
+    if (!hasExactKeys(value, [])) {
+      throw bridgeError("MESSAGE_REJECTED", "Personal best takes no options");
+    }
+    return value;
+  }
+  function assertScoreInput(value) {
+    if (!hasExactKeys(value, ["score"], [
+      "counter",
+      "gameMode",
+      "metadata",
+      "playTime"
+    ]) || !Number.isInteger(value.score) || value.score < 0 || Object.hasOwn(value, "playTime") && (!Number.isInteger(value.playTime) || value.playTime < 0) || Object.hasOwn(value, "gameMode") && (typeof value.gameMode !== "string" || value.gameMode.length > 100) || Object.hasOwn(value, "counter") && (!Number.isInteger(value.counter) || value.counter < 0) || Object.hasOwn(value, "metadata") && (!isPlainObject(value.metadata) || !isJsonSafe(value.metadata))) {
+      throw bridgeError("MESSAGE_REJECTED", "Score input is invalid");
     }
     return value;
   }
@@ -231,11 +287,18 @@ var WinkBridgeBundle = (() => {
       throw bridgeError("PROTOCOL_MISMATCH", "Session identity is invalid");
     }
   }
+  function isProxiedGameSession(value) {
+    return isPlainObject(value) && !Object.hasOwn(value, "accessToken");
+  }
   function assertGameSession(value, expected = {}) {
-    if (!hasExactKeys(value, SESSION_FIELDS)) {
+    const proxied = isProxiedGameSession(value);
+    if (!hasExactKeys(value, proxied ? PROXIED_SESSION_FIELDS : SESSION_FIELDS)) {
       throw bridgeError("PROTOCOL_MISMATCH", "Session response is invalid");
     }
-    if (typeof value.accessToken !== "string" || value.accessToken.length === 0 || !isUuid(value.sessionId) || !isUuid(value.gameId) || !isExactOrigin(value.gameOrigin) || !isApiBase(value.apiBase) || !ENVIRONMENTS.includes(value.environment) || value.protocolVersion !== PROTOCOL_VERSION || typeof value.expiresAt !== "string" || !Number.isFinite(Date.parse(value.expiresAt))) {
+    if (!proxied && (typeof value.accessToken !== "string" || value.accessToken.length === 0 || !isApiBase(value.apiBase))) {
+      throw bridgeError("PROTOCOL_MISMATCH", "Session response is invalid");
+    }
+    if (!isUuid(value.sessionId) || !isUuid(value.gameId) || !isExactOrigin(value.gameOrigin) || !ENVIRONMENTS.includes(value.environment) || value.protocolVersion !== PROTOCOL_VERSION || typeof value.expiresAt !== "string" || !Number.isFinite(Date.parse(value.expiresAt))) {
       throw bridgeError("PROTOCOL_MISMATCH", "Session response is invalid");
     }
     if (expected.gameId && value.gameId !== expected.gameId) {
@@ -273,7 +336,7 @@ var WinkBridgeBundle = (() => {
         }
         return payload;
       case "wink:ready":
-        if (hasExactKeys(payload, ["bridgeVersion", "environment"]) && payload.bridgeVersion === BRIDGE_VERSION && ENVIRONMENTS.includes(payload.environment)) {
+        if (hasExactKeys(payload, ["bridgeVersion", "environment"]) && isVersionString(payload.bridgeVersion) && ENVIRONMENTS.includes(payload.environment)) {
           return payload;
         }
         break;
@@ -295,6 +358,19 @@ var WinkBridgeBundle = (() => {
         break;
       case "wink:complete":
         return assertCompletionInput(payload);
+      case "wink:api-request":
+        if (hasExactKeys(payload, ["method"], ["params"]) && API_METHODS.includes(payload.method) && (!Object.hasOwn(payload, "params") || isPlainObject(payload.params) && isJsonSafe(payload.params))) {
+          return payload;
+        }
+        break;
+      case "wink:api-response":
+        if (hasExactKeys(payload, ["data", "ok"]) && payload.ok === true && isPlainObject(payload.data) && isJsonSafe(payload.data)) {
+          return payload;
+        }
+        if (hasExactKeys(payload, ["error", "ok"]) && payload.ok === false && hasExactKeys(payload.error, ["code", "message", "recoverable"]) && BRIDGE_ERROR_CODES.includes(payload.error.code) && typeof payload.error.recoverable === "boolean" && typeof payload.error.message === "string" && payload.error.message.length > 0 && payload.error.message.length <= 256) {
+          return payload;
+        }
+        break;
       case "wink:bridge-error":
         if (hasExactKeys(payload, [
           "code",
@@ -311,162 +387,21 @@ var WinkBridgeBundle = (() => {
     throw bridgeError("MESSAGE_REJECTED", "Message rejected", true);
   }
 
-  // game-template/src/api-client.js
-  function assertLeaderboardOptions(value) {
-    if (value === void 0) {
-      return {};
-    }
-    if (!hasExactKeys(value, [], ["limit", "offset"]) || Object.hasOwn(value, "limit") && (!Number.isInteger(value.limit) || value.limit < 1 || value.limit > 500) || Object.hasOwn(value, "offset") && (!Number.isInteger(value.offset) || value.offset < 0)) {
-      throw bridgeError("MESSAGE_REJECTED", "Leaderboard options are invalid");
-    }
-    return value;
-  }
-  function assertScoreInput(value) {
-    if (!hasExactKeys(value, ["score"], [
-      "counter",
-      "gameMode",
-      "metadata",
-      "playTime"
-    ]) || !Number.isInteger(value.score) || value.score < 0 || Object.hasOwn(value, "playTime") && (!Number.isInteger(value.playTime) || value.playTime < 0) || Object.hasOwn(value, "gameMode") && (typeof value.gameMode !== "string" || value.gameMode.length > 100) || Object.hasOwn(value, "counter") && (!Number.isInteger(value.counter) || value.counter < 0) || Object.hasOwn(value, "metadata") && (!isPlainObject(value.metadata) || !isJsonSafe(value.metadata))) {
-      throw bridgeError("MESSAGE_REJECTED", "Score input is invalid");
-    }
-    return value;
-  }
-  function createLeaderboardUrl(apiBase, gameId, options) {
-    const url = new URL(
-      `${apiBase.replace(/\/$/, "")}/games/${gameId}/leaderboard`
-    );
-    if (Object.hasOwn(options, "limit")) {
-      url.searchParams.set("limit", String(options.limit));
-    }
-    if (Object.hasOwn(options, "offset")) {
-      url.searchParams.set("offset", String(options.offset));
-    }
-    return url.toString();
-  }
-  function createScopedApiClient({
-    session,
-    fetchImpl = globalThis.fetch,
-    sendCompletion = () => {
-    },
-    onSessionExpired = () => {
-    }
-  }) {
-    assertGameSession(session);
-    if (typeof fetchImpl !== "function" || typeof sendCompletion !== "function" || typeof onSessionExpired !== "function") {
-      throw bridgeError("API_NETWORK_ERROR", "Game API is unavailable");
-    }
-    const accessToken = session.accessToken;
-    const gameId = session.gameId;
-    const apiBase = session.apiBase;
-    const canSubmitScore = session.capabilities.submitScore;
-    let expirySignalled = false;
-    async function request(url, options) {
-      let response;
-      try {
-        response = await fetchImpl(url, options);
-      } catch {
-        throw bridgeError(
-          "API_NETWORK_ERROR",
-          "Game API request failed",
-          true
-        );
-      }
-      let envelope;
-      try {
-        envelope = await response.json();
-      } catch {
-        throw bridgeError(
-          "API_NETWORK_ERROR",
-          "Game API response is invalid",
-          true
-        );
-      }
-      if (!response.ok) {
-        if (response.status === 401) {
-          if (!expirySignalled) {
-            expirySignalled = true;
-            onSessionExpired();
-          }
-          throw bridgeError(
-            "SESSION_EXPIRED",
-            "Game session expired",
-            true
-          );
-        }
-        if (response.status === 403 && isPlainObject(envelope) && isPlainObject(envelope.error) && envelope.error.code === "CAPABILITY_DENIED") {
-          throw bridgeError(
-            "CAPABILITY_DENIED",
-            "Capability is not available"
-          );
-        }
-        throw bridgeError(
-          "API_NETWORK_ERROR",
-          "Game API request failed",
-          response.status >= 500
-        );
-      }
-      if (!hasExactKeys(envelope, ["data", "success"], ["meta"]) || envelope.success !== true || !isPlainObject(envelope.data)) {
-        throw bridgeError(
-          "API_NETWORK_ERROR",
-          "Game API response is invalid",
-          true
-        );
-      }
-      return envelope.data;
-    }
-    async function getLeaderboard(options) {
-      const normalized = assertLeaderboardOptions(options);
-      return request(createLeaderboardUrl(apiBase, gameId, normalized), {
-        method: "GET",
-        credentials: "omit",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${accessToken}`
-        }
-      });
-    }
-    async function submitScore(input) {
-      if (!canSubmitScore) {
-        throw bridgeError(
-          "CAPABILITY_DENIED",
-          "Capability is not available"
-        );
-      }
-      const body = assertScoreInput(input);
-      return request(createLeaderboardUrl(apiBase, gameId, {}), {
-        method: "POST",
-        credentials: "omit",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(body)
-      });
-    }
-    function complete(input) {
-      sendCompletion(assertCompletionInput(input));
-    }
-    return Object.freeze({
-      getLeaderboard,
-      submitScore,
-      complete
-    });
-  }
-
   // game-template/src/message-protocol.js
   var PARENT_TO_GAME = /* @__PURE__ */ new Set([
     "wink:hello",
     "wink:session",
-    "wink:lifecycle"
+    "wink:lifecycle",
+    "wink:api-response"
   ]);
   var GAME_TO_PARENT = /* @__PURE__ */ new Set([
     "wink:ready",
     "wink:session-required",
     "wink:complete",
-    "wink:bridge-error"
+    "wink:bridge-error",
+    "wink:api-request"
   ]);
+  var REQUIRES_REQUEST_ID = /* @__PURE__ */ new Set(["wink:api-request", "wink:api-response"]);
   function assertRequestId(value) {
     if (value !== void 0 && (typeof value !== "string" || value.length === 0 || value.length > 128)) {
       throw bridgeError("MESSAGE_REJECTED", "Message rejected", true);
@@ -477,6 +412,9 @@ var WinkBridgeBundle = (() => {
       throw bridgeError("MESSAGE_REJECTED", "Message rejected", true);
     }
     assertRequestId(requestId);
+    if (REQUIRES_REQUEST_ID.has(type) && requestId === void 0) {
+      throw bridgeError("MESSAGE_REJECTED", "Message rejected", true);
+    }
     assertMessagePayload(type, payload);
     return {
       type,
@@ -495,6 +433,9 @@ var WinkBridgeBundle = (() => {
       throw bridgeError("MESSAGE_REJECTED", "Message rejected", true);
     }
     assertRequestId(value.requestId);
+    if (REQUIRES_REQUEST_ID.has(value.type) && value.requestId === void 0) {
+      throw bridgeError("MESSAGE_REJECTED", "Message rejected", true);
+    }
     if (expected.type && value.type !== expected.type) {
       throw bridgeError("MESSAGE_REJECTED", "Message rejected", true);
     }
@@ -544,8 +485,11 @@ var WinkBridgeBundle = (() => {
     },
     onDiagnostic = () => {
     },
-    fetchImpl = globalThis.fetch,
-    sessionTimeoutMs = 1e4
+    sessionTimeoutMs = 1e4,
+    // A reply that never arrives must not leave the game holding a promise for
+    // the rest of the session. Generous next to a normal round trip, short next
+    // to a player deciding the leaderboard is broken.
+    apiRequestTimeoutMs = 15e3
   } = {}) {
     let state = {
       phase: "booting",
@@ -562,7 +506,9 @@ var WinkBridgeBundle = (() => {
     let parentSource = null;
     let parentOrigin = null;
     let currentSession = null;
-    let apiClient = null;
+    let apiReady = false;
+    let requestSequence = 0;
+    const pendingRequests = /* @__PURE__ */ new Map();
     let renewalRequested = false;
     let sessionTimer = null;
     let renewalTimer = null;
@@ -603,8 +549,16 @@ var WinkBridgeBundle = (() => {
         expiryTimer = null;
       }
     }
+    function rejectPending(error) {
+      for (const [, pending] of pendingRequests) {
+        clearTimeoutImpl(pending.timer);
+        pending.reject(error);
+      }
+      pendingRequests.clear();
+    }
     function setFailure(code, message, recoverable) {
-      apiClient = null;
+      apiReady = false;
+      rejectPending(bridgeError(code, message, recoverable));
       return publish({
         phase: "error",
         error: { code, message, recoverable }
@@ -644,7 +598,8 @@ var WinkBridgeBundle = (() => {
       startSessionTimeout("SESSION_RENEWAL_FAILED");
     }
     function handleSessionExpired() {
-      apiClient = null;
+      apiReady = false;
+      rejectPending(bridgeError("SESSION_EXPIRED", "Game session expired", true));
       sendSessionRequired("expired");
     }
     function scheduleSessionTimers(session) {
@@ -661,7 +616,7 @@ var WinkBridgeBundle = (() => {
       expiryTimer = setTimeoutImpl(
         () => {
           expiryTimer = null;
-          apiClient = null;
+          apiReady = false;
           if (!renewalRequested) {
             sendSessionRequired("expired");
           }
@@ -678,7 +633,7 @@ var WinkBridgeBundle = (() => {
         "environment",
         "gameId",
         "gameOrigin"
-      ]) || !isUuid(nextContext.gameId) || !isExactOrigin(nextContext.gameOrigin) || !["dev", "prod"].includes(nextContext.environment)) {
+      ]) || !isUuid(nextContext.gameId) || !isExactOrigin(nextContext.gameOrigin) || !ENVIRONMENTS.includes(nextContext.environment)) {
         throw bridgeError(
           "RUNTIME_CONFIG_INVALID",
           "Runtime configuration is invalid"
@@ -718,17 +673,7 @@ var WinkBridgeBundle = (() => {
       clearTimer("expiry");
       currentSession = session;
       renewalRequested = false;
-      apiClient = createScopedApiClient({
-        session,
-        fetchImpl,
-        sendCompletion: (input) => {
-          sendToParent(
-            createEnvelope("wink:complete", context.gameId, input),
-            parentOrigin
-          );
-        },
-        onSessionExpired: handleSessionExpired
-      });
+      apiReady = true;
       const identityType = session.identity.type === "anonymous" ? "anonymous" : "user";
       const next = publish({
         phase: identityType === "anonymous" ? "ready_anonymous" : "ready_authenticated",
@@ -775,9 +720,60 @@ var WinkBridgeBundle = (() => {
       }
       return () => lifecycleListeners[type].delete(listener);
     }
-    function requireClient() {
-      if (apiClient) {
-        return apiClient;
+    function callParent(method, params) {
+      return new Promise((resolve, reject) => {
+        if (!context || !parentSource || !parentOrigin) {
+          reject(bridgeError("SESSION_CREATE_FAILED", "Game session is not ready", true));
+          return;
+        }
+        requestSequence += 1;
+        const requestId = `api-${requestSequence}`;
+        const timer = setTimeoutImpl(() => {
+          pendingRequests.delete(requestId);
+          reject(
+            bridgeError("API_NETWORK_ERROR", "Game API request timed out", true)
+          );
+        }, apiRequestTimeoutMs);
+        pendingRequests.set(requestId, { resolve, reject, timer });
+        try {
+          sendToParent(
+            createEnvelope(
+              "wink:api-request",
+              context.gameId,
+              params === void 0 ? { method } : { method, params },
+              requestId
+            ),
+            parentOrigin
+          );
+        } catch (error) {
+          clearTimeoutImpl(timer);
+          pendingRequests.delete(requestId);
+          reject(error);
+        }
+      });
+    }
+    function acceptApiResponse(message) {
+      const pending = pendingRequests.get(message?.requestId);
+      if (!pending) {
+        throw bridgeError("MESSAGE_REJECTED", "Message rejected", true);
+      }
+      pendingRequests.delete(message.requestId);
+      clearTimeoutImpl(pending.timer);
+      const payload = message.payload;
+      if (payload.ok === true) {
+        pending.resolve(payload.data);
+        return snapshot();
+      }
+      const { code, message: text, recoverable } = payload.error;
+      pending.reject(bridgeError(code, text, recoverable));
+      if (code === "SESSION_EXPIRED") {
+        handleSessionExpired();
+      }
+      return snapshot();
+    }
+    function requireApi() {
+      if (apiReady) {
+        return true;
       }
       if (state.phase === "renewing" || state.error?.code === "SESSION_EXPIRED") {
         throw bridgeError(
@@ -807,7 +803,7 @@ var WinkBridgeBundle = (() => {
         phase: state.phase,
         gameId: state.gameId,
         environment: state.environment,
-        hasSession: apiClient !== null,
+        hasSession: apiReady,
         capabilities: { ...state.capabilities },
         lifecycle: { ...state.lifecycle },
         errorCode: state.error?.code ?? null
@@ -817,7 +813,8 @@ var WinkBridgeBundle = (() => {
       clearTimer("session");
       clearTimer("renewal");
       clearTimer("expiry");
-      apiClient = null;
+      apiReady = false;
+      rejectPending(bridgeError("SESSION_EXPIRED", "Game session ended", true));
       currentSession = null;
       subscribers.clear();
       for (const listeners of Object.values(lifecycleListeners)) {
@@ -833,9 +830,37 @@ var WinkBridgeBundle = (() => {
       getState: snapshot,
       getCapabilities: () => deepFreeze({ ...state.capabilities }),
       subscribe,
-      getLeaderboard: async (options) => requireClient().getLeaderboard(options),
-      submitScore: async (input) => requireClient().submitScore(input),
-      complete: (input) => requireClient().complete(input),
+      acceptApiResponse,
+      getLeaderboard: async (options) => {
+        requireApi();
+        return callParent("getLeaderboard", assertLeaderboardOptions(options));
+      },
+      getPersonalBest: async (options) => {
+        requireApi();
+        assertPersonalBestOptions(options);
+        if (!state.capabilities.submitScore) {
+          return deepFreeze({ me: null });
+        }
+        return callParent("getPersonalBest");
+      },
+      submitScore: async (input) => {
+        requireApi();
+        if (!state.capabilities.submitScore) {
+          throw bridgeError("CAPABILITY_DENIED", "Capability is not available");
+        }
+        return callParent("submitScore", assertScoreInput(input));
+      },
+      complete: (input) => {
+        requireApi();
+        sendToParent(
+          createEnvelope(
+            "wink:complete",
+            context.gameId,
+            assertCompletionInput(input)
+          ),
+          parentOrigin
+        );
+      },
       onPause: (listener) => addLifecycleListener("pause", listener),
       onResume: (listener) => addLifecycleListener("resume", listener),
       onMute: (listener) => addLifecycleListener("mute", listener),
@@ -923,7 +948,9 @@ var WinkBridgeBundle = (() => {
     let boundParentOrigin = null;
     let pendingParentHello = null;
     const stateMachine = createBridgeStateMachine({
-      fetchImpl: targetWindow.fetch.bind(targetWindow),
+      // No fetchImpl: from 9.1.0 the bridge makes no HTTP call of its own. The
+      // runtime config below is still fetched, by loadRuntimeConfig, which is
+      // same-origin and carries no credential.
       sendToParent(message, targetOrigin) {
         if (boundParent && boundParentOrigin && targetOrigin === boundParentOrigin) {
           boundParent.postMessage(message, targetOrigin);
@@ -935,6 +962,7 @@ var WinkBridgeBundle = (() => {
       getState: stateMachine.getState,
       getCapabilities: stateMachine.getCapabilities,
       getLeaderboard: stateMachine.getLeaderboard,
+      getPersonalBest: stateMachine.getPersonalBest,
       submitScore: stateMachine.submitScore,
       complete: stateMachine.complete,
       onPause: stateMachine.onPause,
@@ -1023,6 +1051,8 @@ var WinkBridgeBundle = (() => {
           stateMachine.acceptSession(message.payload.session);
         } else if (message.type === "wink:lifecycle") {
           stateMachine.acceptLifecycle(message.payload);
+        } else if (message.type === "wink:api-response") {
+          stateMachine.acceptApiResponse(message);
         }
       } catch (error) {
         sendError(error);
