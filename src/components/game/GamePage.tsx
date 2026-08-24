@@ -134,18 +134,8 @@ export function GamePage({
       }}>
         {/* Left: home */}
         <button onClick={onHome} className="game-btn" style={btnStyle} aria-label="Trang chủ">
-          <Home size={15} /> <span className="btnLabel">Trang chủ</span>
+          <Home size={15} />
         </button>
-
-        {/* Center: title */}
-        <span className="gameTitle" style={{
-          fontWeight: 800, fontSize: 16, color: "var(--ink-dark)",
-          fontFamily: "var(--font-family)",
-          letterSpacing: 0,
-        }}>
-          <span className="game-title-brand">Chém Lạc</span>{" "}
-          <span className="gameSub game-title-accent" style={{ color: "var(--primary)" }}>Vùng Cao</span>
-        </span>
 
         {/* Right: Settings + Dashboard */}
         <div className="gameActions" style={{ display: "flex", gap: 8 }}>
@@ -155,7 +145,7 @@ export function GamePage({
             aria-label="Bảng điểm"
             style={btnStyle}
           >
-            <Trophy size={15} /> <span className="btnLabel">Bảng điểm</span>
+            <Trophy size={15} />
           </button>
           <button
             onClick={hasActiveRun ? handlePause : toggle}
@@ -164,7 +154,6 @@ export function GamePage({
             style={{ ...btnStyle, ...(panel ? { background: "color-mix(in srgb, var(--primary) 12%, transparent)", border: "2px solid var(--primary)" } : {}) }}
           >
             {hasActiveRun ? <Pause size={15} /> : <Settings size={15} />}
-            <span className="btnLabel">{hasActiveRun ? "Tạm dừng" : "Cài đặt"}</span>
           </button>
         </div>
       </div>

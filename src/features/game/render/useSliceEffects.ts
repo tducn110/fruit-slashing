@@ -23,6 +23,7 @@ import { getFxPreset } from "./fxPreset";
 // 4 is more than enough: a single slice lasts 0.2 s and you can't physically
 // perform more than ~8 slices/second, so 4 covers overlap comfortably.
 const SLASH_POOL_SIZE = 6;
+const HALF_POOL_SIZE = 24;
 
 interface Callbacks {
   muted: boolean;
@@ -73,6 +74,9 @@ export function useSliceEffects({
   const slashPoolRef = useRef<SlashSlot[]>([]);
   // Round-robin cursor to pick the next slot.
   const slashCursorRef = useRef(0);
+  // Fruit halves are short-lived but frequent, so keep their Sprite objects
+  // alive and let the legacy particle updater own only their lifetime.
+  const halfPoolRef = useRef<Sprite[]>([]);
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -89,6 +93,30 @@ export function useSliceEffects({
 
   function getTexture(key: string): Texture | null {
     return texturesRef.current[key] ?? null;
+  }
+
+  function initHalfPool(layer: Container) {
+    const pool = halfPoolRef.current;
+    if (pool.length === HALF_POOL_SIZE && pool.every((sprite) => !sprite.destroyed)) return;
+
+    destroyHalfPool();
+    for (let index = 0; index < HALF_POOL_SIZE; index += 1) {
+      const sprite = new Sprite();
+      sprite.anchor.set(0.5);
+      sprite.visible = false;
+      sprite.alpha = 0;
+      layer.addChild(sprite);
+      halfPoolRef.current.push(sprite);
+    }
+  }
+
+  function acquireHalf(texture: Texture): Sprite | undefined {
+    const sprite = halfPoolRef.current.find((candidate) => !candidate.visible);
+    if (!sprite) return undefined;
+    sprite.texture = texture;
+    sprite.visible = true;
+    sprite.alpha = 1;
+    return sprite;
   }
 
   function renderScale(): number {
@@ -250,13 +278,13 @@ export function useSliceEffects({
       });
     }
 
-    // ── Fruit halves (new Sprite per slice — low frequency, safe) ──
+    // ── Fruit halves (pooled; no Sprite allocation per slice) ──
     (["left", "right"] as const).forEach((side, index) => {
       const halfTexture = getTexture(`${result.fruit.kind}_${side}`);
       if (!halfTexture) return;
 
-      const g = new Sprite(halfTexture);
-      g.anchor.set(0.5);
+      const g = acquireHalf(halfTexture);
+      if (!g) return;
       g.position.set(screen.x, screen.y);
       g.rotation = result.fruit.rotation;
       g.scale.set(scale);
@@ -311,5 +339,17 @@ export function useSliceEffects({
     slashPoolRef.current = [];
   }
 
-  return { showSliceEffect, destroySlashPool };
+  function destroyHalfPool() {
+    for (const sprite of halfPoolRef.current) {
+      try {
+        if (sprite.parent) sprite.parent.removeChild(sprite);
+      } catch { /* ignore */ }
+      try {
+        if (!sprite.destroyed) sprite.destroy({ children: false, texture: false, textureSource: false });
+      } catch { /* ignore */ }
+    }
+    halfPoolRef.current = [];
+  }
+
+  return { showSliceEffect, initHalfPool, destroySlashPool, destroyHalfPool };
 }

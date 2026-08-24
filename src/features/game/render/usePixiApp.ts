@@ -1,16 +1,25 @@
 import { useEffect, useRef, useState } from "react";
-import { Application, Container, Graphics, Sprite } from "pixi.js";
+import { Application, Container, Graphics } from "pixi.js";
 import { drawBackground } from "./fruitVisuals";
 import { getFxPreset } from "./fxPreset";
 
-export function usePixiApp() {
+interface UsePixiAppOptions {
+  onViewportResize?: (size: { w: number; h: number }) => void;
+}
+
+export function usePixiApp({ onViewportResize }: UsePixiAppOptions = {}) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<Application | null>(null);
   const backgroundLayerRef = useRef<Container | null>(null);
   const playLayerRef = useRef<Container | null>(null);
   const trailGraphicsRef = useRef<Graphics | null>(null);
   const sizeRef = useRef({ w: 800, h: 450 });
+  const onViewportResizeRef = useRef(onViewportResize);
   const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    onViewportResizeRef.current = onViewportResize;
+  }, [onViewportResize]);
 
   useEffect(() => {
     let cancelled = false;
@@ -28,23 +37,13 @@ export function usePixiApp() {
 
     function redrawBackground(nextWidth: number, nextHeight: number) {
       const backgroundLayer = backgroundLayerRef.current;
-      if (!backgroundLayer || !appRef.current) return;
+      if (!backgroundLayer) return;
 
-      // Clean up old background textures to prevent memory leaks on resize
-      backgroundLayer.children.forEach((child) => {
-        if (child instanceof Sprite && child.texture) {
-          child.texture.destroy(true);
-        }
-        child.destroy({ children: true });
-      });
+      const children = [...backgroundLayer.children];
+      children.forEach((child) => child.destroy({ children: true }));
       backgroundLayer.removeChildren();
 
-      const background = new Container();
-      drawBackground(background, nextWidth, nextHeight);
-      const texture = appRef.current.renderer.generateTexture(background);
-      const sprite = new Sprite(texture);
-      backgroundLayer.addChild(sprite);
-      background.destroy({ children: true });
+      drawBackground(backgroundLayer, nextWidth, nextHeight);
     }
 
     const applyResize = () => {
@@ -56,6 +55,7 @@ export function usePixiApp() {
       sizeRef.current = { w: nextWidth, h: nextHeight };
       appRef.current.renderer.resize(nextWidth, nextHeight);
       redrawBackground(nextWidth, nextHeight);
+      onViewportResizeRef.current?.({ w: nextWidth, h: nextHeight });
     };
 
     const scheduleResize = () => {
@@ -71,7 +71,8 @@ export function usePixiApp() {
       background: 0xf5ecd7,
       antialias: preset.antialias,
       resolution,
-      autoDensity: true
+      autoDensity: true,
+      preference: "webgl"
     })
       .then(() => {
         if (cancelled) {
@@ -89,12 +90,7 @@ export function usePixiApp() {
         });
 
         const backgroundLayer = new Container();
-        const background = new Container();
-        drawBackground(background, width, height);
-        const texture = app.renderer.generateTexture(background);
-        const sprite = new Sprite(texture);
-        backgroundLayer.addChild(sprite);
-        background.destroy({ children: true });
+        drawBackground(backgroundLayer, width, height);
         app.stage.addChild(backgroundLayer);
         backgroundLayerRef.current = backgroundLayer;
 
@@ -119,16 +115,6 @@ export function usePixiApp() {
       if (resizeFrame) window.cancelAnimationFrame(resizeFrame);
       window.visualViewport?.removeEventListener("resize", scheduleResize);
       window.removeEventListener("orientationchange", scheduleResize);
-
-      // Clean up background texture resources to prevent memory leaks on unmount
-      const bgLayer = backgroundLayerRef.current;
-      if (bgLayer) {
-        bgLayer.children.forEach((child) => {
-          if (child instanceof Sprite && child.texture) {
-            child.texture.destroy(true);
-          }
-        });
-      }
 
       app.stage.destroy({ children: true });
       app.destroy({ removeView: true });

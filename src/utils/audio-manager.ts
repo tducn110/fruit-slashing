@@ -37,24 +37,30 @@ class AudioManager {
 
   private ensureContext() {
     if (!this.ctx) {
-      this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      
-      this.bgmGain = this.ctx.createGain();
-      this.sfxGain = this.ctx.createGain();
-      
-      this.bgmGain.connect(this.ctx.destination);
-      this.sfxGain.connect(this.ctx.destination);
-      
-      this.bgmGain.gain.value = this._parentMuted || this._musicMuted ? 0 : 1;
-      this.sfxGain.gain.value = this._parentMuted || this._sfxMuted ? 0 : 1;
+      try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioCtx) return;
+        this.ctx = new AudioCtx();
+        
+        this.bgmGain = this.ctx.createGain();
+        this.sfxGain = this.ctx.createGain();
+        
+        this.bgmGain.connect(this.ctx.destination);
+        this.sfxGain.connect(this.ctx.destination);
+        
+        this.bgmGain.gain.value = this._parentMuted || this._musicMuted ? 0 : 1;
+        this.sfxGain.gain.value = this._parentMuted || this._sfxMuted ? 0 : 1;
+      } catch (err) {
+        console.warn("[AudioManager] AudioContext not supported or failed to init", err);
+      }
     }
   }
 
   /** Unlock AudioContext (must be called from user gesture) */
   async unlock(): Promise<void> {
     this.ensureContext();
-    if (this.ctx!.state === "suspended") {
-      await this.ctx!.resume();
+    if (this.ctx && this.ctx.state === "suspended") {
+      await this.ctx.resume();
     }
   }
 
@@ -72,6 +78,7 @@ class AudioManager {
    */
   async preloadEssentialAudio(basePath: string): Promise<void> {
     this.ensureContext();
+    if (!this.ctx) return;
 
     const files: { name: keyof AudioBuffers; url: string }[] = [
       { name: "slice", url: `${basePath}666herohero-slash-21834.mp3` },
@@ -105,10 +112,11 @@ class AudioManager {
     if (this.bgmLoadPromise) return this.bgmLoadPromise;
     this.bgmLoadPromise = (async () => {
       this.ensureContext();
+      if (!this.ctx) return;
       const resp = await fetch(`${basePath}moavii-we-are.mp3`);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const arrayBuf = await resp.arrayBuffer();
-      this.buffers.bgm = await this.ctx!.decodeAudioData(arrayBuf);
+      this.buffers.bgm = await this.ctx.decodeAudioData(arrayBuf);
     })().catch((err) => {
       this.bgmLoadPromise = null;
       console.warn("[AudioManager] Failed to preload BGM", err);
@@ -228,14 +236,16 @@ class AudioManager {
 
   playButtonSfx(volume = BUTTON_SFX_VOLUME): void {
     this.ensureContext();
-    if (this.ctx!.state === "suspended") {
-      void this.ctx!.resume().catch(() => {});
+    if (!this.ctx) return;
+    
+    if (this.ctx.state === "suspended") {
+      void this.ctx.resume().catch(() => {});
     }
 
-    const now = this.ctx!.currentTime;
-    const gain = this.ctx!.createGain();
-    const click = this.ctx!.createOscillator();
-    const pop = this.ctx!.createOscillator();
+    const now = this.ctx.currentTime;
+    const gain = this.ctx.createGain();
+    const click = this.ctx.createOscillator();
+    const pop = this.ctx.createOscillator();
     const finalVolume = this.clampVolume(volume);
 
     click.type = "triangle";
