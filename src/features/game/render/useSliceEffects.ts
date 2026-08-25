@@ -298,6 +298,7 @@ export function useSliceEffects({
         life: 1,
         ttl: 1,
         rotates: true,
+        pooled: true,
       }, layer);
     });
 

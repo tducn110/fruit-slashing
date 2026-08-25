@@ -63,6 +63,7 @@ function makeBridge(initialState = ANONYMOUS_STATE) {
     getState: vi.fn(() => state),
     getCapabilities: vi.fn(() => state.capabilities),
     getLeaderboard: vi.fn(async () => ({ entries: [], total: 0 })),
+    getPersonalBest: vi.fn(async () => ({ me: null })),
     submitScore: vi.fn(async () => ({
       entry: {
         id: '1',
