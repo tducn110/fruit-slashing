@@ -210,7 +210,6 @@ export function useWinkIntegration(): WinkIntegration {
   const [parentMuted, setParentMuted] = useState(
     connection.state.lifecycle.muted,
   );
-  const [personalBest, setPersonalBest] = useState<WinkLeaderboardEntry | null>(null);
   const [leaderboard, setLeaderboard] = useState<
     readonly WinkLeaderboardEntry[]
   >([]);
