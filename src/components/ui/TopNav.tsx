@@ -7,7 +7,13 @@ interface Props {
 }
 
 export function TopNav({ muted, onToggleMute }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+
+  const toggleLanguage = () => {
+    const nextLang = i18n.language.startsWith('en') ? 'vi' : 'en';
+    i18n.changeLanguage(nextLang);
+  };
+
   return (
     <nav style={{
       position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
@@ -34,6 +40,21 @@ export function TopNav({ muted, onToggleMute }: Props) {
 
       {/* Right side */}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <button
+          type="button"
+          onClick={toggleLanguage}
+          aria-label={t('game.toggle_language', 'Chuyển ngôn ngữ')}
+          style={{
+            width: 36, height: 36, borderRadius: "50%",
+            background: "transparent", border: "1.5px solid #8a7d65",
+            color: "#2a2418", cursor: "pointer",
+            display: "grid", placeItems: "center",
+            fontWeight: 800, fontSize: 13, textTransform: "uppercase"
+          }}
+        >
+          {i18n.language.startsWith('en') ? 'EN' : 'VI'}
+        </button>
+
         <button
           type="button"
           onClick={onToggleMute}
