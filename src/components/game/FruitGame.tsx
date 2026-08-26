@@ -26,7 +26,7 @@ import { useGameFeedback } from "../../features/game/render/useGameFeedback";
 import { useSliceEffects } from "../../features/game/render/useSliceEffects";
 import { getFxPreset } from "../../features/game/render/fxPreset";
 import { PauseOverlay } from "./PauseOverlay";
-import { showRewardedVideo } from "../../integrations/ads/googleH5Ads";
+import { showRewardedVideo } from "../../utils/mockAds";
 
 interface Props {
   onSubmitScore?: (result: GameResult) => void;

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { GameResult } from "../game/types";
-import type { LeaderboardEntry } from "../lib/localScores";
+import { bestLocalScore, readOfflineScores, type LeaderboardEntry } from "../lib/localScores";
 import type {
   WinkIntegration,
   WinkIntegrationError,

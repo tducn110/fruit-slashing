@@ -1,4 +1,5 @@
 import { Medal, Trophy } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { getRank } from "../../lib/localScores";
 import { HeroBackdrop } from "./HeroBackdrop";
 import { HeroPeanutAnimation } from "./HeroPeanutAnimation";
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function HeroSection({ onPlay, onOpenLeaderboard, bestScore }: Props) {
+  const { t } = useTranslation();
   const rank = getRank(bestScore);
 
   return (
@@ -55,7 +57,7 @@ export function HeroSection({ onPlay, onOpenLeaderboard, bestScore }: Props) {
           color: "#8e4e22",
           letterSpacing: 1.5,
         }}>
-          MINI GAME · BỘ LẠC ĐẬU PHỘNG
+          {t('game.mini_game_subtitle')}
         </div>
 
         <h1 className="hero-title" style={{
@@ -67,8 +69,8 @@ export function HeroSection({ onPlay, onOpenLeaderboard, bestScore }: Props) {
           fontFamily: "Be Vietnam Pro, sans-serif",
           textShadow: "0 2px 0 rgba(255,255,255,0.6)",
         }}>
-          <span className="hero-title-main">Chém Lạc</span>{" "}
-          <span className="hero-title-accent">Vùng Cao</span>
+          <span className="hero-title-main">{t('game.title_main')}</span>{" "}
+          <span className="hero-title-accent">{t('game.title_accent')}</span>
         </h1>
 
         <p className="hero-desc" style={{
@@ -78,30 +80,28 @@ export function HeroSection({ onPlay, onOpenLeaderboard, bestScore }: Props) {
           margin: "0 auto",
           lineHeight: 1.65,
         }}>
-          Chém đậu phộng, dừa, chuối, thanh long và khế bay lên giữa
-          cánh đồng làng quê. Coi chừng quả bom — một nhát thôi là Lạc Lạc
-          giận đó!
+          {t('game.description')}
         </p>
 
-        <div className="heroStats" aria-label="Thống kê người chơi">
+        <div className="heroStats" aria-label={t('game.player_stats')}>
           <div className="heroStatCard">
             <span className="heroStatLabel">
               <Trophy size={16} />
-              Điểm cao nhất
+              {t('game.best_score')}
             </span>
             <strong className="heroStatValue">{bestScore.toLocaleString("vi-VN")}</strong>
           </div>
           <div className="heroStatCard">
             <span className="heroStatLabel">
               <Medal size={16} />
-              Cấp bậc
+              {t('game.rank')}
             </span>
             <strong className="heroStatValue">{rank}</strong>
           </div>
         </div>
 
         <div className="hero-cta" style={{ display: "flex", gap: 32, justifyContent: "center", alignItems: "center", flexWrap: "wrap", marginTop: 20 }}>
-          <button className="hero-play-button" onClick={onPlay} style={{
+          <button type="button" className="hero-play-button" onClick={onPlay} style={{
             padding: "16px 36px", borderRadius: 999,
             background: "linear-gradient(180deg,#f08a48,#e87432)",
             color: "#fff", border: "3px solid #b85a22",
@@ -119,12 +119,12 @@ export function HeroSection({ onPlay, onOpenLeaderboard, bestScore }: Props) {
             e.currentTarget.style.boxShadow = "0 10px 24px rgba(232,116,50,0.4)";
           }}
           >
-            Chơi ngay
+            {t('game.play_now')}
           </button>
 
-          <button className="hero-leaderboard-button" onClick={onOpenLeaderboard}>
+          <button type="button" className="hero-leaderboard-button" onClick={onOpenLeaderboard}>
             <Trophy size={18} />
-            Bảng điểm
+            {t('game.leaderboard')}
           </button>
         </div>
       </div>

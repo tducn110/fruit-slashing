@@ -1,4 +1,5 @@
 import { ArrowLeft, Clock3, Trophy } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
   BADGE_COLORS,
   getRank,
@@ -41,6 +42,7 @@ export function DashboardPanel({
   bestScore,
   onClose,
 }: Props) {
+  const { t } = useTranslation();
   const { topEntries, currentPlayer } = buildDisplayModel(leaderboard);
   const playerInTopTen = topEntries.find((entry) => entry.isLocal) ?? null;
   const playerRow = playerInTopTen ?? currentPlayer;
@@ -50,7 +52,7 @@ export function DashboardPanel({
       title={(
         <span className="settingsPanelTitle">
           <Trophy size={20} />
-          Kỷ lục
+          {t('game.records')}
         </span>
       )}
       width={380}
@@ -59,18 +61,18 @@ export function DashboardPanel({
       className="settingsPanel dashboardPanel"
     >
       <div className="dashboardBestCard">
-        <div className="dashboardBestLabel">Kỷ lục của bạn</div>
+        <div className="dashboardBestLabel">{t('game.your_record')}</div>
         <div className="dashboardBestScore">{bestScore.toLocaleString("vi-VN")}</div>
-        <div className="dashboardBestRank">Danh hiệu: {getRank(bestScore)}</div>
+        <div className="dashboardBestRank">{t('game.title')} {getRank(bestScore)}</div>
       </div>
 
       <section className="dashboardRankSection">
         <div className="dashboardRankHeader">
           <span>
             <Trophy size={18} />
-            Ranking 1-10
+            {t('game.ranking_1_10')}
           </span>
-          <b>Top điểm</b>
+          <b>{t('game.top_scores')}</b>
         </div>
 
         <div className="dashboardRankList">
@@ -82,7 +84,7 @@ export function DashboardPanel({
 
       {playerRow && (
         <section className="dashboardPlayerCard">
-          <div className="dashboardPlayerLabel">Bảng xếp hạng của bạn</div>
+          <div className="dashboardPlayerLabel">{t('game.your_ranking')}</div>
           <RankingRow entry={playerRow} highlight />
         </section>
       )}
@@ -99,6 +101,7 @@ export function LeaderboardScreen({
   bestScore: number;
   onBack: () => void;
 }) {
+  const { t } = useTranslation();
   const { topEntries, currentPlayer } = buildDisplayModel(leaderboard);
   const playerInTopTen = topEntries.find((entry) => entry.isLocal) ?? null;
   const playerRow = playerInTopTen ?? currentPlayer;
@@ -108,22 +111,22 @@ export function LeaderboardScreen({
       <section className="leaderboardCard">
         <div className="leaderboardTitle">
           <Trophy size={22} />
-          <span>Kỷ lục</span>
+          <span>{t('game.records')}</span>
         </div>
 
         <div className="leaderboardBestCard">
-          <p className="leaderboardEyebrow">Kỷ lục của bạn</p>
+          <p className="leaderboardEyebrow">{t('game.your_record')}</p>
           <h1>{bestScore.toLocaleString("vi-VN")}</h1>
-          <span>Danh hiệu: {getRank(bestScore)}</span>
+          <span>{t('game.title')} {getRank(bestScore)}</span>
         </div>
 
         <section className="leaderboardBoard">
           <div className="dashboardRankHeader">
             <span>
               <Trophy size={18} />
-              Ranking 1-10
+              {t('game.ranking_1_10')}
             </span>
-            <b>Top điểm</b>
+            <b>{t('game.top_scores')}</b>
           </div>
 
           <div className="dashboardRankList leaderboardRankList">
@@ -139,9 +142,9 @@ export function LeaderboardScreen({
           </div>
         )}
 
-        <button className="game-btn leaderboardBackBtn" onClick={onBack}>
+        <button type="button" className="game-btn leaderboardBackBtn" onClick={onBack}>
           <ArrowLeft size={16} />
-          Quay lại
+          {t('game.go_back')}
         </button>
       </section>
     </main>
@@ -155,6 +158,7 @@ function RankingRow({
   entry: RankedLeaderboardEntry;
   highlight?: boolean;
 }) {
+  const { t } = useTranslation();
   const isTopThree = entry.rank != null && entry.rank <= 3;
   const medal = isTopThree ? BADGE_COLORS[entry.rank! - 1] : null;
 
@@ -184,7 +188,7 @@ function RankingRow({
           color: medal?.text ?? "var(--pencil-gray)",
         }}
       >
-        {entry.rank ? `#${entry.rank}` : "Mới"}
+        {entry.rank ? `#${entry.rank}` : t('game.new')}
       </div>
 
       <div className="dashboardRankName">
@@ -200,8 +204,9 @@ function RankingRow({
       </div>
 
       <div className="dashboardRankScore">
-        {entry.score > 0 ? entry.score.toLocaleString("vi-VN") : "Chưa có"}
+        {entry.score > 0 ? entry.score.toLocaleString("vi-VN") : t('game.none')}
       </div>
     </div>
   );
 }
+

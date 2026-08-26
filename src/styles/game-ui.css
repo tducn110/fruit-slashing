@@ -1282,10 +1282,13 @@ canvas {
   --pause-bgm-bg: #c9ee91;
   --pause-bgm-icon: #3f7d18;
 
-  --pause-sfx-bg: #d9b8ff;
-  --pause-sfx-icon: #6240a0;
+  --pause-sfx-bg: #dfc8f9;
+  --pause-sfx-icon: #5f3299;
 
-  --pause-play-bg: #ef7a2c;
+  --pause-lang-bg: #98e6e6;
+  --pause-lang-icon: #186666;
+
+  --pause-play-bg: #f47b2c;
   --pause-play-icon: #ffffff;
 
   --pause-dim: rgba(42, 36, 24, 0.34);
@@ -1318,15 +1321,16 @@ canvas {
 }
 
 .pauseHudUtilityRow {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, auto);
   justify-content: center;
-  gap: 32px;
+  gap: 24px 32px;
   width: 100%;
 }
 
 .pauseHudButton {
-  width: clamp(72px, 18vw, 88px);
-  height: clamp(72px, 18vw, 88px);
+  width: clamp(64px, 16vw, 80px);
+  height: clamp(64px, 16vw, 80px);
   border-radius: 50%;
   border: 2px solid rgba(255, 255, 255, 0.9);
   display: flex;
@@ -1346,6 +1350,11 @@ canvas {
 .pauseHudButton--reset {
   background: var(--pause-reset-bg);
   color: var(--pause-reset-icon);
+}
+
+.pauseHudButton--lang {
+  background: var(--pause-lang-bg);
+  color: var(--pause-lang-icon);
 }
 
 .pauseHudButton--bgm {

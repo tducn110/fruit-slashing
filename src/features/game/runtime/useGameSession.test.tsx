@@ -166,6 +166,9 @@ describe("useGameSession round identity", () => {
       latest = value;
     });
 
+    await act(async () => {
+      latest.startCountdown();
+    });
     expect(latest.countdown).toBe(3);
     await act(async () => {
       vi.advanceTimersByTime(2_100);

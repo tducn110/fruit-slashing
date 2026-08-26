@@ -1,5 +1,5 @@
 {
-  "name": "@figma/my-make-file",
+  "name": "01-FruitSlashing",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -11,7 +11,6 @@
   "scripts": {
     "build": "vite build && node scripts/build-wink-warm.mjs",
     "dev": "vite",
-    "prebuild": "npm run verify:wink-bridge",
     "test": "vitest run --exclude '**/.worktrees/**'",
     "test:watch": "vitest --exclude '**/.worktrees/**'",
     "typecheck": "tsc --noEmit",
@@ -22,10 +21,12 @@
     "certify:c4": "node scripts/certify-wink-c4.mjs"
   },
   "dependencies": {
+    "i18next": "^26.4.0",
     "lucide-react": "0.487.0",
     "pixi.js": "^8.19.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-i18next": "^17.0.12"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.12",

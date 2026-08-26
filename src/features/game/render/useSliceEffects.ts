@@ -14,6 +14,7 @@
  * - Scoring, gameplay rules, hitbox: unchanged.
  */
 import { useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { type Container, Graphics, Sprite, type Texture } from "pixi.js";
 import { getWorldRenderTransform, worldToScreen as projectWorldToScreen, type SliceResult } from "../../../game/core";
 import { FRUIT_COLORS, type Particle } from "./fruitVisuals";
@@ -69,6 +70,7 @@ export function useSliceEffects({
   triggerPointFeedback,
   callbacksRef,
 }: Props) {
+  const { t } = useTranslation();
   // Small pool of reusable Graphics for slash effects.
   // Lazily initialised on first use (layer must exist by then).
   const slashPoolRef = useRef<SlashSlot[]>([]);
@@ -310,7 +312,7 @@ export function useSliceEffects({
     triggerPointFeedback({
       x: screen.x,
       y: screen.y,
-      text: result.fruit.kind === "peanut" ? "+" + result.points + " SIÊU HIẾM!" : "+" + result.points,
+      text: result.fruit.kind === "peanut" ? `+${result.points} ${t('game.super_rare')}` : `+${result.points}`,
       color: result.fruit.kind === "peanut" ? "var(--mascot-yellow)" : "var(--primary)",
       variant: "points",
     });
@@ -320,7 +322,7 @@ export function useSliceEffects({
       triggerPointFeedback({
         x: screen.x + 74,
         y: screen.y - 18,
-        text: (critical ? "CRITICAL" : "COMBO") + " x" + result.combo,
+        text: `${critical ? t('game.critical') : t('game.combo')} x${result.combo}`,
         color: critical ? "var(--destructive)" : "var(--orange-cta)",
         variant: critical ? "critical" : "combo",
       });

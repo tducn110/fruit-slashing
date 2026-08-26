@@ -134,6 +134,7 @@ export interface WinkIntegration {
   /** The player's own best run, or null when they have none to show. */
   personalBest: WinkLeaderboardEntry | null;
   refreshLeaderboard(): Promise<void>;
+  refreshPersonalBest(): Promise<void>;
   submitFinalScore(input: {
     roundId: string;
     score: number;

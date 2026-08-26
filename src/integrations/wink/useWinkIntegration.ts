@@ -214,8 +214,7 @@ export function useWinkIntegration(): WinkIntegration {
   const [leaderboard, setLeaderboard] = useState<
     readonly WinkLeaderboardEntry[]
   >([]);
-  const [personalBest, setPersonalBest] =
-    useState<WinkLeaderboardEntry | null>(null);
+
 
   useEffect(() => {
     const client = connection.client;
@@ -315,7 +314,7 @@ export function useWinkIntegration(): WinkIntegration {
       throw recordError(undefined, "BRIDGE_MISSING");
     }
     try {
-      const result = await connection.client.getPersonalBest();
+      const result = await connection.client.getLeaderboard({ limit: 1 });
       setPersonalBest(result.me);
     } catch (value) {
     }

@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { Heart } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { RewardAdButton } from "./RewardAdButton";
 
 interface GameOverOverlayProps {
@@ -34,12 +35,13 @@ function HeartHUD() {
 }
 
 function ScoreCard({ displayScore, canDoubleScore }: { displayScore: number; canDoubleScore: boolean }) {
+  const { t } = useTranslation();
   return (
     <DecisionCard>
-      <div className="scoreLabel">Điểm số</div>
-      <div className="scoreValue">{displayScore.toLocaleString("vi-VN")} điểm</div>
+      <div className="scoreLabel">{t('game.score')}</div>
+      <div className="scoreValue">{displayScore.toLocaleString("vi-VN")} {t('game.points')}</div>
       <div className="scoreMeta">
-        {canDoubleScore ? "Chọn nhân đôi điểm hoặc kết thúc game." : "Điểm đã được nhân đôi. Chọn kết thúc game."}
+        {canDoubleScore ? t('game.choose_double_or_end') : t('game.score_doubled_choose_end')}
       </div>
     </DecisionCard>
   );
@@ -67,20 +69,22 @@ export function GameOverOverlay({
   onDoubleScore,
   onEndGame,
 }: GameOverOverlayProps) {
+  const { t } = useTranslation();
+
   if (running || countdown !== null || finalScore === null || displayScore === null) return null;
 
   if (mode === "continue" && canContinue) {
     return (
-      <div className="gameOverOverlay">
+      <div className="gameOverOverlay" role="dialog" aria-modal="true" aria-label="Game Over">
         <div className="gameOverCard">
           <HeartHUD />
           <RewardAdButton 
-            label="Tiếp tục chơi" 
+            label={t('game.continue_playing')}
             onClick={onContinue} 
             disabled={adPending} 
           />
           <SecondaryButton onClick={onDeclineContinue} disabled={adPending}>
-            Không
+            {t('game.no')}
           </SecondaryButton>
         </div>
       </div>
@@ -88,21 +92,22 @@ export function GameOverOverlay({
   }
 
   return (
-    <div className="gameOverOverlay">
+    <div className="gameOverOverlay" role="dialog" aria-modal="true" aria-label="Game Summary">
       <div className="gameOverCard">
         <ScoreCard 
           displayScore={displayScore} 
           canDoubleScore={canDoubleScore} 
         />
         <RewardAdButton 
-          label="x2" 
+          label={t('game.double_score')}
           onClick={onDoubleScore} 
           disabled={!canDoubleScore || adPending} 
         />
         <SecondaryButton onClick={onEndGame} disabled={adPending}>
-          Kết thúc game
+          {t('game.end_game')}
         </SecondaryButton>
       </div>
     </div>
   );
 }
+

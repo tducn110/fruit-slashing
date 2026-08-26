@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type {
   WinkIntegration,
   WinkIntegrationError,
@@ -12,6 +13,8 @@ export function IntegrationStatusBanner({
   integration,
   operationError = null,
 }: Props) {
+  const { t } = useTranslation();
+
   if (operationError?.code !== "CAPABILITY_DENIED") return null;
 
   return (
@@ -42,7 +45,7 @@ export function IntegrationStatusBanner({
         pointerEvents: "none",
       }}
     >
-      Không thể gửi điểm: hãy đăng nhập để tham gia bảng xếp hạng.
+      {t('game.login_to_submit')}
     </div>
   );
 }

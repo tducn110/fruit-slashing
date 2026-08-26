@@ -1,4 +1,5 @@
 import { Volume2, VolumeX } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   muted: boolean;
@@ -6,6 +7,7 @@ interface Props {
 }
 
 export function TopNav({ muted, onToggleMute }: Props) {
+  const { t } = useTranslation();
   return (
     <nav style={{
       position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
@@ -26,15 +28,16 @@ export function TopNav({ muted, onToggleMute }: Props) {
           color: "#2a2418", fontWeight: 800,
         }}>L</div>
         <span className="brandName" style={{ fontWeight: 800, color: "#2a2418", letterSpacing: 0.3 }}>
-          Bộ Lạc Đậu Phộng
+          {t('game.brand_name')}
         </span>
       </div>
 
       {/* Right side */}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <button
+          type="button"
           onClick={onToggleMute}
-          aria-label={muted ? "Bật âm thanh" : "Tắt âm thanh"}
+          aria-label={muted ? t('game.unmute_bgm', 'Bật âm thanh') : t('game.mute_bgm', 'Tắt âm thanh')}
           style={{
             width: 36, height: 36, borderRadius: "50%",
             background: "transparent", border: "1.5px solid #8a7d65",
