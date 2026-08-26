@@ -43,6 +43,7 @@ const resources = {
         super_rare: "SIÊU HIẾM!",
         combo: "COMBO",
         critical: "CRITICAL",
+        bomb_explosion: "BÙM!",
         ranks: {
           legend: "Huyền Thoại",
           king: "Vua Chém",
@@ -106,6 +107,7 @@ const resources = {
         super_rare: "SUPER RARE!",
         combo: "COMBO",
         critical: "CRITICAL",
+        bomb_explosion: "BOOM!",
         ranks: {
           legend: "Legend",
           king: "Slash King",

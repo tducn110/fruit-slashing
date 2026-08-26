@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 interface BombText {
   x: number;
   y: number;
@@ -36,11 +38,13 @@ export function FloatingTextLayer({
   bombTexts,
   pointTexts,
 }: FloatingTextLayerProps) {
+  const { t } = useTranslation();
+
   return (
     <>
       {bombTexts.map((text) => (
         <div key={text.id} className="bombText" style={floatingTextPosition(text.x, text.y)}>
-          BÙM!
+          {t('game.bomb_explosion', 'BÙM!')}
         </div>
       ))}
 
