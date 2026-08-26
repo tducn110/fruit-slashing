@@ -223,7 +223,7 @@ describe("production canary image handoff", () => {
     expect(config).toContain('GAME_SLUG="bo-lac-fruit-slashing"');
     expect(config).toContain('ENVIRONMENT="prod"');
     expect(config).toContain(
-      'ALLOWED_PARENT_ORIGINS="https://winkgames.papastudio.net http://localhost:3000"',
+      'ALLOWED_PARENT_ORIGINS="https://winkgames.papastudio.net https://winkgames.fun https://www.winkgames.fun http://localhost:3000"',
     );
     expect(config).toContain('DOMAIN="${GAME_SLUG}.papastudio.net"');
     expect(config).toContain(
@@ -245,6 +245,8 @@ describe("production canary image handoff", () => {
       bridgeVersion: "9.1.0",
       allowedParentOrigins: [
         "https://winkgames.papastudio.net",
+        "https://winkgames.fun",
+        "https://www.winkgames.fun",
         "http://localhost:3000",
       ],
     });

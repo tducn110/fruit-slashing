@@ -77,6 +77,8 @@ export const ENVIRONMENT_CONTRACT = Object.freeze({
   dev: Object.freeze({
     parentOrigins: Object.freeze([
       'https://winkgames.papastudio.net',
+      'https://winkgames.fun',
+      'https://www.winkgames.fun',
       LOCAL_WINK_FE_ORIGIN,
     ]),
     apiBase: 'https://api-winkgames.papastudio.net/api/v1',
@@ -93,6 +95,8 @@ export const ENVIRONMENT_CONTRACT = Object.freeze({
   prod: Object.freeze({
     parentOrigins: Object.freeze([
       'https://winkgames.papastudio.net',
+      'https://winkgames.fun',
+      'https://www.winkgames.fun',
       LOCAL_WINK_FE_ORIGIN,
     ]),
     apiBase: 'https://api-winkgames.papastudio.net/api/v1',

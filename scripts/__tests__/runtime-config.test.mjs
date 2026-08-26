@@ -41,6 +41,8 @@ describe("Wink runtime config generation", () => {
         environment: "prod",
         allowedParentOrigins: [
           "https://winkgames.papastudio.net",
+          "https://winkgames.fun",
+          "https://www.winkgames.fun",
           "http://localhost:3000",
         ],
       }),
@@ -48,6 +50,8 @@ describe("Wink runtime config generation", () => {
       environment: "prod",
       allowedParentOrigins: [
         "https://winkgames.papastudio.net",
+        "https://winkgames.fun",
+        "https://www.winkgames.fun",
         "http://localhost:3000",
       ],
     });

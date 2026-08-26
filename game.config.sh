@@ -58,14 +58,14 @@ case "${ENVIRONMENT}" in
   # `staging` was removed with the dev-winkgames deployment on 2026-08-20.
   dev)
     DOMAIN="${GAME_SLUG}.papastudio.net"
-    ALLOWED_PARENT_ORIGINS="https://winkgames.papastudio.net http://localhost:3000"
+    ALLOWED_PARENT_ORIGINS="https://winkgames.papastudio.net https://winkgames.fun https://www.winkgames.fun http://localhost:3000"
     STACK_NAME="papastudio-winkgames-games"
     IMAGE_NAME="winkgames/prod/${GAME_SLUG}"
     ROUTER_NAME="winkgames-minigame-prod-${GAME_SLUG}"
     ;;
   prod)
     DOMAIN="${GAME_SLUG}.papastudio.net"
-    ALLOWED_PARENT_ORIGINS="https://winkgames.papastudio.net http://localhost:3000"
+    ALLOWED_PARENT_ORIGINS="https://winkgames.papastudio.net https://winkgames.fun https://www.winkgames.fun http://localhost:3000"
     STACK_NAME="papastudio-winkgames-games"
     IMAGE_NAME="winkgames/prod/${GAME_SLUG}"
     ROUTER_NAME="winkgames-minigame-prod-${GAME_SLUG}"

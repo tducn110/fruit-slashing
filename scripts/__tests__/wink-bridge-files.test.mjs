@@ -73,6 +73,8 @@ describe('R4 certified Wink bridge files', () => {
       bridgeVersion: '9.1.0',
       allowedParentOrigins: [
         'https://winkgames.papastudio.net',
+        'https://winkgames.fun',
+        'https://www.winkgames.fun',
         'http://localhost:3000',
       ],
     });
@@ -127,7 +129,7 @@ describe('R4 certified Wink bridge files', () => {
       gameId: '36348ccc-1f37-4eca-ad1c-a8a47292ace7',
       // The shared verifier also reports how many parents the config names, so
       // the evidence line says whether this build trusts one origin or several.
-      parents: 2,
+      parents: 4,
     });
   });
 });
