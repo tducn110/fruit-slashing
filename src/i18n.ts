@@ -1,6 +1,38 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 
+const LANGUAGE_STORAGE_KEY = "fruit-slashing-language";
+type SupportedLanguage = "vi" | "en";
+
+function isSupportedLanguage(value: string | null): value is SupportedLanguage {
+  return value === "vi" || value === "en";
+}
+
+function getInitialLanguage(): SupportedLanguage {
+  if (typeof window === "undefined") return "vi";
+
+  try {
+    const storedLanguage = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    return isSupportedLanguage(storedLanguage) ? storedLanguage : "vi";
+  } catch {
+    // Some embedded browsers can deny localStorage access. Vietnamese remains
+    // the safe default in that case.
+    return "vi";
+  }
+}
+
+function persistLanguage(language: string): void {
+  const normalizedLanguage = language.split("-")[0];
+  if (!isSupportedLanguage(normalizedLanguage) || typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, normalizedLanguage);
+  } catch {
+    // Language persistence is optional and must not break gameplay in a
+    // restricted WebView/private browsing context.
+  }
+}
+
 const resources = {
   vi: {
     translation: {
@@ -136,11 +168,14 @@ i18n
   .use(initReactI18next)
   .init({
     resources,
-    lng: "vi", // Default language
-    fallbackLng: "en",
+    lng: getInitialLanguage(),
+    fallbackLng: "vi",
     interpolation: {
       escapeValue: false // React already escapes values
     }
   });
+
+// Persist changes from every language control (settings, pause and top nav).
+i18n.on("languageChanged", persistLanguage);
 
 export default i18n;

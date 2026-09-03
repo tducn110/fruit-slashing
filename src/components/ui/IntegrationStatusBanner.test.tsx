@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { WinkIntegration } from "../../integrations/wink/types";
 import { IntegrationStatusBanner } from "./IntegrationStatusBanner";
+import "../../i18n";
 
 const integration = {
   mode: "wink",

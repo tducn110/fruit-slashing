@@ -1,5 +1,7 @@
-import { Music2, Settings as SettingsIcon, Sparkles, Volume2, VolumeX } from "lucide-react";
+import { Globe, Music2, Settings as SettingsIcon, Sparkles, Volume2, VolumeX } from "lucide-react";
 import { PanelFrame, IconButton } from "../ui/primitives";
+import { useTranslation } from "react-i18next";
+import i18n from "../../i18n";
 
 interface Props {
   musicMuted: boolean;
@@ -16,11 +18,15 @@ export function SettingsPanel({
   onToggleSfx,
   onClose,
 }: Props) {
+  const { t } = useTranslation();
+  const currentLanguage = i18n.resolvedLanguage?.startsWith("en") ? "en" : "vi";
+  const nextLanguage = currentLanguage === "vi" ? "en" : "vi";
+
   return (
     <PanelFrame
       title={(
         <span className="settingsPanelTitle">
-          <SettingsIcon size={20} /> Cài đặt
+          <SettingsIcon size={20} /> {currentLanguage === "vi" ? "Cài đặt" : "Settings"}
         </span>
       )}
       width={330}
@@ -28,6 +34,20 @@ export function SettingsPanel({
       className="settingsPanel"
     >
       <div className="settingsPanelRows">
+            <div className="settingsOptionRow">
+              <div className="settingsOptionLabel">
+                <Globe size={20} />
+                <span>{currentLanguage === "vi" ? "Ngôn ngữ" : "Language"}</span>
+              </div>
+              <IconButton
+                label={t("game.toggle_language", "Chuyển ngôn ngữ")}
+                variant="solid"
+                onClick={() => void i18n.changeLanguage(nextLanguage)}
+                className="settingsToggle is-on"
+              >
+                {nextLanguage.toUpperCase()}
+              </IconButton>
+            </div>
             <div className="settingsOptionRow">
               <div className="settingsOptionLabel">
                 {musicMuted ? <VolumeX size={20} /> : <Music2 size={20} />}

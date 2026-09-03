@@ -59,6 +59,32 @@ afterEach(() => {
 });
 
 describe("useGameSession round identity", () => {
+  it("starts a new countdown when resetting an active round", async () => {
+    vi.useFakeTimers();
+    let latest!: ReturnType<typeof useGameSession>;
+    const onStart = vi.fn(() => latest.startSession());
+    const mounted = await mountProbe({ onStart }, (value) => {
+      latest = value;
+    });
+
+    await act(async () => latest.startSession());
+    expect(latest.running).toBe(true);
+
+    await act(async () => latest.resetSession());
+
+    expect(latest.running).toBe(false);
+    expect(latest.countdown).toBe(3);
+
+    await act(async () => vi.advanceTimersByTime(700));
+    await act(async () => vi.advanceTimersByTime(700));
+    await act(async () => vi.advanceTimersByTime(700));
+
+    expect(onStart).toHaveBeenCalledTimes(1);
+    expect(latest.running).toBe(true);
+    expect(latest.countdown).toBe(null);
+    await mounted.unmount();
+  });
+
   it("keeps one round id through revive/finalize and creates a new id for a new round", async () => {
     vi.useFakeTimers();
     const onComplete = vi.fn();

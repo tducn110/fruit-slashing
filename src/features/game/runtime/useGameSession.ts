@@ -161,7 +161,11 @@ export function useGameSession({
     setRunning(false);
     setFinalScore(null);
     setFinalResult(null);
-    startCountdown();
+    // Reset can be called while the current run is still marked as running.
+    // Calling startCountdown() here observes that stale `running` closure and
+    // returns before scheduling the new round. Set the countdown directly
+    // after clearing the session state so restart always has a next phase.
+    setCountdown(3);
   }
 
   function resumeSession(elapsedMs: number) {
