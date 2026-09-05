@@ -73,3 +73,16 @@ it("ignores a Pixi layer that was destroyed before feedback cleanup", async () =
 
   await mounted.unmount();
 });
+
+it("bounds floating labels even when a single gesture produces a large combo burst", async () => {
+  let feedback!: Feedback;
+  const mounted = await mountProbe(value => { feedback = value; });
+  await act(async () => {
+    for (let i = 0; i < 40; i++) {
+      feedback.triggerPointFeedback({ x: i, y: 100, text: `+${i}`, color: "#fff", variant: "combo" });
+    }
+  });
+  expect(feedback.pointTexts).toHaveLength(15);
+  expect(feedback.pointTexts.at(-1)?.text).toBe("+39");
+  await mounted.unmount();
+});

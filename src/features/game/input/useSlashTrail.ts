@@ -89,15 +89,58 @@ export function useSlashTrail({
 
     trailGraphics.clear();
 
-    for (let index = 1; index < trailPointsRef.current.length; index += 1) {
-      const from = trailPointsRef.current[index - 1];
-      const to = trailPointsRef.current[index];
-      const alpha = 1 - (now - to.t) / maxAgeMs;
+    const totalSegments = points.length - 1;
+    const numSections = totalSegments <= 2 ? 1 : totalSegments <= 6 ? 2 : 3;
 
-      trailGraphics.moveTo(from.x, from.y).lineTo(to.x, to.y)
-        .stroke({ color: 0xffffff, width: 18 * alpha + 5, alpha: alpha * 0.95, cap: "round" });
-      trailGraphics.moveTo(from.x, from.y).lineTo(to.x, to.y)
-        .stroke({ color: 0xe87432, width: 7 * alpha + 2, alpha, cap: "round" });
+    // Partition points into continuous connected sections sharing boundaries
+    const sections: Array<{
+      startIndex: number;
+      endIndex: number;
+      alpha: number;
+    }> = [];
+
+    for (let s = 0; s < numSections; s += 1) {
+      const startIndex = Math.floor((s * totalSegments) / numSections);
+      const endIndex = Math.floor(((s + 1) * totalSegments) / numSections);
+      if (endIndex <= startIndex) continue;
+
+      const midPoint = points[Math.floor((startIndex + endIndex) / 2)];
+      const alpha = Math.max(0.05, Math.min(1, 1 - (now - midPoint.t) / maxAgeMs));
+      sections.push({ startIndex, endIndex, alpha });
+    }
+
+    // Pass 1: Outer glow (white) for all sections
+    for (let s = 0; s < sections.length; s += 1) {
+      const section = sections[s];
+      const start = points[section.startIndex];
+      trailGraphics.moveTo(start.x, start.y);
+      for (let i = section.startIndex + 1; i <= section.endIndex; i += 1) {
+        trailGraphics.lineTo(points[i].x, points[i].y);
+      }
+      trailGraphics.stroke({
+        color: 0xffffff,
+        width: 18 * section.alpha + 5,
+        alpha: section.alpha * 0.95,
+        cap: "round",
+        join: "round",
+      });
+    }
+
+    // Pass 2: Inner blade core (orange) on top for all sections
+    for (let s = 0; s < sections.length; s += 1) {
+      const section = sections[s];
+      const start = points[section.startIndex];
+      trailGraphics.moveTo(start.x, start.y);
+      for (let i = section.startIndex + 1; i <= section.endIndex; i += 1) {
+        trailGraphics.lineTo(points[i].x, points[i].y);
+      }
+      trailGraphics.stroke({
+        color: 0xe87432,
+        width: 7 * section.alpha + 2,
+        alpha: section.alpha,
+        cap: "round",
+        join: "round",
+      });
     }
   }, [trailGraphicsRef, maxAgeMs]);
 

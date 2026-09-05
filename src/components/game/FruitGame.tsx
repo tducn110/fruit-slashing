@@ -111,7 +111,6 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
 
   const coreRef = useRef<GameState | null>(null);
   const destroyedRef = useRef(false);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [reviveUsed, setReviveUsed] = useState(false);
   const [gameOverMode, setGameOverMode] = useState<"continue" | "summary">("continue");
   const [scoreMultiplier, setScoreMultiplier] = useState(1);
@@ -166,7 +165,7 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
   }, [showSliceEffect, syncFruitSprites, syncHud, finishGame]);
 
   useGamePointerInput({
-    canvasRef,
+    canvas: ready && texturesReady ? appRef.current?.canvas ?? null : null,
     gameStateRef: coreRef,
     playingRef,
     startedAtRef,
@@ -202,7 +201,6 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
     if (!app.canvas) return;
 
     destroyedRef.current = false;
-    canvasRef.current = app.canvas;
 
     // Phase 2.1: Initialise particle pool now that textures + layer are ready.
     const layer = playLayerRef.current;

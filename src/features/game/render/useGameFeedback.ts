@@ -22,9 +22,9 @@ import { type Container } from "pixi.js";
 
 export function useGameFeedback() {
   const [flashRed, setFlashRed] = useState(false);
-  const [bombTexts, setBombTexts] = useState<Array<{ id: number; x: number; y: number }>>([]);
+  const [bombTexts, setBombTexts] = useState<Array<{ id: number; x: number; y: number; expiresAt?: number }>>([]);
   const [pointTexts, setPointTexts] = useState<
-    Array<{ id: number; x: number; y: number; text: string; color: string; variant?: "points" | "combo" | "critical" }>
+    Array<{ id: number; x: number; y: number; text: string; color: string; variant?: "points" | "combo" | "critical"; expiresAt?: number }>
   >([]);
 
   const effectIdRef = useRef(0);
@@ -34,23 +34,16 @@ export function useGameFeedback() {
   const shakenLayerRef = useRef<Container | null>(null);
   const lastPointShakeAtRef = useRef(0);
 
-  // ── Batching state ────────────────────────────────────────────────────────
-
-  /** Queue of point-text entries waiting to be flushed in a single setState. */
-  const pendingPointTextsRef = useRef<
-    Array<{ id: number; x: number; y: number; text: string; color: string; variant?: "points" | "combo" | "critical" }>
+  // Synchronous tracking refs to decouple scheduler side-effects from React setState updaters
+  const activePointTextsRef = useRef<
+    Array<{ id: number; x: number; y: number; text: string; color: string; variant?: "points" | "combo" | "critical"; expiresAt?: number }>
   >([]);
-  /** True while a microtask flush is already scheduled. */
-  const flushScheduledRef = useRef(false);
+  const pointCleanupTimerRef = useRef<number | null>(null);
+  const pointCleanupTargetTimeRef = useRef<number | null>(null);
 
-  function flushPendingPointTexts() {
-    flushScheduledRef.current = false;
-    if (!mountedRef.current) return;
-    const pending = pendingPointTextsRef.current;
-    if (pending.length === 0) return;
-    pendingPointTextsRef.current = [];
-    setPointTexts((items) => [...items.slice(-14), ...pending]);
-  }
+  const activeBombTextsRef = useRef<Array<{ id: number; x: number; y: number; expiresAt?: number }>>([]);
+  const bombCleanupTimerRef = useRef<number | null>(null);
+  const bombCleanupTargetTimeRef = useRef<number | null>(null);
 
   // ── Screen-shake helpers ──────────────────────────────────────────────────
 
@@ -63,6 +56,10 @@ export function useGameFeedback() {
   function clearTimers() {
     timersRef.current.forEach((timerId) => window.clearTimeout(timerId));
     timersRef.current.clear();
+    pointCleanupTimerRef.current = null;
+    pointCleanupTargetTimeRef.current = null;
+    bombCleanupTimerRef.current = null;
+    bombCleanupTargetTimeRef.current = null;
   }
 
   function schedule(cb: () => void, delayMs: number) {
@@ -75,20 +72,164 @@ export function useGameFeedback() {
     return timer;
   }
 
-  // ── Bomb feedback (not batched — low frequency) ───────────────────────────
+  // ── Robust point text cleanup scheduler ───────────────────────────────────
+
+  function schedulePointCleanup(targetTime: number) {
+    const now = performance.now();
+    if (pointCleanupTimerRef.current !== null && pointCleanupTargetTimeRef.current !== null) {
+      if (targetTime >= pointCleanupTargetTimeRef.current) return;
+      window.clearTimeout(pointCleanupTimerRef.current);
+      timersRef.current.delete(pointCleanupTimerRef.current);
+      pointCleanupTimerRef.current = null;
+    }
+
+    pointCleanupTargetTimeRef.current = targetTime;
+    const delay = Math.max(16, targetTime - now);
+    const timer = window.setTimeout(() => {
+      timersRef.current.delete(timer);
+      pointCleanupTimerRef.current = null;
+      pointCleanupTargetTimeRef.current = null;
+      cleanupPointTexts();
+    }, delay);
+    timersRef.current.add(timer);
+    pointCleanupTimerRef.current = timer;
+  }
+
+  function cleanupPointTexts() {
+    if (!mountedRef.current) return;
+    const now = performance.now();
+    const current = activePointTextsRef.current;
+    if (current.length === 0) return;
+
+    const remaining: typeof current = [];
+    let hasExpired = false;
+    let nextExpiry = Infinity;
+
+    for (let i = 0; i < current.length; i += 1) {
+      const item = current[i];
+      const expiresAt = item.expiresAt ?? 0;
+      if (expiresAt <= now) {
+        hasExpired = true;
+      } else {
+        remaining.push(item);
+        if (expiresAt < nextExpiry) {
+          nextExpiry = expiresAt;
+        }
+      }
+    }
+
+    if (hasExpired) {
+      activePointTextsRef.current = remaining;
+      setPointTexts(remaining);
+    }
+
+    // Always reschedule if items remain, even if timer woke slightly early
+    if (remaining.length > 0 && nextExpiry !== Infinity) {
+      schedulePointCleanup(nextExpiry);
+    }
+  }
+
+  // ── Batching state ────────────────────────────────────────────────────────
+
+  /** Queue of point-text entries waiting to be flushed in a single setState. */
+  const pendingPointTextsRef = useRef<
+    Array<{ id: number; x: number; y: number; text: string; color: string; variant?: "points" | "combo" | "critical"; expiresAt?: number }>
+  >([]);
+  /** True while a microtask flush is already scheduled. */
+  const flushScheduledRef = useRef(false);
+
+  function flushPendingPointTexts() {
+    flushScheduledRef.current = false;
+    if (!mountedRef.current) return;
+    const pending = pendingPointTextsRef.current;
+    if (pending.length === 0) return;
+    pendingPointTextsRef.current = [];
+
+    const nextItems = [...activePointTextsRef.current, ...pending].slice(-15);
+    activePointTextsRef.current = nextItems;
+    setPointTexts(nextItems);
+
+    let earliest = Infinity;
+    for (let i = 0; i < nextItems.length; i += 1) {
+      const exp = nextItems[i].expiresAt ?? 0;
+      if (exp < earliest) earliest = exp;
+    }
+    if (earliest !== Infinity) {
+      schedulePointCleanup(earliest);
+    }
+  }
+
+  // ── Robust bomb text cleanup scheduler ────────────────────────────────────
+
+  function scheduleBombCleanup(targetTime: number) {
+    const now = performance.now();
+    if (bombCleanupTimerRef.current !== null && bombCleanupTargetTimeRef.current !== null) {
+      if (targetTime >= bombCleanupTargetTimeRef.current) return;
+      window.clearTimeout(bombCleanupTimerRef.current);
+      timersRef.current.delete(bombCleanupTimerRef.current);
+      bombCleanupTimerRef.current = null;
+    }
+
+    bombCleanupTargetTimeRef.current = targetTime;
+    const delay = Math.max(16, targetTime - now);
+    const timer = window.setTimeout(() => {
+      timersRef.current.delete(timer);
+      bombCleanupTimerRef.current = null;
+      bombCleanupTargetTimeRef.current = null;
+      cleanupBombTexts();
+    }, delay);
+    timersRef.current.add(timer);
+    bombCleanupTimerRef.current = timer;
+  }
+
+  function cleanupBombTexts() {
+    if (!mountedRef.current) return;
+    const now = performance.now();
+    const current = activeBombTextsRef.current;
+    if (current.length === 0) return;
+
+    const remaining: typeof current = [];
+    let hasExpired = false;
+    let nextExpiry = Infinity;
+
+    for (let i = 0; i < current.length; i += 1) {
+      const item = current[i];
+      const expiresAt = item.expiresAt ?? 0;
+      if (expiresAt <= now) {
+        hasExpired = true;
+      } else {
+        remaining.push(item);
+        if (expiresAt < nextExpiry) {
+          nextExpiry = expiresAt;
+        }
+      }
+    }
+
+    if (hasExpired) {
+      activeBombTextsRef.current = remaining;
+      setBombTexts(remaining);
+    }
+
+    if (remaining.length > 0 && nextExpiry !== Infinity) {
+      scheduleBombCleanup(nextExpiry);
+    }
+  }
+
+  // ── Bomb feedback (low frequency) ─────────────────────────────────────────
 
   function triggerBombFeedback(screen: { x: number; y: number }) {
     shakeRef.current = { active: true, startedAt: performance.now(), durationMs: 420, amount: 11 };
     setFlashRed(true);
     schedule(() => setFlashRed(false), 100);
     const id = ++effectIdRef.current;
-    setBombTexts((items) => [...items.slice(-4), { ...screen, id }]);
-    schedule(() => {
-      setBombTexts((items) => items.filter((item) => item.id !== id));
-    }, 800);
+    const expiresAt = performance.now() + 800;
+    const nextItems = [...activeBombTextsRef.current.slice(-4), { ...screen, id, expiresAt }];
+    activeBombTextsRef.current = nextItems;
+    setBombTexts(nextItems);
+    scheduleBombCleanup(expiresAt);
   }
 
-  // ── Point feedback (batched) ──────────────────────────────────────────────
+  // ── Point feedback (batched insert + batched cleanup) ─────────────────────
 
   function triggerPointFeedback(input: { x: number; y: number; text: string; color: string; variant?: "points" | "combo" | "critical" }) {
     const id = ++effectIdRef.current;
@@ -101,20 +242,15 @@ export function useGameFeedback() {
       lastPointShakeAtRef.current = now;
     }
 
-    // Queue the new entry.
-    pendingPointTextsRef.current.push({ ...input, id });
+    // Queue the new entry with expiration timestamp.
+    const expiresAt = now + 800;
+    pendingPointTextsRef.current.push({ ...input, id, expiresAt });
 
     // Schedule a single flush via microtask if not already scheduled.
-    // Multiple synchronous calls in the same frame will share this one flush.
     if (!flushScheduledRef.current) {
       flushScheduledRef.current = true;
       queueMicrotask(flushPendingPointTexts);
     }
-
-    // Schedule cleanup timer for this specific id.
-    schedule(() => {
-      setPointTexts((items) => items.filter((item) => item.id !== id));
-    }, 800);
   }
 
   // ── Screen shake update (called from Pixi ticker) ─────────────────────────
@@ -158,6 +294,8 @@ export function useGameFeedback() {
     resetScreenShake();
     shakenLayerRef.current = null;
     setFlashRed(false);
+    activeBombTextsRef.current = [];
+    activePointTextsRef.current = [];
     setBombTexts([]);
     setPointTexts([]);
     pendingPointTextsRef.current = [];

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
 import type { GameState, SliceResult, TrailSegment } from "../../../game/core";
 import {
   elapsedTick,
@@ -11,7 +11,7 @@ import {
 import type { TrailPoint } from "./useSlashTrail";
 
 interface UseGamePointerInputOptions {
-  canvasRef: RefObject<HTMLCanvasElement | null>;
+  canvas: HTMLCanvasElement | null;
   gameStateRef: RefObject<GameState | null>;
   playingRef: RefObject<boolean>;
   startedAtRef: RefObject<number>;
@@ -32,7 +32,7 @@ interface UseGamePointerInputResult {
 }
 
 export function useGamePointerInput({
-  canvasRef,
+  canvas,
   gameStateRef,
   playingRef,
   startedAtRef,
@@ -44,12 +44,27 @@ export function useGamePointerInput({
 }: UseGamePointerInputOptions): UseGamePointerInputResult {
   const pointerDownRef = useRef(false);
   const trailSegmentsScratchRef = useRef<TrailSegment[]>([]);
+  const callbacksRef = useRef({ addTrailPoint, clearTrail, onSliceResult });
+
+  // HUD and floating-text renders replace these functions. Updating their
+  // committed values must not tear down an in-flight pointer gesture/RAF.
+  useLayoutEffect(() => {
+    callbacksRef.current = { addTrailPoint, clearTrail, onSliceResult };
+  }, [addTrailPoint, clearTrail, onSliceResult]);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
     if (!canvas) return;
     let moveFrame = 0;
     let pendingMove: { clientX: number; clientY: number } | null = null;
+    let cachedRect: DOMRect | null = null;
+
+    function updateRect() {
+      if (canvas) {
+        cachedRect = canvas.getBoundingClientRect();
+      }
+    }
+
+    updateRect();
 
     function handlePointer(clientX: number, clientY: number) {
       const state = gameStateRef.current;
@@ -59,15 +74,18 @@ export function useGamePointerInput({
 
       if (!size || !trailPoints || startedAt === null || startedAt === undefined) return;
 
-      const rect = canvas!.getBoundingClientRect();
-      if (!rect.width || !rect.height) return;
+      if (!cachedRect) {
+        cachedRect = canvas!.getBoundingClientRect();
+      }
+      const rect = cachedRect;
+      if (!rect || !rect.width || !rect.height) return;
 
       const screenX = (clientX - rect.left) * (size.w / rect.width);
       const screenY = (clientY - rect.top) * (size.h / rect.height);
       const now = performance.now();
       const previousTrail = trailPoints.at(-1);
 
-      addTrailPoint({ x: screenX, y: screenY, t: now });
+      callbacksRef.current.addTrailPoint({ x: screenX, y: screenY, t: now });
 
       if (!playingRef.current || !state) return;
 
@@ -88,7 +106,6 @@ export function useGamePointerInput({
       // Collision only needs the newest ten points. Build that small list
       // directly instead of mapping the complete trail on every pointer frame.
       const trailSegments = trailSegmentsScratchRef.current;
-      trailSegments.length = 0;
       const firstPoint = Math.max(0, trailPoints.length - 10);
       for (let index = firstPoint; index < trailPoints.length; index += 1) {
         const point = trailPoints[index];
@@ -98,14 +115,16 @@ export function useGamePointerInput({
         segment.y = (point.y - transform.offsetY) / transform.scaleY + WORLD_HEIGHT / 2;
         trailSegments[segmentIndex] = segment;
       }
+      trailSegments.length = trailPoints.length - firstPoint;
 
       const results = applyInput(state, sample, trailSegments, state.config);
 
-      onSliceResult(results, previousTrail, screenX, screenY);
+      callbacksRef.current.onSliceResult(results, previousTrail, screenX, screenY);
     }
 
     const handlePointerDown = (event: PointerEvent) => {
       pointerDownRef.current = true;
+      updateRect();
       handlePointer(event.clientX, event.clientY);
     };
 
@@ -133,7 +152,7 @@ export function useGamePointerInput({
         handlePointer(next.clientX, next.clientY);
       }
       pointerDownRef.current = false;
-      clearTrail();
+      callbacksRef.current.clearTrail();
     };
 
     const preventTouchScroll = (event: TouchEvent) => {
@@ -146,6 +165,8 @@ export function useGamePointerInput({
     window.addEventListener("pointerup", handlePointerUp);
     canvas.addEventListener("pointerleave", handlePointerUp);
     canvas.addEventListener("pointercancel", handlePointerUp);
+    window.addEventListener("resize", updateRect);
+    window.addEventListener("scroll", updateRect, true);
 
     return () => {
       canvas.removeEventListener("pointerdown", handlePointerDown);
@@ -154,18 +175,18 @@ export function useGamePointerInput({
       window.removeEventListener("pointerup", handlePointerUp);
       canvas.removeEventListener("pointerleave", handlePointerUp);
       canvas.removeEventListener("pointercancel", handlePointerUp);
+      window.removeEventListener("resize", updateRect);
+      window.removeEventListener("scroll", updateRect, true);
       if (moveFrame) window.cancelAnimationFrame(moveFrame);
+      pointerDownRef.current = false;
     };
   }, [
-    canvasRef,
+    canvas,
     gameStateRef,
     playingRef,
     startedAtRef,
     sizeRef,
-    addTrailPoint,
-    clearTrail,
     trailPointsRef,
-    onSliceResult,
   ]);
 
   return {
