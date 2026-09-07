@@ -198,12 +198,15 @@ class AudioManager {
    */
   private voicePools: Map<SfxName, AudioBufferSourceNode[]> = new Map();
 
-  playSfx(name: SfxName, volume = 0.6, maxVoices = 5): void {
+  playSfx(name: SfxName, options: { volume?: number; playbackRate?: number; maxVoices?: number } = {}): void {
     if (!this.ctx || !this.buffers[name]) return;
     
+    const { volume = 0.6, playbackRate = 1.0, maxVoices = 5 } = options;
+
     const buf = this.buffers[name]!;
     const source = this.ctx.createBufferSource();
     source.buffer = buf;
+    source.playbackRate.value = playbackRate;
 
     const gain = this.ctx.createGain();
     gain.gain.value = this.clampVolume(volume);
@@ -232,6 +235,11 @@ class AudioManager {
     };
 
     source.start(0);
+  }
+
+
+  getActiveVoiceCount(name: SfxName): number {
+    return this.voicePools.get(name)?.length ?? 0;
   }
 
   playButtonSfx(volume = BUTTON_SFX_VOLUME): void {

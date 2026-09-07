@@ -194,10 +194,12 @@ export function makeHalf(kind: FruitKind, r = VISUAL_RADIUS[kind], side: "left" 
 
 export function drawBackground(c: Container, W: number, H: number) {
   const sky = new Graphics();
+  sky.label = "BgSky";
   sky.rect(0, 0, W, H).fill(GAME_COLORS.ricePaper);
   c.addChild(sky);
 
   const hills = new Graphics();
+  hills.label = "BgHills";
   hills.moveTo(0, H * 0.62)
     .bezierCurveTo(W * 0.2, H * 0.55, W * 0.5, H * 0.68, W, H * 0.6)
     .lineTo(W, H).lineTo(0, H).closePath()
@@ -209,6 +211,7 @@ export function drawBackground(c: Container, W: number, H: number) {
   c.addChild(hills);
 
   const grass = new Graphics();
+  grass.label = "BgGrass";
   grass.moveTo(0, H * 0.85)
     .bezierCurveTo(W * 0.3, H * 0.8, W * 0.7, H * 0.9, W, H * 0.85)
     .lineTo(W, H).lineTo(0, H).closePath()
@@ -217,6 +220,7 @@ export function drawBackground(c: Container, W: number, H: number) {
   c.addChild(grass);
 
   const bamboo = new Graphics();
+  bamboo.label = "BgBamboo";
   for (let i = 0; i < 14; i += 1) {
     const x = (i / 13) * W + (i % 2 === 0 ? 8 : -8);
     const baseY = H * 0.65 + (i % 3) * 8;
@@ -227,6 +231,7 @@ export function drawBackground(c: Container, W: number, H: number) {
   c.addChild(bamboo);
 
   const birds = new Graphics();
+  birds.label = "BgBirds";
   for (let i = 0; i < 4; i += 1) {
     const x = 100 + i * (W / 5);
     const y = 80 + (i % 2) * 26;

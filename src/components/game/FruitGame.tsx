@@ -27,6 +27,15 @@ import { useSliceEffects } from "../../features/game/render/useSliceEffects";
 import { getFxPreset } from "../../features/game/render/fxPreset";
 import { PauseOverlay } from "./PauseOverlay";
 import { showRewardedVideo } from "../../utils/mockAds";
+import { audioManager } from "../../utils/audio-manager";
+import {
+  SliceBurstAggregator,
+  DEFAULT_SLICE_BURST_WINDOW_MS,
+} from "../../game/events/SliceBurstAggregator";
+import {
+  SliceAudioPolicy,
+  type SliceAudioSink,
+} from "../../game/audio/SliceAudioPolicy";
 
 interface Props {
   onSubmitScore?: (result: GameResult) => void;
@@ -39,8 +48,6 @@ interface Props {
   restartKey?: number;
   hostPaused?: boolean;
   muted?: boolean;
-  onPlaySlice?: () => void;
-  onPlayBomb?: () => void;
   musicMuted?: boolean;
   sfxMuted?: boolean;
   onToggleMusic?: () => void;
@@ -49,9 +56,9 @@ interface Props {
   onRestartPause?: () => void;
 }
 
-export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameStart, onRunStateChange, hostPaused = false, manualPaused = false, resumeRequired = false, restartKey = 0, muted = false, onPlaySlice, onPlayBomb, musicMuted = false, sfxMuted = false, onToggleMusic, onToggleSfx, onResumePause, onRestartPause }: Props) {
-  const callbacksRef = useRef({ onSubmitScore, onCompleteRound, onExitGame, onGameStart, muted, onPlaySlice, onPlayBomb });
-  callbacksRef.current = { onSubmitScore, onCompleteRound, onExitGame, onGameStart, muted, onPlaySlice, onPlayBomb };
+export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameStart, onRunStateChange, hostPaused = false, manualPaused = false, resumeRequired = false, restartKey = 0, muted = false, musicMuted = false, sfxMuted = false, onToggleMusic, onToggleSfx, onResumePause, onRestartPause }: Props) {
+  const callbacksRef = useRef({ onSubmitScore, onCompleteRound, onExitGame, onGameStart, muted });
+  callbacksRef.current = { onSubmitScore, onCompleteRound, onExitGame, onGameStart, muted };
   const onViewportResizeRef = useRef<(() => void) | null>(null);
   const { wrapRef, appRef, sizeRef, playLayerRef, trailGraphicsRef, ready } = usePixiApp({
     onViewportResize: () => onViewportResizeRef.current?.(),
@@ -109,6 +116,27 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
     onRunStateChange?.(running || countdown !== null);
   }, [running, countdown, onRunStateChange]);
 
+  const isAudioDebug = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("audioDebug");
+  const burstAggregatorRef = useRef<SliceBurstAggregator | null>(null);
+  if (!burstAggregatorRef.current) {
+    burstAggregatorRef.current = new SliceBurstAggregator({
+      windowMs: DEFAULT_SLICE_BURST_WINDOW_MS,
+      debug: isAudioDebug,
+    });
+  }
+
+  const audioPolicyRef = useRef<SliceAudioPolicy | null>(null);
+  if (!audioPolicyRef.current) {
+    const sink: SliceAudioSink = {
+      playSfx: (name, options) => {
+        if (callbacksRef.current.muted) return;
+        audioManager.playSfx(name, options);
+      },
+      getActiveVoiceCount: (name) => audioManager.getActiveVoiceCount(name),
+    };
+    audioPolicyRef.current = new SliceAudioPolicy(sink, undefined, isAudioDebug);
+  }
+
   const coreRef = useRef<GameState | null>(null);
   const destroyedRef = useRef(false);
   const [reviveUsed, setReviveUsed] = useState(false);
@@ -131,6 +159,11 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
   function finishGame() {
     const state = coreRef.current;
     if (!state) return;
+    if (burstAggregatorRef.current && audioPolicyRef.current) {
+      const nowMs = startedAtRef.current ? performance.now() - startedAtRef.current : 0;
+      const flushed = burstAggregatorRef.current.flush(nowMs);
+      audioPolicyRef.current.handleEvents(flushed);
+    }
     const playTimeSec = Math.floor(state.tick / TICK_RATE);
     const result: GameResult = {
       score: state.score,
@@ -158,11 +191,24 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
       });
     }
     if (results.length) {
+      if (burstAggregatorRef.current && audioPolicyRef.current) {
+        const nowMs = startedAtRef.current ? performance.now() - startedAtRef.current : 0;
+        const events = burstAggregatorRef.current.push(results, nowMs);
+        audioPolicyRef.current.handleEvents(events);
+      }
       syncFruitSprites(state);
       syncHud(state);
     }
     if (state.ended) finishGame();
   }, [showSliceEffect, syncFruitSprites, syncHud, finishGame]);
+
+  const handleGameTick = useCallback((nowMs: number) => {
+    if (!burstAggregatorRef.current || !audioPolicyRef.current) return;
+    const events = burstAggregatorRef.current.update(nowMs);
+    if (events.length > 0) {
+      audioPolicyRef.current.handleEvents(events);
+    }
+  }, []);
 
   useGamePointerInput({
     canvas: ready && texturesReady ? appRef.current?.canvas ?? null : null,
@@ -193,6 +239,7 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
     drawTrail,
     syncHud,
     finishGame,
+    onTick: handleGameTick,
   });
 
   useEffect(() => {
@@ -217,6 +264,7 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
 
     return () => {
       destroyedRef.current = true;
+      burstAggregatorRef.current?.reset();
 
       clearFruitSprites();
       clearParticles();
@@ -280,6 +328,7 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
     setReviveUsed(false);
     setScoreMultiplier(1);
     setGameOverMode("continue");
+    burstAggregatorRef.current?.reset();
     session.resetSession();
   }, [restartKey]);
 
@@ -307,6 +356,7 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
   }
 
   function handleStart() {
+    burstAggregatorRef.current?.reset();
     session.startSession();
     finalizeSentRef.current = false;
     setReviveUsed(false);

@@ -66,6 +66,7 @@ export function useParticleSystem({ getMaxParticles = () => 160 }: UseParticleSy
       sprite.anchor.set(0.5);
       sprite.visible = false;
       sprite.alpha = 0;
+      sprite.label = `Particle:${i}`;
       layer.addChild(sprite);
 
       newPool.push({

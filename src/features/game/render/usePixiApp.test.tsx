@@ -23,6 +23,10 @@ const mockPieces = vi.hoisted(() => {
     children: Array<MockContainer> = [];
     parent: MockContainer | null = null;
     destroyed = false;
+    label?: string;
+    constructor(options?: { label?: string }) {
+      if (options?.label) this.label = options.label;
+    }
     addChild(child: MockContainer) {
       this.children.push(child);
       child.parent = this;
@@ -61,6 +65,7 @@ vi.mock("pixi.js", () => ({
   Container: mockPieces.MockContainer,
   Graphics: mockPieces.MockGraphics,
   Sprite: class Sprite extends mockPieces.MockContainer {},
+  TextureSource: class TextureSource {},
 }));
 
 vi.mock("./fruitVisuals", () => ({
@@ -147,4 +152,39 @@ it("coalesces repeated resize notifications into one viewport resize callback", 
   expect(mockPieces.drawBackground).toHaveBeenCalledTimes(2);
 
   await mounted.unmount();
+});
+
+it("configures scene graph labels and manages devtools lifecycle", async () => {
+  const onResize = vi.fn();
+  const mounted = await mountProbe(onResize);
+
+  const devWindow = window as typeof window & {
+    __PIXI_DEVTOOLS__?: {
+      app?: {
+        stage?: {
+          label?: string;
+          children?: Array<{ label?: string; children?: Array<{ label?: string }> }>;
+        };
+      };
+    };
+  };
+
+  const devtools = devWindow.__PIXI_DEVTOOLS__;
+  expect(devtools).toBeDefined();
+  expect(devtools?.app).toBeDefined();
+
+  const stage = devtools?.app?.stage;
+  expect(stage?.label).toBe("RootStage");
+
+  const gameScene = stage?.children?.[0];
+  expect(gameScene?.label).toBe("GameScene");
+  expect(gameScene?.children?.map((c) => c.label)).toEqual([
+    "BackgroundLayer",
+    "WorldLayer",
+    "SlashTrail",
+  ]);
+
+  await mounted.unmount();
+
+  expect(devWindow.__PIXI_DEVTOOLS__).toBeUndefined();
 });

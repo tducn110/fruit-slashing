@@ -97,6 +97,8 @@ export function HeroPeanutAnimation() {
         peanut.position.set(offset.x, offset.y);
       };
       peanut.play();
+      app.stage.label = "HeroPeanutStage";
+      peanut.label = "HeroPeanutSprite";
       app.stage.addChild(peanut);
     }).catch((error) => console.error("Hero peanut animation failed to load", error));
 

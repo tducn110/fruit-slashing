@@ -33,7 +33,10 @@ export function useFruitTextures({ appRef, appReady }: Props) {
     try {
       const circle = new Graphics().circle(0, 0, 10).fill(0xffffff);
       try {
-        textures.circle = app.renderer.generateTexture(circle);
+        const tex = app.renderer.generateTexture(circle);
+        tex.label = "Texture:particle:circle";
+        if (tex.source) tex.source.label = "Source:particle:circle";
+        textures.circle = tex;
       } finally {
         circle.destroy();
       }
@@ -41,7 +44,10 @@ export function useFruitTextures({ appRef, appReady }: Props) {
       for (const kind of FRUIT_KINDS) {
         const full = makeFruit(kind, VISUAL_RADIUS[kind]);
         try {
-          textures[kind] = app.renderer.generateTexture(full);
+          const tex = app.renderer.generateTexture(full);
+          tex.label = `Texture:fruit:${kind}`;
+          if (tex.source) tex.source.label = `Source:fruit:${kind}`;
+          textures[kind] = tex;
         } finally {
           full.destroy();
         }
@@ -50,7 +56,10 @@ export function useFruitTextures({ appRef, appReady }: Props) {
           for (const side of ["left", "right"] as const) {
             const half = makeHalf(kind, VISUAL_RADIUS[kind], side);
             try {
-              textures[`${kind}_${side}`] = app.renderer.generateTexture(half);
+              const tex = app.renderer.generateTexture(half);
+              tex.label = `Texture:fruit:${kind}:${side}`;
+              if (tex.source) tex.source.label = `Source:fruit:${kind}:${side}`;
+              textures[`${kind}_${side}`] = tex;
             } finally {
               half.destroy();
             }

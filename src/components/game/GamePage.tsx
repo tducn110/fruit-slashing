@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { FruitGame } from "./FruitGame";
 import type { GameResult } from "../../game/types";
 import { Home, Pause, Settings, Trophy } from "lucide-react";
-import { useGameSound } from "../../hooks/useSound";
 import { DashboardPanel } from "./DashboardPanel";
 import { SettingsPanel } from "./SettingsPanel";
 import { audioManager } from "../../utils/audio-manager";
@@ -81,7 +80,6 @@ export function GamePage({
   }, []);
 
   // 🎵 Sound — BGM managed by App.tsx, SFX for in-game slicing
-  const { playSlice, playBomb } = useGameSound(sfxMuted);
 
   const toggleSettings = () => setPanel((prev) => (prev === "settings" ? null : "settings"));
   const toggleLeaderboard = () => {
@@ -186,8 +184,6 @@ export function GamePage({
             restartKey={restartKey}
             hostPaused={hostPaused}
             muted={sfxMuted}
-            onPlaySlice={playSlice}
-            onPlayBomb={playBomb}
             musicMuted={musicMuted}
             sfxMuted={sfxMuted}
             onToggleMusic={onToggleMusic}

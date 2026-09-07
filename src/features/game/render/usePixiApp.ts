@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Application, Container, Graphics } from "pixi.js";
 import { drawBackground } from "./fruitVisuals";
 import { getFxPreset } from "./fxPreset";
+import { setupPixiDevtools, teardownPixiDevtools } from "../../../game/debug/setupPixiDevtools";
 
 interface UsePixiAppOptions {
   onViewportResize?: (size: { w: number; h: number }) => void;
@@ -89,6 +90,7 @@ export function usePixiApp({ onViewportResize }: UsePixiAppOptions = {}) {
           return;
         }
         appRef.current = app;
+
         wrap.appendChild(app.canvas);
         Object.assign(app.canvas.style, {
           display: "block",
@@ -98,18 +100,33 @@ export function usePixiApp({ onViewportResize }: UsePixiAppOptions = {}) {
           cursor: "crosshair"
         });
 
-        const backgroundLayer = new Container();
+        app.stage.label = "RootStage";
+
+        const gameScene = new Container({
+          label: "GameScene",
+        });
+        app.stage.addChild(gameScene);
+
+        const backgroundLayer = new Container({
+          label: "BackgroundLayer",
+        });
         drawBackground(backgroundLayer, width, height);
-        app.stage.addChild(backgroundLayer);
+        gameScene.addChild(backgroundLayer);
         backgroundLayerRef.current = backgroundLayer;
 
-        const playLayer = new Container();
-        app.stage.addChild(playLayer);
+        const playLayer = new Container({
+          label: "WorldLayer",
+        });
+        gameScene.addChild(playLayer);
         playLayerRef.current = playLayer;
 
         const trailGraphics = new Graphics();
-        app.stage.addChild(trailGraphics);
+        trailGraphics.label = "SlashTrail";
+        gameScene.addChild(trailGraphics);
         trailGraphicsRef.current = trailGraphics;
+
+        // DEVTOOLS: chỉ định đây là Pixi Application chính của gameplay sau khi setup xong Scene Graph
+        setupPixiDevtools(app);
 
         resizeObserver.observe(wrap);
         window.visualViewport?.addEventListener("resize", scheduleResize, { passive: true });
@@ -124,6 +141,8 @@ export function usePixiApp({ onViewportResize }: UsePixiAppOptions = {}) {
       if (resizeFrame) window.cancelAnimationFrame(resizeFrame);
       window.visualViewport?.removeEventListener("resize", scheduleResize);
       window.removeEventListener("orientationchange", scheduleResize);
+
+      teardownPixiDevtools(app);
 
       if (appRef.current) {
         safeDestroy();

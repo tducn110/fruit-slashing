@@ -28,8 +28,6 @@ const HALF_POOL_SIZE = 24;
 
 interface Callbacks {
   muted: boolean;
-  onPlaySlice?: () => void;
-  onPlayBomb?: () => void;
 }
 
 interface Props {
@@ -107,17 +105,19 @@ export function useSliceEffects({
       sprite.anchor.set(0.5);
       sprite.visible = false;
       sprite.alpha = 0;
+      sprite.label = `FruitHalf:slot:${index}:idle`;
       layer.addChild(sprite);
       halfPoolRef.current.push(sprite);
     }
   }
 
-  function acquireHalf(texture: Texture): Sprite | undefined {
+  function acquireHalf(texture: Texture, label?: string): Sprite | undefined {
     const sprite = halfPoolRef.current.find((candidate) => !candidate.visible);
     if (!sprite) return undefined;
     sprite.texture = texture;
     sprite.visible = true;
     sprite.alpha = 1;
+    sprite.label = label ?? "FruitHalf:active";
     return sprite;
   }
 
@@ -175,6 +175,7 @@ export function useSliceEffects({
 
     for (let i = 0; i < SLASH_POOL_SIZE; i++) {
       const g = new Graphics();
+      g.label = `SlashEffect:${i}`;
       g.visible = false;
       g.alpha = 0;
       layer.addChild(g);
@@ -240,7 +241,6 @@ export function useSliceEffects({
       spawnSplat(screen.x, screen.y, 0xffe66a, preset.bombSparkParticles, 6);
       spawnSplat(screen.x, screen.y, 0x1f1f1f, preset.bombSmokeParticles, 10);
       triggerBombFeedback(screen);
-      if (!callbacksRef.current.muted) callbacksRef.current.onPlayBomb?.();
       return;
     }
 
@@ -285,7 +285,7 @@ export function useSliceEffects({
       const halfTexture = getTexture(`${result.fruit.kind}_${side}`);
       if (!halfTexture) return;
 
-      const g = acquireHalf(halfTexture);
+      const g = acquireHalf(halfTexture, `FruitHalf:${result.fruit.kind}:${side}`);
       if (!g) return;
       g.position.set(screen.x, screen.y);
       g.rotation = result.fruit.rotation;
@@ -327,8 +327,6 @@ export function useSliceEffects({
         variant: critical ? "critical" : "combo",
       });
     }
-
-    if (!callbacksRef.current.muted) callbacksRef.current.onPlaySlice?.();
   }
 
   // ── Cleanup helper (call on unmount/replay) ───────────────────────────────

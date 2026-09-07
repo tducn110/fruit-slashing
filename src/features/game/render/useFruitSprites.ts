@@ -39,6 +39,7 @@ export function useFruitSprites({ playLayerRef, texturesRef, texturesReady, size
       const sprite = new Sprite();
       sprite.anchor.set(0.5);
       sprite.visible = false;
+      sprite.label = `Fruit:slot:${index}:idle`;
       layer.addChild(sprite);
       poolRef.current.push({ sprite, fruitId: null, active: false });
     }
@@ -48,6 +49,7 @@ export function useFruitSprites({ playLayerRef, texturesRef, texturesReady, size
     slot.active = false;
     slot.fruitId = null;
     slot.sprite.visible = false;
+    slot.sprite.label = "Fruit:inactive";
   }
 
   function acquireSlot(fruitId: number): FruitSpriteSlot | undefined {
@@ -109,6 +111,7 @@ export function useFruitSprites({ playLayerRef, texturesRef, texturesReady, size
         slot.sprite.texture = texture;
       }
       const sprite = slot.sprite;
+      sprite.label = `Fruit:${fruit.kind}:${fruit.id}`;
       // Reuse the transform already calculated above instead of recomputing it
       // through worldToScreen() for every fruit.
       sprite.x = (fruit.x - WORLD_WIDTH / 2) * transform.scaleX + transform.offsetX;

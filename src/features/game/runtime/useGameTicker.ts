@@ -21,6 +21,7 @@ interface UseGameTickerOptions {
   drawTrail: () => void;
   syncHud: (state: GameState) => void;
   finishGame: (result: GameResult) => void;
+  onTick?: (nowMs: number) => void;
 }
 
 export function useGameTicker({
@@ -40,6 +41,7 @@ export function useGameTicker({
   drawTrail,
   syncHud,
   finishGame,
+  onTick,
 }: UseGameTickerOptions): void {
   // Pattern A: Stable refs for callbacks to avoid re-binding ticker every render
   const callbacksRef = useRef({
@@ -49,6 +51,7 @@ export function useGameTicker({
     drawTrail,
     syncHud,
     finishGame,
+    onTick,
   });
 
   useEffect(() => {
@@ -59,6 +62,7 @@ export function useGameTicker({
       drawTrail,
       syncHud,
       finishGame,
+      onTick,
     };
   }, [
     syncFruitSprites,
@@ -67,6 +71,7 @@ export function useGameTicker({
     drawTrail,
     syncHud,
     finishGame,
+    onTick,
   ]);
 
   const gameOverHandledRef = useRef(false);
@@ -91,8 +96,11 @@ export function useGameTicker({
           gameOverHandledRef.current = false;
         }
 
+        const nowMs = performance.now() - startedAt;
+        callbacksRef.current.onTick?.(nowMs);
+
         const previousTick = state.tick;
-        advanceToTick(state, elapsedTick(performance.now() - startedAt));
+        advanceToTick(state, elapsedTick(nowMs));
         if (state.tick !== previousTick) {
           callbacksRef.current.syncFruitSprites(state);
         }
