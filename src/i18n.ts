@@ -9,15 +9,15 @@ function isSupportedLanguage(value: string | null): value is SupportedLanguage {
 }
 
 function getInitialLanguage(): SupportedLanguage {
-  if (typeof window === "undefined") return "vi";
+  if (typeof window === "undefined") return "en";
 
   try {
     const storedLanguage = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
-    return isSupportedLanguage(storedLanguage) ? storedLanguage : "vi";
+    return isSupportedLanguage(storedLanguage) ? storedLanguage : "en";
   } catch {
-    // Some embedded browsers can deny localStorage access. Vietnamese remains
+    // Some embedded browsers can deny localStorage access. English remains
     // the safe default in that case.
-    return "vi";
+    return "en";
   }
 }
 
@@ -169,7 +169,7 @@ i18n
   .init({
     resources,
     lng: getInitialLanguage(),
-    fallbackLng: "vi",
+    fallbackLng: "en",
     interpolation: {
       escapeValue: false // React already escapes values
     }

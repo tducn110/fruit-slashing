@@ -46,7 +46,7 @@ describe("IntegrationStatusBanner", () => {
     );
 
     expect(markup).toContain('role="alert"');
-    expect(markup).toContain("Không thể gửi điểm");
+    expect(markup).toContain("Cannot submit score");
     expect(markup).not.toContain("Wink ready");
   });
 });
