@@ -1,5 +1,3 @@
-import { useEffect, useState } from "react";
-
 export interface HudState {
   score: number;
   lives: number;
@@ -11,22 +9,11 @@ interface GameHudProps {
   running: boolean;
 }
 
-export function GameHud({ hud, running }: GameHudProps) {
-  const [animKey, setAnimKey] = useState(0);
-  const [animClass, setAnimClass] = useState("");
-
-  useEffect(() => {
-    if (hud.score > 0) {
-      setAnimKey(prev => prev + 1);
-      if (hud.combo >= 4) {
-        setAnimClass("score-animate-shake-heavy");
-      } else if (hud.combo >= 2) {
-        setAnimClass("score-animate-shake");
-      } else {
-        setAnimClass("score-animate-bump");
-      }
-    }
-  }, [hud.score, hud.combo]);
+export function GameHud({ hud }: GameHudProps) {
+  const animClass = hud.score <= 0 ? "" : hud.combo >= 4
+    ? "score-animate-shake-heavy"
+    : hud.combo >= 2 ? "score-animate-shake" : "score-animate-bump";
+  const animKey = `${hud.score}:${hud.combo}`;
 
   return (
     <div className="gameHud">

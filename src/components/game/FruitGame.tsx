@@ -153,7 +153,10 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
   const [hud, setHud] = useState<HudState>({ score: 0, lives: 3, combo: 0 });
 
   function syncHud(state: GameState) {
-    setHud({ score: state.score, lives: state.lives, combo: state.combo });
+    const { score, lives, combo } = state;
+    setHud((previous) => previous.score === score && previous.lives === lives && previous.combo === combo
+      ? previous
+      : { score, lives, combo });
   }
 
   function finishGame() {

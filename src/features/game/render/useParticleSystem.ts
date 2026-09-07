@@ -36,9 +36,10 @@ interface UseParticleSystemOptions {
 export function useParticleSystem({ getMaxParticles = () => 160 }: UseParticleSystemOptions = {}) {
   /**
    * poolRef holds all pre-allocated pool entries.
-   * We keep a separate activeRef list for O(n) iteration during update.
+   * Inactive entries only incur a boolean check during update.
    */
   const poolRef = useRef<PoolParticle[]>([]);
+  const nextSlotRef = useRef(0);
   /**
    * Legacy list: non-pooled particles handed to us via addParticle().
    * This remains so callers that pass pre-built Sprites still work.
@@ -98,8 +99,9 @@ export function useParticleSystem({ getMaxParticles = () => 160 }: UseParticleSy
     const pool = poolRef.current;
     if (pool.length === 0) return false; // pool not yet initialised
 
-    // Find first inactive slot.
-    for (let i = 0; i < pool.length; i++) {
+    // Continue after the last allocation; inspect at most one complete pool.
+    for (let offset = 0; offset < pool.length; offset++) {
+      const i = (nextSlotRef.current + offset) % pool.length;
       const slot = pool[i];
       if (slot.active) continue;
 
@@ -124,6 +126,7 @@ export function useParticleSystem({ getMaxParticles = () => 160 }: UseParticleSy
       slot.ttl = params.life;
       slot.rotates = false;
       slot.active = true;
+      nextSlotRef.current = (i + 1) % pool.length;
 
       return true;
     }
@@ -190,6 +193,7 @@ export function useParticleSystem({ getMaxParticles = () => 160 }: UseParticleSy
       } catch { /* ignore */ }
     }
     poolRef.current = [];
+    nextSlotRef.current = 0;
   }
 
   // ── Per-frame update ──────────────────────────────────────────────────────
@@ -241,6 +245,7 @@ export function useParticleSystem({ getMaxParticles = () => 160 }: UseParticleSy
   // ── Batch clear ───────────────────────────────────────────────────────────
 
   function clearParticles() {
+    nextSlotRef.current = 0;
     // Pool: just deactivate (don't destroy — pool stays alive for reuse).
     for (const slot of poolRef.current) {
       if (slot.active) {
