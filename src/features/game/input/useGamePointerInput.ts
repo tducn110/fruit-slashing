@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
 import type { GameState, SliceResult, TrailSegment } from "../../../game/core";
 import {
-  elapsedTick,
   getWorldRenderTransform,
+  getGameConfig,
   normalizePointer,
-  applyInput,
+  applyInputAtCurrentTick,
   WORLD_WIDTH,
   WORLD_HEIGHT,
 } from "../../../game/core";
@@ -89,7 +89,7 @@ export function useGamePointerInput({
 
       if (!playingRef.current || !state) return;
 
-      const tick = elapsedTick(now - startedAt);
+      const tick = state.tick;
       const transform = getWorldRenderTransform(size.w, size.h);
       const worldPoint = {
         x: (screenX - transform.offsetX) / transform.scaleX + WORLD_WIDTH / 2,
@@ -117,7 +117,7 @@ export function useGamePointerInput({
       }
       trailSegments.length = trailPoints.length - firstPoint;
 
-      const results = applyInput(state, sample, trailSegments, state.config);
+      const results = applyInputAtCurrentTick(state, sample, trailSegments, getGameConfig(size.w), transform.scaleY / transform.scaleX);
 
       callbacksRef.current.onSliceResult(results, previousTrail, screenX, screenY);
     }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useRef, type MutableRefObject, type RefObject } from "react";
 import type { Application, Ticker } from "pixi.js";
 import type { GameResult } from "../../../game/types";
 import type { GameState } from "../../../game/core";
@@ -10,7 +10,7 @@ interface UseGameTickerOptions {
   appRef: RefObject<Application | null>;
   gameStateRef: RefObject<GameState | null>;
   playingRef: RefObject<boolean>;
-  startedAtRef: RefObject<number>;
+  startedAtRef: MutableRefObject<number>;
   hostPausedRef: RefObject<boolean>;
   sizeRef: RefObject<{ w: number; h: number }>;
   destroyedRef: RefObject<boolean>;
@@ -100,7 +100,13 @@ export function useGameTicker({
         callbacksRef.current.onTick?.(nowMs);
 
         const previousTick = state.tick;
-        advanceToTick(state, elapsedTick(nowMs));
+        const requestedTick = elapsedTick(nowMs);
+        const targetTick = Math.min(requestedTick, previousTick + 3);
+        advanceToTick(state, targetTick);
+        // Drop excess wall-clock debt rather than moving it into the next
+        // input/render frame. Offline replay retains unbounded advancement.
+        const droppedTicks = Math.max(0, requestedTick - targetTick);
+        startedAtRef.current += droppedTicks * (1000 / TICK_RATE);
         if (state.tick !== previousTick) {
           callbacksRef.current.syncFruitSprites(state);
         }

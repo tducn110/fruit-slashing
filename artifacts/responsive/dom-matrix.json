@@ -1,0 +1,762 @@
+[
+  {
+    "lang": "en",
+    "width": 568,
+    "height": 320,
+    "landing": {
+      ".hero-play-button": {
+        "x": 106.359375,
+        "y": 193.40625,
+        "width": 180,
+        "height": 48.5,
+        "bottom": 241.90625,
+        "right": 286.359375,
+        "scrollHeight": 43,
+        "clientHeight": 43,
+        "touchAction": "auto"
+      },
+      ".hero-leaderboard-button": {
+        "x": 296.359375,
+        "y": 195.15625,
+        "width": 165.265625,
+        "height": 45,
+        "bottom": 240.15625,
+        "right": 461.625,
+        "scrollHeight": 41,
+        "clientHeight": 41,
+        "touchAction": "auto"
+      },
+      ".hero-content": {
+        "x": 0,
+        "y": 70,
+        "width": 568,
+        "height": 187.90625,
+        "bottom": 257.90625,
+        "right": 568,
+        "scrollHeight": 188,
+        "clientHeight": 188,
+        "touchAction": "auto"
+      },
+      ".landing-enter": {
+        "x": 0,
+        "y": 0,
+        "width": 568,
+        "height": 320,
+        "bottom": 320,
+        "right": 568,
+        "scrollHeight": 320,
+        "clientHeight": 320,
+        "touchAction": "pan-y"
+      }
+    },
+    "pause": {
+      ".pauseHudCard": {
+        "x": 84,
+        "y": 89.5,
+        "width": 400,
+        "height": 196,
+        "bottom": 285.5,
+        "right": 484,
+        "scrollHeight": 192,
+        "clientHeight": 192
+      },
+      ".pauseHudPlayButton": {
+        "x": 244,
+        "y": 187.5,
+        "width": 80,
+        "height": 80,
+        "bottom": 267.5,
+        "right": 324,
+        "scrollHeight": 74,
+        "clientHeight": 74
+      },
+      ".pauseHudOverlay": {
+        "x": 0,
+        "y": 55,
+        "width": 568,
+        "height": 265,
+        "bottom": 320,
+        "right": 568,
+        "scrollHeight": 265,
+        "clientHeight": 265
+      },
+      ".gameHud": {
+        "x": 12,
+        "y": 67,
+        "width": 544,
+        "height": 36,
+        "bottom": 103,
+        "right": 556,
+        "scrollHeight": 36,
+        "clientHeight": 36
+      }
+    },
+    "landingPass": true,
+    "pausePass": true
+  },
+  {
+    "lang": "en",
+    "width": 640,
+    "height": 360,
+    "landing": {
+      ".hero-play-button": {
+        "x": 142.359375,
+        "y": 197.0625,
+        "width": 180,
+        "height": 48.5,
+        "bottom": 245.5625,
+        "right": 322.359375,
+        "scrollHeight": 43,
+        "clientHeight": 43,
+        "touchAction": "auto"
+      },
+      ".hero-leaderboard-button": {
+        "x": 332.359375,
+        "y": 198.8125,
+        "width": 165.265625,
+        "height": 45,
+        "bottom": 243.8125,
+        "right": 497.625,
+        "scrollHeight": 41,
+        "clientHeight": 41,
+        "touchAction": "auto"
+      },
+      ".hero-content": {
+        "x": 0,
+        "y": 70,
+        "width": 640,
+        "height": 191.5625,
+        "bottom": 261.5625,
+        "right": 640,
+        "scrollHeight": 192,
+        "clientHeight": 192,
+        "touchAction": "auto"
+      },
+      ".landing-enter": {
+        "x": 0,
+        "y": 0,
+        "width": 640,
+        "height": 360,
+        "bottom": 360,
+        "right": 640,
+        "scrollHeight": 360,
+        "clientHeight": 360,
+        "touchAction": "pan-y"
+      }
+    },
+    "pause": {
+      ".pauseHudCard": {
+        "x": 120,
+        "y": 109.5,
+        "width": 400,
+        "height": 196,
+        "bottom": 305.5,
+        "right": 520,
+        "scrollHeight": 192,
+        "clientHeight": 192
+      },
+      ".pauseHudPlayButton": {
+        "x": 280,
+        "y": 207.5,
+        "width": 80,
+        "height": 80,
+        "bottom": 287.5,
+        "right": 360,
+        "scrollHeight": 74,
+        "clientHeight": 74
+      },
+      ".pauseHudOverlay": {
+        "x": 0,
+        "y": 55,
+        "width": 640,
+        "height": 305,
+        "bottom": 360,
+        "right": 640,
+        "scrollHeight": 305,
+        "clientHeight": 305
+      },
+      ".gameHud": {
+        "x": 12,
+        "y": 67,
+        "width": 616,
+        "height": 36,
+        "bottom": 103,
+        "right": 628,
+        "scrollHeight": 36,
+        "clientHeight": 36
+      }
+    },
+    "landingPass": true,
+    "pausePass": true
+  },
+  {
+    "lang": "en",
+    "width": 844,
+    "height": 390,
+    "landing": {
+      ".hero-play-button": {
+        "x": 271.859375,
+        "y": 204.328125,
+        "width": 125,
+        "height": 48.5,
+        "bottom": 252.828125,
+        "right": 396.859375,
+        "scrollHeight": 43,
+        "clientHeight": 43,
+        "touchAction": "auto"
+      },
+      ".hero-leaderboard-button": {
+        "x": 406.859375,
+        "y": 206.078125,
+        "width": 165.265625,
+        "height": 45,
+        "bottom": 251.078125,
+        "right": 572.125,
+        "scrollHeight": 41,
+        "clientHeight": 41,
+        "touchAction": "auto"
+      },
+      ".hero-content": {
+        "x": 82,
+        "y": 70,
+        "width": 680,
+        "height": 198.828125,
+        "bottom": 268.828125,
+        "right": 762,
+        "scrollHeight": 199,
+        "clientHeight": 199,
+        "touchAction": "auto"
+      },
+      ".landing-enter": {
+        "x": 0,
+        "y": 0,
+        "width": 844,
+        "height": 390,
+        "bottom": 390,
+        "right": 844,
+        "scrollHeight": 390,
+        "clientHeight": 390,
+        "touchAction": "pan-y"
+      }
+    },
+    "pause": {
+      ".pauseHudCard": {
+        "x": 222,
+        "y": 126.5,
+        "width": 400,
+        "height": 196,
+        "bottom": 322.5,
+        "right": 622,
+        "scrollHeight": 192,
+        "clientHeight": 192
+      },
+      ".pauseHudPlayButton": {
+        "x": 382,
+        "y": 224.5,
+        "width": 80,
+        "height": 80,
+        "bottom": 304.5,
+        "right": 462,
+        "scrollHeight": 74,
+        "clientHeight": 74
+      },
+      ".pauseHudOverlay": {
+        "x": 0,
+        "y": 59,
+        "width": 844,
+        "height": 331,
+        "bottom": 390,
+        "right": 844,
+        "scrollHeight": 331,
+        "clientHeight": 331
+      },
+      ".gameHud": {
+        "x": 20,
+        "y": 73,
+        "width": 804,
+        "height": 36,
+        "bottom": 109,
+        "right": 824,
+        "scrollHeight": 36,
+        "clientHeight": 36
+      }
+    },
+    "landingPass": true,
+    "pausePass": true
+  },
+  {
+    "lang": "en",
+    "width": 320,
+    "height": 568,
+    "landing": {
+      ".hero-play-button": {
+        "x": 70,
+        "y": 428.5,
+        "width": 180,
+        "height": 57.5,
+        "bottom": 486,
+        "right": 250,
+        "scrollHeight": 52,
+        "clientHeight": 52,
+        "touchAction": "auto"
+      },
+      ".hero-leaderboard-button": {
+        "x": 65,
+        "y": 496,
+        "width": 190,
+        "height": 52.5,
+        "bottom": 548.5,
+        "right": 255,
+        "scrollHeight": 49,
+        "clientHeight": 49,
+        "touchAction": "auto"
+      },
+      ".hero-content": {
+        "x": 0,
+        "y": 64,
+        "width": 320,
+        "height": 508.5,
+        "bottom": 572.5,
+        "right": 320,
+        "scrollHeight": 509,
+        "clientHeight": 509,
+        "touchAction": "auto"
+      },
+      ".landing-enter": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 568,
+        "bottom": 568,
+        "right": 320,
+        "scrollHeight": 573,
+        "clientHeight": 568,
+        "touchAction": "pan-y"
+      }
+    },
+    "pause": {
+      ".pauseHudCard": {
+        "x": 16,
+        "y": 133.5,
+        "width": 288,
+        "height": 356,
+        "bottom": 489.5,
+        "right": 304,
+        "scrollHeight": 352,
+        "clientHeight": 352
+      },
+      ".pauseHudPlayButton": {
+        "x": 108,
+        "y": 351.5,
+        "width": 104,
+        "height": 104,
+        "bottom": 455.5,
+        "right": 212,
+        "scrollHeight": 98,
+        "clientHeight": 98
+      },
+      ".pauseHudOverlay": {
+        "x": 0,
+        "y": 55,
+        "width": 320,
+        "height": 513,
+        "bottom": 568,
+        "right": 320,
+        "scrollHeight": 513,
+        "clientHeight": 513
+      },
+      ".gameHud": {
+        "x": 12,
+        "y": 67,
+        "width": 296,
+        "height": 36,
+        "bottom": 103,
+        "right": 308,
+        "scrollHeight": 36,
+        "clientHeight": 36
+      }
+    },
+    "landingPass": true,
+    "pausePass": true
+  },
+  {
+    "lang": "vi",
+    "width": 568,
+    "height": 320,
+    "landing": {
+      ".hero-play-button": {
+        "x": 115.703125,
+        "y": 193.40625,
+        "width": 180,
+        "height": 48.5,
+        "bottom": 241.90625,
+        "right": 295.703125,
+        "scrollHeight": 43,
+        "clientHeight": 43,
+        "touchAction": "auto"
+      },
+      ".hero-leaderboard-button": {
+        "x": 305.703125,
+        "y": 195.15625,
+        "width": 146.578125,
+        "height": 45,
+        "bottom": 240.15625,
+        "right": 452.28125,
+        "scrollHeight": 41,
+        "clientHeight": 41,
+        "touchAction": "auto"
+      },
+      ".hero-content": {
+        "x": 0,
+        "y": 70,
+        "width": 568,
+        "height": 187.90625,
+        "bottom": 257.90625,
+        "right": 568,
+        "scrollHeight": 188,
+        "clientHeight": 188,
+        "touchAction": "auto"
+      },
+      ".landing-enter": {
+        "x": 0,
+        "y": 0,
+        "width": 568,
+        "height": 320,
+        "bottom": 320,
+        "right": 568,
+        "scrollHeight": 320,
+        "clientHeight": 320,
+        "touchAction": "pan-y"
+      }
+    },
+    "pause": {
+      ".pauseHudCard": {
+        "x": 84,
+        "y": 89.5,
+        "width": 400,
+        "height": 196,
+        "bottom": 285.5,
+        "right": 484,
+        "scrollHeight": 192,
+        "clientHeight": 192
+      },
+      ".pauseHudPlayButton": {
+        "x": 244,
+        "y": 187.5,
+        "width": 80,
+        "height": 80,
+        "bottom": 267.5,
+        "right": 324,
+        "scrollHeight": 74,
+        "clientHeight": 74
+      },
+      ".pauseHudOverlay": {
+        "x": 0,
+        "y": 55,
+        "width": 568,
+        "height": 265,
+        "bottom": 320,
+        "right": 568,
+        "scrollHeight": 265,
+        "clientHeight": 265
+      },
+      ".gameHud": {
+        "x": 12,
+        "y": 67,
+        "width": 544,
+        "height": 36,
+        "bottom": 103,
+        "right": 556,
+        "scrollHeight": 36,
+        "clientHeight": 36
+      }
+    },
+    "landingPass": true,
+    "pausePass": true
+  },
+  {
+    "lang": "vi",
+    "width": 640,
+    "height": 360,
+    "landing": {
+      ".hero-play-button": {
+        "x": 151.703125,
+        "y": 197.0625,
+        "width": 180,
+        "height": 48.5,
+        "bottom": 245.5625,
+        "right": 331.703125,
+        "scrollHeight": 43,
+        "clientHeight": 43,
+        "touchAction": "auto"
+      },
+      ".hero-leaderboard-button": {
+        "x": 341.703125,
+        "y": 198.8125,
+        "width": 146.578125,
+        "height": 45,
+        "bottom": 243.8125,
+        "right": 488.28125,
+        "scrollHeight": 41,
+        "clientHeight": 41,
+        "touchAction": "auto"
+      },
+      ".hero-content": {
+        "x": 0,
+        "y": 70,
+        "width": 640,
+        "height": 191.5625,
+        "bottom": 261.5625,
+        "right": 640,
+        "scrollHeight": 192,
+        "clientHeight": 192,
+        "touchAction": "auto"
+      },
+      ".landing-enter": {
+        "x": 0,
+        "y": 0,
+        "width": 640,
+        "height": 360,
+        "bottom": 360,
+        "right": 640,
+        "scrollHeight": 360,
+        "clientHeight": 360,
+        "touchAction": "pan-y"
+      }
+    },
+    "pause": {
+      ".pauseHudCard": {
+        "x": 120,
+        "y": 109.5,
+        "width": 400,
+        "height": 196,
+        "bottom": 305.5,
+        "right": 520,
+        "scrollHeight": 192,
+        "clientHeight": 192
+      },
+      ".pauseHudPlayButton": {
+        "x": 280,
+        "y": 207.5,
+        "width": 80,
+        "height": 80,
+        "bottom": 287.5,
+        "right": 360,
+        "scrollHeight": 74,
+        "clientHeight": 74
+      },
+      ".pauseHudOverlay": {
+        "x": 0,
+        "y": 55,
+        "width": 640,
+        "height": 305,
+        "bottom": 360,
+        "right": 640,
+        "scrollHeight": 305,
+        "clientHeight": 305
+      },
+      ".gameHud": {
+        "x": 12,
+        "y": 67,
+        "width": 616,
+        "height": 36,
+        "bottom": 103,
+        "right": 628,
+        "scrollHeight": 36,
+        "clientHeight": 36
+      }
+    },
+    "landingPass": true,
+    "pausePass": true
+  },
+  {
+    "lang": "vi",
+    "width": 844,
+    "height": 390,
+    "landing": {
+      ".hero-play-button": {
+        "x": 278.265625,
+        "y": 204.328125,
+        "width": 130.890625,
+        "height": 48.5,
+        "bottom": 252.828125,
+        "right": 409.15625,
+        "scrollHeight": 43,
+        "clientHeight": 43,
+        "touchAction": "auto"
+      },
+      ".hero-leaderboard-button": {
+        "x": 419.15625,
+        "y": 206.078125,
+        "width": 146.578125,
+        "height": 45,
+        "bottom": 251.078125,
+        "right": 565.734375,
+        "scrollHeight": 41,
+        "clientHeight": 41,
+        "touchAction": "auto"
+      },
+      ".hero-content": {
+        "x": 82,
+        "y": 70,
+        "width": 680,
+        "height": 198.828125,
+        "bottom": 268.828125,
+        "right": 762,
+        "scrollHeight": 199,
+        "clientHeight": 199,
+        "touchAction": "auto"
+      },
+      ".landing-enter": {
+        "x": 0,
+        "y": 0,
+        "width": 844,
+        "height": 390,
+        "bottom": 390,
+        "right": 844,
+        "scrollHeight": 390,
+        "clientHeight": 390,
+        "touchAction": "pan-y"
+      }
+    },
+    "pause": {
+      ".pauseHudCard": {
+        "x": 222,
+        "y": 126.5,
+        "width": 400,
+        "height": 196,
+        "bottom": 322.5,
+        "right": 622,
+        "scrollHeight": 192,
+        "clientHeight": 192
+      },
+      ".pauseHudPlayButton": {
+        "x": 382,
+        "y": 224.5,
+        "width": 80,
+        "height": 80,
+        "bottom": 304.5,
+        "right": 462,
+        "scrollHeight": 74,
+        "clientHeight": 74
+      },
+      ".pauseHudOverlay": {
+        "x": 0,
+        "y": 59,
+        "width": 844,
+        "height": 331,
+        "bottom": 390,
+        "right": 844,
+        "scrollHeight": 331,
+        "clientHeight": 331
+      },
+      ".gameHud": {
+        "x": 20,
+        "y": 73,
+        "width": 804,
+        "height": 36,
+        "bottom": 109,
+        "right": 824,
+        "scrollHeight": 36,
+        "clientHeight": 36
+      }
+    },
+    "landingPass": true,
+    "pausePass": true
+  },
+  {
+    "lang": "vi",
+    "width": 320,
+    "height": 568,
+    "landing": {
+      ".hero-play-button": {
+        "x": 70,
+        "y": 428.5,
+        "width": 180,
+        "height": 57.5,
+        "bottom": 486,
+        "right": 250,
+        "scrollHeight": 52,
+        "clientHeight": 52,
+        "touchAction": "auto"
+      },
+      ".hero-leaderboard-button": {
+        "x": 65,
+        "y": 496,
+        "width": 190,
+        "height": 52.5,
+        "bottom": 548.5,
+        "right": 255,
+        "scrollHeight": 49,
+        "clientHeight": 49,
+        "touchAction": "auto"
+      },
+      ".hero-content": {
+        "x": 0,
+        "y": 64,
+        "width": 320,
+        "height": 508.5,
+        "bottom": 572.5,
+        "right": 320,
+        "scrollHeight": 509,
+        "clientHeight": 509,
+        "touchAction": "auto"
+      },
+      ".landing-enter": {
+        "x": 0,
+        "y": 0,
+        "width": 320,
+        "height": 568,
+        "bottom": 568,
+        "right": 320,
+        "scrollHeight": 573,
+        "clientHeight": 568,
+        "touchAction": "pan-y"
+      }
+    },
+    "pause": {
+      ".pauseHudCard": {
+        "x": 16,
+        "y": 133.5,
+        "width": 288,
+        "height": 356,
+        "bottom": 489.5,
+        "right": 304,
+        "scrollHeight": 352,
+        "clientHeight": 352
+      },
+      ".pauseHudPlayButton": {
+        "x": 108,
+        "y": 351.5,
+        "width": 104,
+        "height": 104,
+        "bottom": 455.5,
+        "right": 212,
+        "scrollHeight": 98,
+        "clientHeight": 98
+      },
+      ".pauseHudOverlay": {
+        "x": 0,
+        "y": 55,
+        "width": 320,
+        "height": 513,
+        "bottom": 568,
+        "right": 320,
+        "scrollHeight": 513,
+        "clientHeight": 513
+      },
+      ".gameHud": {
+        "x": 12,
+        "y": 67,
+        "width": 296,
+        "height": 36,
+        "bottom": 103,
+        "right": 308,
+        "scrollHeight": 36,
+        "clientHeight": 36
+      }
+    },
+    "landingPass": true,
+    "pausePass": true
+  }
+]

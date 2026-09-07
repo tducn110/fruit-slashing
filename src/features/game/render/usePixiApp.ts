@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Application, Container, Graphics } from "pixi.js";
+import { Application, Container } from "pixi.js";
 import { drawBackground } from "./fruitVisuals";
 import { getFxPreset } from "./fxPreset";
 import { setupPixiDevtools, teardownPixiDevtools } from "../../../game/debug/setupPixiDevtools";
@@ -13,7 +13,8 @@ export function usePixiApp({ onViewportResize }: UsePixiAppOptions = {}) {
   const appRef = useRef<Application | null>(null);
   const backgroundLayerRef = useRef<Container | null>(null);
   const playLayerRef = useRef<Container | null>(null);
-  const trailGraphicsRef = useRef<Graphics | null>(null);
+  const trailGraphicsRef = useRef<Container | null>(null);
+  const fxPresetRef = useRef(getFxPreset(800));
   const sizeRef = useRef({ w: 800, h: 450 });
   const onViewportResizeRef = useRef(onViewportResize);
   const [ready, setReady] = useState(false);
@@ -28,12 +29,13 @@ export function usePixiApp({ onViewportResize }: UsePixiAppOptions = {}) {
     if (!wrap) return;
 
     const app = new Application();
-    const width = Math.max(320, wrap.clientWidth || 800);
-    const height = Math.max(200, wrap.clientHeight || 450);
+    const width = Math.max(1, wrap.clientWidth || 800);
+    const height = Math.max(1, wrap.clientHeight || 450);
     sizeRef.current = { w: width, h: height };
     let resizeFrame = 0;
 
     const preset = getFxPreset(width);
+    fxPresetRef.current = preset;
     const resolution = Math.min(window.devicePixelRatio || 1, preset.resolutionCap);
 
     function redrawBackground(nextWidth: number, nextHeight: number) {
@@ -50,10 +52,11 @@ export function usePixiApp({ onViewportResize }: UsePixiAppOptions = {}) {
     const applyResize = () => {
       resizeFrame = 0;
       if (cancelled || !appRef.current) return;
-      const nextWidth = Math.max(320, wrap.clientWidth);
-      const nextHeight = Math.max(200, wrap.clientHeight);
+      const nextWidth = Math.max(1, wrap.clientWidth);
+      const nextHeight = Math.max(1, wrap.clientHeight);
       if (nextWidth === sizeRef.current.w && nextHeight === sizeRef.current.h) return;
       sizeRef.current = { w: nextWidth, h: nextHeight };
+      fxPresetRef.current = getFxPreset(nextWidth); // keep FX profile in sync with viewport
       appRef.current.renderer.resize(nextWidth, nextHeight);
       redrawBackground(nextWidth, nextHeight);
       onViewportResizeRef.current?.({ w: nextWidth, h: nextHeight });
@@ -120,7 +123,7 @@ export function usePixiApp({ onViewportResize }: UsePixiAppOptions = {}) {
         gameScene.addChild(playLayer);
         playLayerRef.current = playLayer;
 
-        const trailGraphics = new Graphics();
+        const trailGraphics = new Container();
         trailGraphics.label = "SlashTrail";
         gameScene.addChild(trailGraphics);
         trailGraphicsRef.current = trailGraphics;
@@ -155,5 +158,5 @@ export function usePixiApp({ onViewportResize }: UsePixiAppOptions = {}) {
     };
   }, []);
 
-  return { wrapRef, appRef, sizeRef, playLayerRef, trailGraphicsRef, ready };
+  return { wrapRef, appRef, sizeRef, playLayerRef, trailGraphicsRef, fxPresetRef, ready };
 }

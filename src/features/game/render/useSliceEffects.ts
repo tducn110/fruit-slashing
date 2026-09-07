@@ -1,28 +1,13 @@
-/**
- * useSliceEffects — Handles Pixi-side visual responses to slice/bomb events.
- *
- * Performance notes (Phase 2):
- * - Splat particles: delegated to useParticleSystem pool via spawnPooledParticle().
- *   No new Sprite() created per splat; pool slot is reset and reused.
- * - Slash Graphics: small pool of SLASH_POOL_SIZE pre-allocated Graphics objects.
- *   Rounds-robin through them; each is cleared + redrawn on use, never destroyed
- *   until unmount. Tracked in legacyRef (via addParticle) for alpha fade.
- * - Fruit halves: still use new Sprite() per event. Texture switching per fruit
- *   kind makes pooling risky (texture mismatch bugs). They go through the legacy
- *   addParticle path and are destroyed when they fall off-screen. Low frequency
- *   (max 2 per slice) so GC impact is acceptable.
- * - Scoring, gameplay rules, hitbox: unchanged.
- */
+/** Slice effects own their pooled displays and lifetimes. Splats have a separate owner. */
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { type Container, Graphics, Sprite, type Texture } from "pixi.js";
 import { getWorldRenderTransform, worldToScreen as projectWorldToScreen, type SliceResult } from "../../../game/core";
 import { FRUIT_COLORS, type Particle } from "./fruitVisuals";
-import { getFxPreset } from "./fxPreset";
+import { getFruitArtworkScale } from "./fruitScale";
+import { getFxPreset, type FxPreset } from "./fxPreset";
 
-// Number of pre-allocated Graphics objects in the slash pool.
-// 4 is more than enough: a single slice lasts 0.2 s and you can't physically
-// perform more than ~8 slices/second, so 4 covers overlap comfortably.
+// A burst can exceed this capacity; round-robin reuse resets the one owned lifetime.
 const SLASH_POOL_SIZE = 6;
 const HALF_POOL_SIZE = 24;
 
@@ -34,7 +19,6 @@ interface Props {
   playLayerRef: React.RefObject<Container | null>;
   texturesRef: React.MutableRefObject<Record<string, Texture>>;
   sizeRef: React.MutableRefObject<{ w: number; h: number }>;
-  addParticle: (particle: Particle) => void;
   spawnPooledParticle: (params: {
     x: number;
     y: number;
@@ -47,13 +31,14 @@ interface Props {
   triggerBombFeedback: (screen: { x: number; y: number }) => void;
   triggerPointFeedback: (input: { x: number; y: number; text: string; color: string; variant?: "points" | "combo" | "critical" }) => void;
   callbacksRef: React.MutableRefObject<Callbacks>;
+  getPreset?: () => FxPreset;
 }
 
 // ─── Internal slash pool entry ────────────────────────────────────────────────
 
 interface SlashSlot {
   g: Graphics;
-  inUse: boolean;
+  life: number;
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -62,34 +47,21 @@ export function useSliceEffects({
   playLayerRef,
   texturesRef,
   sizeRef,
-  addParticle,
   spawnPooledParticle,
   triggerBombFeedback,
   triggerPointFeedback,
-  callbacksRef,
+  getPreset,
 }: Props) {
   const { t } = useTranslation();
   // Small pool of reusable Graphics for slash effects.
-  // Lazily initialised on first use (layer must exist by then).
+  // Prewarmed with the half pool after the play layer and textures are ready.
   const slashPoolRef = useRef<SlashSlot[]>([]);
   // Round-robin cursor to pick the next slot.
   const slashCursorRef = useRef(0);
-  // Fruit halves are short-lived but frequent, so keep their Sprite objects
-  // alive and let the legacy particle updater own only their lifetime.
-  const halfPoolRef = useRef<Sprite[]>([]);
+  // Each half slot holds both display and lifetime; no external tracker can expire it.
+  const halfPoolRef = useRef<Particle[]>([]);
 
   // ── Helpers ────────────────────────────────────────────────────────────────
-
-  function destroyDisplay(display: Container) {
-    try {
-      if (display.parent) display.parent.removeChild(display);
-    } catch { /* ignore */ }
-    try {
-      if (!display.destroyed) {
-        display.destroy({ children: true, texture: false, textureSource: false });
-      }
-    } catch { /* ignore */ }
-  }
 
   function getTexture(key: string): Texture | null {
     return texturesRef.current[key] ?? null;
@@ -97,7 +69,10 @@ export function useSliceEffects({
 
   function initHalfPool(layer: Container) {
     const pool = halfPoolRef.current;
-    if (pool.length === HALF_POOL_SIZE && pool.every((sprite) => !sprite.destroyed)) return;
+    if (pool.length === HALF_POOL_SIZE && pool.every((slot) => !slot.g.destroyed)) {
+      ensureSlashPool(layer);
+      return;
+    }
 
     destroyHalfPool();
     for (let index = 0; index < HALF_POOL_SIZE; index += 1) {
@@ -107,18 +82,20 @@ export function useSliceEffects({
       sprite.alpha = 0;
       sprite.label = `FruitHalf:slot:${index}:idle`;
       layer.addChild(sprite);
-      halfPoolRef.current.push(sprite);
+      halfPoolRef.current.push({ g: sprite, vx: 0, vy: 0, rot: 0, vr: 0, life: 0, ttl: 1, rotates: true });
     }
+    ensureSlashPool(layer);
   }
 
-  function acquireHalf(texture: Texture, label?: string): Sprite | undefined {
-    const sprite = halfPoolRef.current.find((candidate) => !candidate.visible);
-    if (!sprite) return undefined;
+  function acquireHalf(texture: Texture, label?: string): Particle | undefined {
+    const slot = halfPoolRef.current.find((candidate) => candidate.life <= 0);
+    if (!slot) return undefined;
+    const sprite = slot.g as Sprite;
     sprite.texture = texture;
     sprite.visible = true;
     sprite.alpha = 1;
     sprite.label = label ?? "FruitHalf:active";
-    return sprite;
+    return slot;
   }
 
   function renderScale(): number {
@@ -133,34 +110,6 @@ export function useSliceEffects({
     return projectWorldToScreen(x, y, sizeRef.current.w, sizeRef.current.h);
   }
 
-  /** Hand an already-built Container to the legacy particle system for lifetime management. */
-  function handoffDisplay(
-    display: Container,
-    particle: Omit<Particle, "g">,
-    layer: Container,
-  ) {
-    try {
-      if (display.destroyed) { destroyDisplay(display); return false; }
-      layer.addChild(display);
-      addParticle({ g: display, ...particle });
-      if (display.destroyed || display.parent !== layer) { destroyDisplay(display); return false; }
-      return true;
-    } catch {
-      destroyDisplay(display);
-      return false;
-    }
-  }
-
-  // ── Slash Graphics pool ────────────────────────────────────────────────────
-
-  /**
-   * Lazily build the slash pool once the play layer is available.
-   * Graphics in the pool are added to the play layer once and stay there;
-   * they are just cleared + redrawn each reuse.
-   *
-   * Safety: also rebuilds if any slot was destroyed (e.g. after a full
-   * Pixi stage teardown between replays).
-   */
   function ensureSlashPool(layer: Container) {
     const pool = slashPoolRef.current;
     // Rebuild if wrong size OR if any slot was destroyed (replay / stage teardown).
@@ -175,20 +124,18 @@ export function useSliceEffects({
 
     for (let i = 0; i < SLASH_POOL_SIZE; i++) {
       const g = new Graphics();
+      // Geometry is built once. A hit changes only the display transform.
+      g.moveTo(-60, 0).lineTo(60, 0).stroke({ color: 0xffffff, width: 16, alpha: 0.9, cap: "round" });
+      g.moveTo(-60, 0).lineTo(60, 0).stroke({ color: 0xe87432, width: 7, alpha: 1, cap: "round" });
       g.label = `SlashEffect:${i}`;
       g.visible = false;
       g.alpha = 0;
       layer.addChild(g);
-      slashPoolRef.current.push({ g, inUse: false });
+      slashPoolRef.current.push({ g, life: 0 });
     }
     slashCursorRef.current = 0;
   }
 
-  /**
-   * Grab a slash slot using round-robin, evicting the oldest one if all are in
-   * use. The slot's Graphics is cleared, redrawn, and handed to the legacy
-   * particle system for fade management.
-   */
   function acquireSlashSlot(layer: Container): SlashSlot | null {
     ensureSlashPool(layer);
     const pool = slashPoolRef.current;
@@ -198,7 +145,7 @@ export function useSliceEffects({
     // is fine: it means an older slash is being recycled early).
     const slot = pool[slashCursorRef.current % SLASH_POOL_SIZE];
     slashCursorRef.current = (slashCursorRef.current + 1) % SLASH_POOL_SIZE;
-    slot.inUse = true;
+    slot.life = 0.2;
     return slot;
   }
 
@@ -234,7 +181,7 @@ export function useSliceEffects({
     if (!layer || !result?.fruit) return;
 
     const screen = worldToScreen(result.fruit.x, result.fruit.y);
-    const preset = getFxPreset(sizeRef.current.w);
+    const preset = getPreset?.() ?? getFxPreset(sizeRef.current.w);
 
     if (result.fruit.kind === "bomb") {
       spawnSplat(screen.x, screen.y, 0xff5a2a, preset.bombFireParticles, 8);
@@ -259,25 +206,11 @@ export function useSliceEffects({
         layer.addChild(slash);
       }
       const slashLength = Math.max(120, result.fruit.radius * scale * 4.2);
-      slash.clear();
-      slash.moveTo(-slashLength / 2, 0).lineTo(slashLength / 2, 0)
-        .stroke({ color: 0xffffff, width: 16, alpha: 0.9, cap: "round" });
-      slash.moveTo(-slashLength / 2, 0).lineTo(slashLength / 2, 0)
-        .stroke({ color: 0xe87432, width: 7, alpha: 1, cap: "round" });
+      slash.scale.set(slashLength / 120, 1);
       slash.position.set(screen.x, screen.y);
       slash.rotation = angle;
       slash.visible = true;
       slash.alpha = 1;
-
-      // Hand to legacy particle system for alpha fade (life 0.2 s).
-      // pooled:true tells the legacy expire path to HIDE+CLEAR this Graphics
-      // instead of destroying it — the slash pool still owns it.
-      addParticle({
-        g: slash,
-        vx: 0, vy: 0, rot: angle, vr: 0,
-        life: 0.2, ttl: 0.2, rotates: false,
-        pooled: true,
-      });
     }
 
     // ── Fruit halves (pooled; no Sprite allocation per slice) ──
@@ -285,23 +218,20 @@ export function useSliceEffects({
       const halfTexture = getTexture(`${result.fruit.kind}_${side}`);
       if (!halfTexture) return;
 
-      const g = acquireHalf(halfTexture, `FruitHalf:${result.fruit.kind}:${side}`);
-      if (!g) return;
+      const slot = acquireHalf(halfTexture, `FruitHalf:${result.fruit.kind}:${side}`);
+      if (!slot) return;
+      const g = slot.g;
       g.position.set(screen.x, screen.y);
       g.rotation = result.fruit.rotation;
-      g.scale.set(scale);
+      g.scale.set(getFruitArtworkScale(result.fruit.kind, sizeRef.current.w, sizeRef.current.h));
       const vr = (Math.random() - 0.5) * 10;
 
-      handoffDisplay(g, {
-        vx: result.fruit.vx * renderScale() + Math.cos(perpendicular) * splitSpeed * (index === 0 ? -1 : 1),
-        vy: result.fruit.vy * verticalRenderScale() + Math.sin(perpendicular) * splitSpeed * (index === 0 ? -1 : 1) - 80,
-        rot: result.fruit.rotation,
-        vr,
-        life: 1,
-        ttl: 1,
-        rotates: true,
-        pooled: true,
-      }, layer);
+      slot.vx = result.fruit.vx * scale + Math.cos(perpendicular) * splitSpeed * (index === 0 ? -1 : 1);
+      slot.vy = result.fruit.vy * verticalRenderScale() + Math.sin(perpendicular) * splitSpeed * (index === 0 ? -1 : 1) - 80;
+      slot.rot = result.fruit.rotation;
+      slot.vr = vr;
+      slot.life = 1;
+      slot.ttl = 1;
     });
 
     // ── Splat particles (pool-based) ──
@@ -329,6 +259,17 @@ export function useSliceEffects({
     }
   }
 
+  // ── Slot reset ────────────────────────────────────────────────────────────
+
+  /** Mark a slot as inactive and hide its display. Single source of truth for
+   *  the "slot is idle" invariant: life=0 + invisible + transparent.
+   *  Called by both clearSliceEffects (bulk reset) and updateSliceEffects (expiry). */
+  function resetSlotDisplay(slot: { life: number; g: { visible: boolean; alpha: number } }) {
+    slot.life = 0;
+    slot.g.visible = false;
+    slot.g.alpha = 0;
+  }
+
   // ── Cleanup helper (call on unmount/replay) ───────────────────────────────
 
   function destroySlashPool() {
@@ -341,7 +282,8 @@ export function useSliceEffects({
   }
 
   function destroyHalfPool() {
-    for (const sprite of halfPoolRef.current) {
+    for (const slot of halfPoolRef.current) {
+      const sprite = slot.g;
       try {
         if (sprite.parent) sprite.parent.removeChild(sprite);
       } catch { /* ignore */ }
@@ -352,5 +294,32 @@ export function useSliceEffects({
     halfPoolRef.current = [];
   }
 
-  return { showSliceEffect, initHalfPool, destroySlashPool, destroyHalfPool };
+  function clearSliceEffects() {
+    slashCursorRef.current = 0;
+    for (const slot of slashPoolRef.current) resetSlotDisplay(slot);
+    for (const slot of halfPoolRef.current) resetSlotDisplay(slot);
+  }
+
+  function updateSliceEffects(deltaSeconds: number, viewportHeight: number) {
+    for (const slot of slashPoolRef.current) {
+      if (slot.life <= 0) continue;
+      slot.life = Math.max(0, slot.life - deltaSeconds);
+      slot.g.alpha = slot.life / 0.2;
+      slot.g.visible = slot.life > 0;
+    }
+    for (const slot of halfPoolRef.current) {
+      if (slot.life <= 0) continue;
+      slot.life = Math.max(0, slot.life - deltaSeconds);
+      slot.vy += 1000 * deltaSeconds;
+      slot.g.x += slot.vx * deltaSeconds;
+      slot.g.y += slot.vy * deltaSeconds;
+      slot.rot += slot.vr * deltaSeconds;
+      slot.g.rotation = slot.rot;
+      if (slot.g.y > viewportHeight + 100) slot.life = 0;
+      slot.g.alpha = slot.life / slot.ttl;
+      slot.g.visible = slot.life > 0;
+    }
+  }
+
+  return { showSliceEffect, initHalfPool, destroySlashPool, destroyHalfPool, clearSliceEffects, updateSliceEffects };
 }

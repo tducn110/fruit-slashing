@@ -82,6 +82,12 @@ it("does not advance core state, particles, or render effects while host-paused"
   hostPausedRef.current = false;
   act(() => tick?.({ lastTime: 1_016, deltaMS: 16 }));
   expect(gameStateRef.current.tick).toBeGreaterThan(initialTick);
+  expect(gameStateRef.current.tick - initialTick).toBeLessThanOrEqual(3);
+  // Debt is discarded, so a normal frame after the hitch runs one step.
+  vi.spyOn(performance, "now").mockReturnValue(1_016);
+  const afterHitch = gameStateRef.current.tick;
+  act(() => tick?.({ lastTime: 1_032, deltaMS: 16 }));
+  expect(gameStateRef.current.tick - afterHitch).toBeLessThanOrEqual(1);
   expect(syncFruitSprites).toHaveBeenCalled();
   expect(updateParticles).toHaveBeenCalled();
 

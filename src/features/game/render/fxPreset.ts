@@ -35,5 +35,6 @@ const MOBILE_FX_PRESET: FxPreset = {
 };
 
 export function getFxPreset(width: number): FxPreset {
-  return width <= 640 ? MOBILE_FX_PRESET : DESKTOP_FX_PRESET;
+  const coarse = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+  return width <= 640 || coarse ? MOBILE_FX_PRESET : DESKTOP_FX_PRESET;
 }

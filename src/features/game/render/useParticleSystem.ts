@@ -10,8 +10,7 @@
  *   allocation beyond cap).
  *
  * Pool is initialised externally via initPool() after Pixi textures are
- * ready.  Until initPool() is called, addParticle() accepts a pre-built
- * Particle (legacy path) so the API stays backward-compatible.
+ * ready. This owner manages only splats; slice effects own halves and hit flashes.
  */
 import { useEffect, useRef } from "react";
 import type { Container } from "pixi.js";
@@ -25,27 +24,13 @@ export interface PoolParticle extends Particle {
   active: boolean;
 }
 
-// ─── Hook options ────────────────────────────────────────────────────────────
-
-interface UseParticleSystemOptions {
-  getMaxParticles?: () => number;
-}
-
-// ─── Hook ────────────────────────────────────────────────────────────────────
-
-export function useParticleSystem({ getMaxParticles = () => 160 }: UseParticleSystemOptions = {}) {
+export function useParticleSystem() {
   /**
    * poolRef holds all pre-allocated pool entries.
    * Inactive entries only incur a boolean check during update.
    */
   const poolRef = useRef<PoolParticle[]>([]);
   const nextSlotRef = useRef(0);
-  /**
-   * Legacy list: non-pooled particles handed to us via addParticle().
-   * This remains so callers that pass pre-built Sprites still work.
-   */
-  const legacyRef = useRef<Particle[]>([]);
-
   // ── Pool initialisation ───────────────────────────────────────────────────
 
   /**
@@ -135,55 +120,6 @@ export function useParticleSystem({ getMaxParticles = () => 160 }: UseParticleSy
     return false;
   }
 
-  // ── Legacy addParticle (keeps backward compat) ────────────────────────────
-
-  /**
-   * Legacy path: caller has already constructed a Sprite/Graphics and wants
-   * the system to manage its lifetime.  Used for fruit halves and slash
-   * Graphics which have per-use textures/shapes and cannot share a pool slot.
-   */
-  function addParticle(particle: Particle) {
-    if (particle.g.destroyed) return;
-    if (!particle.g.parent) return;
-
-    const maxParticles = getMaxParticles();
-    // Drop oldest legacy particle if we're over budget.
-    if (legacyRef.current.length >= maxParticles) {
-      const oldest = legacyRef.current.shift();
-      if (oldest) destroyLegacyParticle(oldest);
-    }
-
-    legacyRef.current.push(particle);
-  }
-
-  // ── Internal destroy helpers ──────────────────────────────────────────────
-
-  function destroyLegacyParticle(particle: Particle) {
-    const display = particle.g;
-    if (!display) return;
-
-    // Pooled objects (e.g. slash Graphics) must NOT be destroyed — the pool
-    // owns them and will reuse them.  Just hide and clear visual state.
-    if (particle.pooled) {
-      try {
-        display.visible = false;
-        display.alpha = 0;
-        // Clear Graphics paths so the object is visually blank when reused.
-        if ("clear" in display && typeof (display as { clear?: unknown }).clear === "function") {
-          (display as unknown as { clear: () => void }).clear();
-        }
-      } catch { /* ignore */ }
-      return;
-    }
-
-    try { if (display.parent) display.parent.removeChild(display); } catch { /* ignore race */ }
-    try {
-      if (!display.destroyed) {
-        display.destroy({ children: true, texture: false, textureSource: false });
-      }
-    } catch { /* ignore */ }
-  }
-
   function destroyPool() {
     for (const slot of poolRef.current) {
       const sprite = slot.g;
@@ -216,30 +152,6 @@ export function useParticleSystem({ getMaxParticles = () => 160 }: UseParticleSy
         slot.g.alpha = 0;
       }
     }
-
-    // ── Legacy particles (halves, slash Graphics) ──
-    for (let i = legacyRef.current.length - 1; i >= 0; i--) {
-      const p = legacyRef.current[i];
-
-      if (p.g.destroyed || !p.g.parent) {
-        legacyRef.current.splice(i, 1);
-        continue;
-      }
-
-      p.vy += 1000 * (p.rotates ? 1 : 0.5) * deltaSeconds;
-      p.g.x += p.vx * deltaSeconds;
-      p.g.y += p.vy * deltaSeconds;
-      if (p.rotates) {
-        p.rot += p.vr * deltaSeconds;
-        p.g.rotation = p.rot;
-      }
-      p.life -= deltaSeconds;
-      p.g.alpha = Math.max(0, p.life / p.ttl);
-      if (p.life <= 0 || p.g.y > viewportHeight + 100) {
-        destroyLegacyParticle(p);
-        legacyRef.current.splice(i, 1);
-      }
-    }
   }
 
   // ── Batch clear ───────────────────────────────────────────────────────────
@@ -254,22 +166,16 @@ export function useParticleSystem({ getMaxParticles = () => 160 }: UseParticleSy
         slot.g.alpha = 0;
       }
     }
-
-    // Legacy: destroy each one, but respect the pooled flag.
-    legacyRef.current.forEach((p) => destroyLegacyParticle(p));
-    legacyRef.current = [];
   }
 
   // ── Cleanup on unmount ────────────────────────────────────────────────────
 
   useEffect(() => {
     return () => {
-      // Full cleanup: destroy pool sprites and legacy particles.
+      // Full cleanup: destroy splat pool sprites.
       destroyPool();
-      legacyRef.current.forEach((p) => destroyLegacyParticle(p));
-      legacyRef.current = [];
     };
   }, []);
 
-  return { addParticle, updateParticles, clearParticles, initPool, spawnPooledParticle };
+  return { updateParticles, clearParticles, initPool, spawnPooledParticle };
 }

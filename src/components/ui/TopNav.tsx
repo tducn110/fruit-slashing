@@ -15,7 +15,7 @@ export function TopNav({ muted, onToggleMute }: Props) {
   };
 
   return (
-    <nav style={{
+    <nav className="topNav" style={{
       position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
       display: "flex", alignItems: "center", justifyContent: "space-between",
       padding: "14px 28px",

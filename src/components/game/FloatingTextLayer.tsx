@@ -27,10 +27,10 @@ function pointTextClass(variant: PointText["variant"]) {
 }
 
 function floatingTextPosition(x: number, y: number, variant?: PointText["variant"]) {
-  const horizontalInset = variant === "combo" || variant === "critical" ? "118px" : "74px";
+  const horizontalInset = variant === "combo" || variant === "critical" ? "min(118px, 50%)" : "min(74px, 50%)";
   return {
-    left: `clamp(${horizontalInset}, ${x}px, calc(100vw - ${horizontalInset}))`,
-    top: `clamp(34px, ${y}px, calc(100dvh - 48px))`,
+    left: `clamp(${horizontalInset}, ${x}px, calc(100% - ${horizontalInset}))`,
+    top: `clamp(34px, ${y}px, calc(100% - 48px))`,
   };
 }
 

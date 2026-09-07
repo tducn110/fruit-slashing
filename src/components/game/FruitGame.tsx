@@ -24,7 +24,6 @@ import { useFruitSprites } from "../../features/game/render/useFruitSprites";
 import { useParticleSystem } from "../../features/game/render/useParticleSystem";
 import { useGameFeedback } from "../../features/game/render/useGameFeedback";
 import { useSliceEffects } from "../../features/game/render/useSliceEffects";
-import { getFxPreset } from "../../features/game/render/fxPreset";
 import { PauseOverlay } from "./PauseOverlay";
 import { showRewardedVideo } from "../../utils/mockAds";
 import { audioManager } from "../../utils/audio-manager";
@@ -60,18 +59,16 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
   const callbacksRef = useRef({ onSubmitScore, onCompleteRound, onExitGame, onGameStart, muted });
   callbacksRef.current = { onSubmitScore, onCompleteRound, onExitGame, onGameStart, muted };
   const onViewportResizeRef = useRef<(() => void) | null>(null);
-  const { wrapRef, appRef, sizeRef, playLayerRef, trailGraphicsRef, ready } = usePixiApp({
+  const { wrapRef, appRef, sizeRef, playLayerRef, trailGraphicsRef, fxPresetRef, ready } = usePixiApp({
     onViewportResize: () => onViewportResizeRef.current?.(),
   });
-  const getCurrentFxPreset = useCallback(() => getFxPreset(sizeRef.current.w), [sizeRef]);
+  const getCurrentFxPreset = useCallback(() => fxPresetRef.current, [fxPresetRef]);
   const { texturesRef, texturesReady } = useFruitTextures({ appRef, appReady: ready });
   const { syncFruitSprites, clearFruitSprites } = useFruitSprites({ playLayerRef, texturesRef, texturesReady, sizeRef });
   onViewportResizeRef.current = () => {
     if (coreRef.current) syncFruitSprites(coreRef.current);
   };
-  const { addParticle, updateParticles, clearParticles, initPool, spawnPooledParticle } = useParticleSystem({
-    getMaxParticles: () => getCurrentFxPreset().maxParticles,
-  });
+  const { updateParticles, clearParticles, initPool, spawnPooledParticle } = useParticleSystem();
   const {
     flashRed,
     bombTexts,
@@ -80,13 +77,14 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
     triggerPointFeedback,
     updateScreenShake,
     clearFeedback,
-  } = useGameFeedback();
+    flushFeedback,
+  } = useGameFeedback({ maxPointTexts: getCurrentFxPreset().maxParticles <= 80 ? 6 : 12 });
 
-  const { showSliceEffect, initHalfPool, destroySlashPool, destroyHalfPool } = useSliceEffects({
+  const { showSliceEffect, initHalfPool, destroySlashPool, destroyHalfPool, updateSliceEffects, clearSliceEffects } = useSliceEffects({
     playLayerRef,
     texturesRef,
     sizeRef,
-    addParticle,
+    getPreset: getCurrentFxPreset,
     spawnPooledParticle,
     triggerBombFeedback,
     triggerPointFeedback,
@@ -145,7 +143,7 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
   const [adPending, setAdPending] = useState(false);
   const finalizeSentRef = useRef(false);
 
-  const { trailPointsRef, addTrailPoint, clearTrail, drawTrail } = useSlashTrail({
+  const { trailPointsRef, addTrailPoint, clearTrail, drawTrail, initTrail } = useSlashTrail({
     trailGraphicsRef,
     getMaxPoints: () => getCurrentFxPreset().trailPoints,
   });
@@ -157,6 +155,17 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
     setHud((previous) => previous.score === score && previous.lives === lives && previous.combo === combo
       ? previous
       : { score, lives, combo });
+  }
+
+  // Resets all in-flight visual FX without destroying pools. Call before any
+  // new game session (start, revive, restart). Unmount path is separate because
+  // it also calls destroySlashPool/destroyHalfPool.
+  function clearTransientGameFx() {
+    clearParticles();
+    clearSliceEffects();
+    clearFeedback();
+    clearFruitSprites();
+    clearTrail();
   }
 
   function finishGame() {
@@ -237,7 +246,11 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
     destroyedRef,
     playLayerRef,
     syncFruitSprites,
-    updateParticles,
+    updateParticles: (dt, height) => {
+      updateParticles(dt, height);
+      updateSliceEffects(dt, height);
+      flushFeedback();
+    },
     updateScreenShake,
     drawTrail,
     syncHud,
@@ -260,6 +273,7 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
       initPool(layer, circleTexture, preset.maxParticles);
     }
     if (layer) initHalfPool(layer);
+    initTrail();
 
     if (!playingRef.current && countdown === null && finalScore === null) {
       session.startCountdown();
@@ -271,6 +285,7 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
 
       clearFruitSprites();
       clearParticles();
+      clearSliceEffects();
       clearTrail();
       destroySlashPool();
       destroyHalfPool();
@@ -299,10 +314,7 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
     state.lastPointer = null;
     state.nextSpawnTick = state.tick + Math.round(0.7 * TICK_RATE);
 
-    clearParticles();
-    clearFeedback();
-    clearFruitSprites();
-    clearTrail();
+    clearTransientGameFx();
     syncHud(state);
     session.resumeSession((state.tick / TICK_RATE) * 1000);
     callbacksRef.current.onGameStart?.();
@@ -322,10 +334,7 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
       state.combo = 0;
       state.comboExpiresAtTick = state.tick;
       state.nextSpawnTick = state.tick + Math.round(0.7 * TICK_RATE);
-      clearParticles();
-      clearFeedback();
-      clearFruitSprites();
-      clearTrail();
+      clearTransientGameFx();
       syncHud(state);
     }
     setReviveUsed(false);
@@ -386,9 +395,7 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
     };
     coreRef.current = createGame(seed, config);
 
-    clearParticles();
-    clearFeedback();
-    clearFruitSprites();
+    clearTransientGameFx();
     syncHud(coreRef.current);
   }
 

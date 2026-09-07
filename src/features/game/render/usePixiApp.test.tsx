@@ -133,8 +133,8 @@ it("coalesces repeated resize notifications into one viewport resize callback", 
   expect(mockPieces.drawBackground).toHaveBeenCalledTimes(1);
 
   const wrap = mounted.container.firstElementChild as HTMLDivElement;
-  Object.defineProperty(wrap, "clientWidth", { configurable: true, value: 640 });
-  Object.defineProperty(wrap, "clientHeight", { configurable: true, value: 360 });
+  Object.defineProperty(wrap, "clientWidth", { configurable: true, value: 280 });
+  Object.defineProperty(wrap, "clientHeight", { configurable: true, value: 160 });
 
   act(() => {
     lastResizeObserver?.trigger();
@@ -148,7 +148,7 @@ it("coalesces repeated resize notifications into one viewport resize callback", 
   });
 
   expect(onResize).toHaveBeenCalledTimes(1);
-  expect(onResize).toHaveBeenCalledWith({ w: 640, h: 360 });
+  expect(onResize).toHaveBeenCalledWith({ w: 280, h: 160 });
   expect(mockPieces.drawBackground).toHaveBeenCalledTimes(2);
 
   await mounted.unmount();

@@ -238,11 +238,12 @@ function step(state: GameState): void {
       fruit.vx *= -1;
     }
   }
-  state.fruits = state.fruits.filter((fruit) => {
-    const active = fruit.y <= WORLD_HEIGHT + 100;
-    if (!active) logFruitTrajectory(state, "despawn", fruit);
-    return active;
-  });
+  let writeIndex = 0;
+  for (const fruit of state.fruits) {
+    if (fruit.y <= WORLD_HEIGHT + 100) state.fruits[writeIndex++] = fruit;
+    else logFruitTrajectory(state, "despawn", fruit);
+  }
+  state.fruits.length = writeIndex;
 }
 
 export function advanceToTick(state: GameState, targetTick: number): void {
@@ -262,15 +263,21 @@ export function normalizePointer(x: number, y: number, width: number, height: nu
   };
 }
 
+export function smoothStep(min: number, max: number, value: number): number {
+  const t = Math.max(0, Math.min(1, (value - min) / (max - min)));
+  return t * t * (3 - 2 * t);
+}
+
 export function getWorldRenderTransform(width: number, height: number) {
   const safeWidth = Math.max(1, width);
   const safeHeight = Math.max(1, height);
   const uniformScale = Math.min(safeWidth / WORLD_WIDTH, safeHeight / WORLD_HEIGHT);
-  const usePortraitScale = safeWidth <= 640 && safeHeight / safeWidth >= 1.35;
+  const portraitBlend = smoothStep(1.2, 1.5, safeHeight / safeWidth)
+    * (1 - smoothStep(600, 720, safeWidth));
 
   return {
-    scaleX: usePortraitScale ? safeWidth / WORLD_WIDTH : uniformScale,
-    scaleY: usePortraitScale ? safeHeight / WORLD_HEIGHT : uniformScale,
+    scaleX: uniformScale + (safeWidth / WORLD_WIDTH - uniformScale) * portraitBlend,
+    scaleY: uniformScale + (safeHeight / WORLD_HEIGHT - uniformScale) * portraitBlend,
     offsetX: safeWidth / 2,
     offsetY: safeHeight / 2,
   };
@@ -322,6 +329,12 @@ export interface TrailSegment {
 export function applyInput(state: GameState, sample: InputSample, trail: TrailSegment[] = [], config?: GameConfig): SliceResult[] {
   if (state.ended) return [];
   advanceToTick(state, sample.tick);
+  return applyInputAtCurrentTick(state, sample, trail, config);
+}
+
+/** Realtime input must never pay simulation debt; the ticker owns time. */
+export function applyInputAtCurrentTick(state: GameState, sample: InputSample, trail: TrailSegment[] = [], config?: GameConfig, metricY = 1): SliceResult[] {
+  if (state.ended) return [];
   const point = {
     x: (sample.x / 10000) * WORLD_WIDTH,
     y: (sample.y / 10000) * WORLD_HEIGHT,
@@ -337,7 +350,7 @@ export function applyInput(state: GameState, sample: InputSample, trail: TrailSe
     let hit = false;
 
     const dx = fruit.x - point.x;
-    const dy = fruit.y - point.y;
+    const dy = (fruit.y - point.y) * metricY;
     if (dx * dx + dy * dy < hitRadius * hitRadius) {
       hit = true;
     }
@@ -348,7 +361,7 @@ export function applyInput(state: GameState, sample: InputSample, trail: TrailSe
       for (let i = firstSegmentPoint; i < trail.length; i++) {
         const seg1 = trail[i - 1];
         const seg2 = trail[i];
-        const dist = distancePointToSegment(fruit.x, fruit.y, seg1.x, seg1.y, seg2.x, seg2.y);
+        const dist = distancePointToSegment(fruit.x, fruit.y * metricY, seg1.x, seg1.y * metricY, seg2.x, seg2.y * metricY);
         if (dist < hitRadius) {
           hit = true;
           break;

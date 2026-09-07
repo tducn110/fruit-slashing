@@ -1,26 +1,17 @@
-/**
- * useGameFeedback — Manages bomb flash, screen shake, and floating text feedback.
- *
- * Performance notes (Phase 2.5):
- * - triggerPointFeedback() previously called setPointTexts() immediately on
- *   every slice.  When slicing multiple fruits in the same frame (e.g. a combo),
- *   this caused one React re-render per fruit + one per combo label = 4–6 renders
- *   in a single animation frame.
- * - Batching: pending point-text entries are queued in pendingPointTextsRef and
- *   flushed in a single setState() via queueMicrotask().  Multiple
- *   triggerPointFeedback() calls in the same *synchronous burst* produce exactly
- *   one state update.  Note: queueMicrotask batches same-turn calls, not
- *   necessarily all calls in the same animation frame — if calls arrive across
- *   different async turns they may produce separate flushes.
- * - timersRef tracks all scheduled timeouts for safe cleanup on unmount.
- * - Bomb feedback (low frequency, once per bomb) is not batched — keeps code simple.
- * - Point feedback also starts a short Pixi-side micro shake. This keeps the
- *   slice impact in the render loop instead of adding extra React state.
- */
 import { useState, useRef, useEffect } from "react";
 import { type Container } from "pixi.js";
 
-export function useGameFeedback() {
+/**
+ * Point labels are inserted and expired only by the once-per-ticker flush.
+ *
+ * WHY NOT setTimeout: the old design used setTimeout to batch and expire labels.
+ * That caused one React re-render per sliced fruit (4–6 renders per frame on combos)
+ * and a race where pausing the game left orphaned timers still firing state updates.
+ * flushFeedback() is called by the Pixi ticker every frame, so insertion, expiry,
+ * and dedup happen in a single synchronous pass with one setState per frame at most.
+ * Do not move point-text scheduling back to setTimeout without re-solving both problems.
+ */
+export function useGameFeedback({ maxPointTexts = 15 }: { maxPointTexts?: number } = {}) {
   const [flashRed, setFlashRed] = useState(false);
   const [bombTexts, setBombTexts] = useState<Array<{ id: number; x: number; y: number; expiresAt?: number }>>([]);
   const [pointTexts, setPointTexts] = useState<
@@ -38,8 +29,7 @@ export function useGameFeedback() {
   const activePointTextsRef = useRef<
     Array<{ id: number; x: number; y: number; text: string; color: string; variant?: "points" | "combo" | "critical"; expiresAt?: number }>
   >([]);
-  const pointCleanupTimerRef = useRef<number | null>(null);
-  const pointCleanupTargetTimeRef = useRef<number | null>(null);
+
 
   const activeBombTextsRef = useRef<Array<{ id: number; x: number; y: number; expiresAt?: number }>>([]);
   const bombCleanupTimerRef = useRef<number | null>(null);
@@ -56,8 +46,6 @@ export function useGameFeedback() {
   function clearTimers() {
     timersRef.current.forEach((timerId) => window.clearTimeout(timerId));
     timersRef.current.clear();
-    pointCleanupTimerRef.current = null;
-    pointCleanupTargetTimeRef.current = null;
     bombCleanupTimerRef.current = null;
     bombCleanupTargetTimeRef.current = null;
   }
@@ -72,91 +60,23 @@ export function useGameFeedback() {
     return timer;
   }
 
-  // ── Robust point text cleanup scheduler ───────────────────────────────────
+  const pendingPointTextsRef = useRef<typeof activePointTextsRef.current>([]);
 
-  function schedulePointCleanup(targetTime: number) {
-    const now = performance.now();
-    if (pointCleanupTimerRef.current !== null && pointCleanupTargetTimeRef.current !== null) {
-      if (targetTime >= pointCleanupTargetTimeRef.current) return;
-      window.clearTimeout(pointCleanupTimerRef.current);
-      timersRef.current.delete(pointCleanupTimerRef.current);
-      pointCleanupTimerRef.current = null;
-    }
-
-    pointCleanupTargetTimeRef.current = targetTime;
-    const delay = Math.max(16, targetTime - now);
-    const timer = window.setTimeout(() => {
-      timersRef.current.delete(timer);
-      pointCleanupTimerRef.current = null;
-      pointCleanupTargetTimeRef.current = null;
-      cleanupPointTexts();
-    }, delay);
-    timersRef.current.add(timer);
-    pointCleanupTimerRef.current = timer;
-  }
-
-  function cleanupPointTexts() {
+  // The game ticker is the sole scheduler: expiry and insertion share one commit.
+  // While paused, labels are hidden with the game and pruned on its next frame.
+  function flushFeedback() {
     if (!mountedRef.current) return;
     const now = performance.now();
-    const current = activePointTextsRef.current;
-    if (current.length === 0) return;
-
-    const remaining: typeof current = [];
-    let hasExpired = false;
-    let nextExpiry = Infinity;
-
-    for (let i = 0; i < current.length; i += 1) {
-      const item = current[i];
-      const expiresAt = item.expiresAt ?? 0;
-      if (expiresAt <= now) {
-        hasExpired = true;
-      } else {
-        remaining.push(item);
-        if (expiresAt < nextExpiry) {
-          nextExpiry = expiresAt;
-        }
-      }
-    }
-
-    if (hasExpired) {
-      activePointTextsRef.current = remaining;
-      setPointTexts(remaining);
-    }
-
-    // Always reschedule if items remain, even if timer woke slightly early
-    if (remaining.length > 0 && nextExpiry !== Infinity) {
-      schedulePointCleanup(nextExpiry);
-    }
-  }
-
-  // ── Batching state ────────────────────────────────────────────────────────
-
-  /** Queue of point-text entries waiting to be flushed in a single setState. */
-  const pendingPointTextsRef = useRef<
-    Array<{ id: number; x: number; y: number; text: string; color: string; variant?: "points" | "combo" | "critical"; expiresAt?: number }>
-  >([]);
-  /** True while a microtask flush is already scheduled. */
-  const flushScheduledRef = useRef(false);
-
-  function flushPendingPointTexts() {
-    flushScheduledRef.current = false;
-    if (!mountedRef.current) return;
+    const active = activePointTextsRef.current;
     const pending = pendingPointTextsRef.current;
-    if (pending.length === 0) return;
-    pendingPointTextsRef.current = [];
-
-    const nextItems = [...activePointTextsRef.current, ...pending].slice(-15);
+    const limit = Math.max(0, Math.floor(maxPointTexts));
+    const expired = active.some(item => (item.expiresAt ?? 0) <= now);
+    if (!expired && pending.length === 0 && active.length <= limit) return;
+    const nextItems = [...active, ...pending].filter(item => (item.expiresAt ?? 0) > now);
+    if (nextItems.length > limit) nextItems.splice(0, nextItems.length - limit);
+    pending.length = 0;
     activePointTextsRef.current = nextItems;
     setPointTexts(nextItems);
-
-    let earliest = Infinity;
-    for (let i = 0; i < nextItems.length; i += 1) {
-      const exp = nextItems[i].expiresAt ?? 0;
-      if (exp < earliest) earliest = exp;
-    }
-    if (earliest !== Infinity) {
-      schedulePointCleanup(earliest);
-    }
   }
 
   // ── Robust bomb text cleanup scheduler ────────────────────────────────────
@@ -246,10 +166,10 @@ export function useGameFeedback() {
     const expiresAt = now + 800;
     pendingPointTextsRef.current.push({ ...input, id, expiresAt });
 
-    // Schedule a single flush via microtask if not already scheduled.
-    if (!flushScheduledRef.current) {
-      flushScheduledRef.current = true;
-      queueMicrotask(flushPendingPointTexts);
+    // Bound pending work even if input arrives while the ticker is suspended.
+    const limit = Math.max(0, Math.floor(maxPointTexts));
+    if (pendingPointTextsRef.current.length > limit) {
+      pendingPointTextsRef.current.splice(0, pendingPointTextsRef.current.length - limit);
     }
   }
 
@@ -299,7 +219,6 @@ export function useGameFeedback() {
     setBombTexts([]);
     setPointTexts([]);
     pendingPointTextsRef.current = [];
-    flushScheduledRef.current = false;
     lastPointShakeAtRef.current = 0;
     shakeRef.current = { active: false, startedAt: 0, durationMs: 400, amount: 8 };
   }
@@ -321,6 +240,7 @@ export function useGameFeedback() {
     pointTexts,
     triggerBombFeedback,
     triggerPointFeedback,
+    flushFeedback,
     updateScreenShake,
     clearFeedback,
   };

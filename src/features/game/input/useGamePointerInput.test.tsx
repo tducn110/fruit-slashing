@@ -20,7 +20,7 @@ it("keeps a queued drag sample and uses the latest callbacks across HUD/feedback
   let sequence = 0;
   vi.spyOn(window, "requestAnimationFrame").mockImplementation(cb => { frames.set(++sequence, cb); return sequence; });
   vi.spyOn(window, "cancelAnimationFrame").mockImplementation(id => { frames.delete(id); });
-  vi.spyOn(performance, "now").mockReturnValue(0);
+  vi.spyOn(performance, "now").mockReturnValue(1000);
   const points = { current: [] as TrailPoint[] };
   const refs = {
     canvas, gameStateRef: { current: createGame(123, getGameConfig(390)) },
@@ -38,6 +38,7 @@ it("keeps a queued drag sample and uses the latest callbacks across HUD/feedback
   await act(async () => root.render(<Probe revision={0} />));
   const pointer = (type: string, x: number) => canvas.dispatchEvent(new MouseEvent(type, { clientX: x, clientY: 120 }));
   await act(async () => { pointer("pointerdown", 50); pointer("pointermove", 150); });
+  expect(refs.gameStateRef.current.tick).toBe(0);
   const readsBeforeRender = rect.mock.calls.length;
   await act(async () => root.render(<Probe revision={1} />));
   await act(async () => { const pending = [...frames.values()]; frames.clear(); pending.forEach(cb => cb(16)); });

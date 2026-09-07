@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Container, Sprite, Texture } from "pixi.js";
 import { getWorldRenderTransform, WORLD_HEIGHT, WORLD_WIDTH, type GameState } from "../../../game/core";
-import { VISUAL_RADIUS } from "./fruitVisuals";
+import { getFruitArtworkScale } from "./fruitScale";
 
 const FRUIT_SLOT_CAPACITY = 32;
 
@@ -81,14 +81,6 @@ export function useFruitSprites({ playLayerRef, texturesRef, texturesReady, size
     ensurePool(layer);
 
     const transform = getWorldRenderTransform(sizeRef.current.w, sizeRef.current.h);
-    const renderScale = transform.scaleX;
-
-    const viewportWidth = sizeRef.current.w;
-    const fruitScale =
-      viewportWidth <= 430 ? 2.0 :
-        viewportWidth <= 640 ? 1.45 :
-          1.0;
-
     // Reuse this Set because syncFruitSprites runs from the render loop.
     const activeIds = activeIdsRef.current;
     activeIds.clear();
@@ -109,15 +101,15 @@ export function useFruitSprites({ playLayerRef, texturesRef, texturesReady, size
         slot = acquireSlot(fruit.id);
         if (!slot) continue;
         slot.sprite.texture = texture;
+        slot.sprite.label = `Fruit:${fruit.kind}:${fruit.id}`;
       }
       const sprite = slot.sprite;
-      sprite.label = `Fruit:${fruit.kind}:${fruit.id}`;
       // Reuse the transform already calculated above instead of recomputing it
       // through worldToScreen() for every fruit.
       sprite.x = (fruit.x - WORLD_WIDTH / 2) * transform.scaleX + transform.offsetX;
       sprite.y = (fruit.y - WORLD_HEIGHT / 2) * transform.scaleY + transform.offsetY;
       sprite.rotation = fruit.rotation;
-      sprite.scale.set((VISUAL_RADIUS[fruit.kind] / 20) * renderScale * 0.9 * fruitScale);
+      sprite.scale.set(getFruitArtworkScale(fruit.kind, sizeRef.current.w, sizeRef.current.h));
     }
   }
 
