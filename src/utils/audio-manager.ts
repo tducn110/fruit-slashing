@@ -6,9 +6,9 @@
 
 type SfxName = "bgm" | "slice" | "bomb";
 
-const LANDING_BGM_VOLUME = 0.24;
-const GAME_BGM_VOLUME = 0.16;
-const BUTTON_SFX_VOLUME = 0.58;
+const LANDING_BGM_VOLUME = 0.36;
+const GAME_BGM_VOLUME = 0.28;
+const BUTTON_SFX_VOLUME = 0.72;
 
 interface AudioBuffers {
   slice: AudioBuffer | null;
@@ -20,6 +20,8 @@ class AudioManager {
   private ctx: AudioContext | null = null;
   private bgmGain: GainNode | null = null;
   private sfxGain: GainNode | null = null;
+  private masterGain: GainNode | null = null;
+  private limiter: DynamicsCompressorNode | null = null;
 
   private buffers: AudioBuffers = { slice: null, bomb: null, bgm: null };
   
@@ -44,12 +46,30 @@ class AudioManager {
         
         this.bgmGain = this.ctx.createGain();
         this.sfxGain = this.ctx.createGain();
-        
-        this.bgmGain.connect(this.ctx.destination);
-        this.sfxGain.connect(this.ctx.destination);
+        this.masterGain = this.ctx.createGain();
         
         this.bgmGain.gain.value = this._parentMuted || this._musicMuted ? 0 : 1;
         this.sfxGain.gain.value = this._parentMuted || this._sfxMuted ? 0 : 1;
+        this.masterGain.gain.value = 1;
+
+        this.bgmGain.connect(this.masterGain);
+        this.sfxGain.connect(this.masterGain);
+
+        // Native Master Limiter: prevents digital clipping when multiple slice voices overlap
+        if (typeof this.ctx.createDynamicsCompressor === "function") {
+          const limiter = this.ctx.createDynamicsCompressor();
+          limiter.threshold.setValueAtTime(-3.0, this.ctx.currentTime);
+          limiter.knee.setValueAtTime(4.0, this.ctx.currentTime);
+          limiter.ratio.setValueAtTime(20.0, this.ctx.currentTime);
+          limiter.attack.setValueAtTime(0.003, this.ctx.currentTime);
+          limiter.release.setValueAtTime(0.12, this.ctx.currentTime);
+
+          this.masterGain.connect(limiter);
+          limiter.connect(this.ctx.destination);
+          this.limiter = limiter;
+        } else {
+          this.masterGain.connect(this.ctx.destination);
+        }
       } catch (err) {
         console.warn("[AudioManager] AudioContext not supported or failed to init", err);
       }
@@ -61,6 +81,17 @@ class AudioManager {
     this.ensureContext();
     if (this.ctx && this.ctx.state === "suspended") {
       await this.ctx.resume();
+    }
+    if (this.ctx) {
+      try {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        gain.gain.value = 0;
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(this.ctx.currentTime);
+        osc.stop(this.ctx.currentTime + 0.001);
+      } catch {}
     }
   }
 
@@ -350,6 +381,14 @@ class AudioManager {
     if (this.sfxGain) {
       this.sfxGain.disconnect();
       this.sfxGain = null;
+    }
+    if (this.limiter) {
+      this.limiter.disconnect();
+      this.limiter = null;
+    }
+    if (this.masterGain) {
+      this.masterGain.disconnect();
+      this.masterGain = null;
     }
     if (this.ctx) {
       this.ctx.close().catch(() => {});
