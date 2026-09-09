@@ -6,9 +6,9 @@
 
 type SfxName = "bgm" | "slice" | "bomb";
 
-const LANDING_BGM_VOLUME = 0.36;
-const GAME_BGM_VOLUME = 0.28;
-const BUTTON_SFX_VOLUME = 0.72;
+const LANDING_BGM_VOLUME = 0.50;
+const GAME_BGM_VOLUME = 0.44;
+const BUTTON_SFX_VOLUME = 0.45;
 
 interface AudioBuffers {
   slice: AudioBuffer | null;
@@ -48,12 +48,23 @@ class AudioManager {
         this.sfxGain = this.ctx.createGain();
         this.masterGain = this.ctx.createGain();
         
+        const isSafari =
+          typeof navigator !== "undefined" &&
+          (/^((?!chrome|android).)*safari/i.test(navigator.userAgent) ||
+            /iPad|iPhone|iPod/.test(navigator.userAgent));
+
         this.bgmGain.gain.value = this._parentMuted || this._musicMuted ? 0 : 1;
         this.sfxGain.gain.value = this._parentMuted || this._sfxMuted ? 0 : 1;
-        this.masterGain.gain.value = 1;
+        this.masterGain.gain.value = isSafari ? 1.4 : 1;
 
         this.bgmGain.connect(this.masterGain);
         this.sfxGain.connect(this.masterGain);
+
+        if (typeof navigator !== "undefined" && "audioSession" in navigator) {
+          try {
+            (navigator as unknown as { audioSession: { type: string } }).audioSession.type = "playback";
+          } catch {}
+        }
 
         // Native Master Limiter: prevents digital clipping when multiple slice voices overlap
         if (typeof this.ctx.createDynamicsCompressor === "function") {
