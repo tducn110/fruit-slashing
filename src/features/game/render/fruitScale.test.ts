@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { getFruitArtworkScale } from './fruitScale';
+import { getFruitArtworkScale } from './fruitVisuals';
 it('keeps artwork size continuous across mobile breakpoints', () => {
   for (const width of [430, 640]) {
     const before = getFruitArtworkScale('lychee', width, 789);

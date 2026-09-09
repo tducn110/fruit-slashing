@@ -327,7 +327,6 @@ export interface TrailSegment {
 }
 
 export function applyInput(state: GameState, sample: InputSample, trail: TrailSegment[] = [], config?: GameConfig): SliceResult[] {
-  if (state.ended) return [];
   advanceToTick(state, sample.tick);
   return applyInputAtCurrentTick(state, sample, trail, config);
 }

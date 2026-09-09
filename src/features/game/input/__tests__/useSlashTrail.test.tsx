@@ -6,43 +6,41 @@ import { expect, it, vi } from "vitest";
 import { useSlashTrail } from "../useSlashTrail";
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-it("reuses prewarmed Pixi geometry across long strokes, fade, clear and restart", () => {
-  const parent = new Container();
-  const ref = { current: parent };
+it("tracks, draws and clears trail points within bounds", () => {
+  const g = new Graphics();
+  const ref = { current: g };
   let trail!: ReturnType<typeof useSlashTrail>;
   function Probe() { trail = useSlashTrail({ trailGraphicsRef: ref, getMaxPoints: () => 12 }); return null; }
   const root = createRoot(document.createElement("div"));
   act(() => root.render(<Probe />));
-  trail.initTrail();
-  const children = [...parent.children] as Graphics[];
-  expect(children).toHaveLength(44);
-  const contexts = children.map(child => child.context);
-  const clear = vi.spyOn(Graphics.prototype, "clear");
-  const stroke = vi.spyOn(Graphics.prototype, "stroke");
-  const fill = vi.spyOn(Graphics.prototype, "fill");
+
+  const clearSpy = vi.spyOn(g, "clear");
+  const strokeSpy = vi.spyOn(g, "stroke");
   const now = vi.spyOn(performance, "now").mockReturnValue(1000);
-  for (let i = 0; i < 300; i++) {
-    now.mockReturnValue(1000 + i);
-    trail.addTrailPoint({ x: i * 2, y: i, t: 1000 + i });
+
+  for (let i = 0; i < 30; i++) {
+    now.mockReturnValue(1000 + i * 10);
+    trail.addTrailPoint({ x: i * 2, y: i, t: 1000 + i * 10 });
     trail.drawTrail();
   }
+
+  // Max points bounded to 12
   expect(trail.trailPointsRef.current).toHaveLength(12);
-  expect(children.filter(child => child.visible)).toHaveLength(44);
-  const firstAlpha = children.find(child => child.visible)!.alpha;
-  now.mockReturnValue(1450);
-  trail.drawTrail();
-  expect(children.find(child => child.visible)!.alpha).toBeLessThan(firstAlpha);
+  expect(strokeSpy).toHaveBeenCalled();
+  expect(clearSpy).toHaveBeenCalled();
+
+  // Pruning after age expires
   now.mockReturnValue(2000);
   trail.drawTrail();
-  expect(children.every(child => !child.visible)).toBe(true);
+  expect(trail.trailPointsRef.current).toHaveLength(0);
+
+  // Clear trail
+  trail.addTrailPoint({ x: 10, y: 20, t: 2000 });
+  expect(trail.trailPointsRef.current).toHaveLength(1);
   trail.clearTrail();
-  trail.initTrail();
-  expect(parent.children).toEqual(children);
-  expect(children.map(child => child.context)).toEqual(contexts);
-  expect(clear).not.toHaveBeenCalled();
-  expect(stroke).not.toHaveBeenCalled();
-  expect(fill).not.toHaveBeenCalled();
+  expect(trail.trailPointsRef.current).toHaveLength(0);
+
   vi.restoreAllMocks();
   act(() => root.unmount());
-  parent.destroy({ children: true });
+  g.destroy();
 });

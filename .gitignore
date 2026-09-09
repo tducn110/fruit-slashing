@@ -11,6 +11,7 @@ firestore-debug.log
 *-debug.log
 functions/lib/
 artifacts/minigame-pilot/
+artifacts/responsive/*.json
 
 # Release worktrees — a full duplicate checkout. Never tracked.
 .worktrees/

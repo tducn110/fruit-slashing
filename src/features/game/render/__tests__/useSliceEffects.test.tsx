@@ -6,7 +6,7 @@ import { expect, it, vi } from 'vitest';
 import { useSliceEffects } from '../useSliceEffects';
 import { useParticleSystem } from '../useParticleSystem';
 import { type SliceResult } from '../../../../game/core';
-import { getFruitArtworkScale } from '../fruitScale';
+import { getFruitArtworkScale } from '../fruitVisuals';
 vi.hoisted(() => { HTMLCanvasElement.prototype.getContext = (() => null) as typeof HTMLCanvasElement.prototype.getContext; });
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

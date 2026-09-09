@@ -3,8 +3,7 @@ import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { type Container, Graphics, Sprite, type Texture } from "pixi.js";
 import { getWorldRenderTransform, worldToScreen as projectWorldToScreen, type SliceResult } from "../../../game/core";
-import { FRUIT_COLORS, type Particle } from "./fruitVisuals";
-import { getFruitArtworkScale } from "./fruitScale";
+import { FRUIT_COLORS, getFruitArtworkScale, type Particle } from "./fruitVisuals";
 import { getFxPreset, type FxPreset } from "./fxPreset";
 
 // A burst can exceed this capacity; round-robin reuse resets the one owned lifetime.
@@ -259,17 +258,6 @@ export function useSliceEffects({
     }
   }
 
-  // ── Slot reset ────────────────────────────────────────────────────────────
-
-  /** Mark a slot as inactive and hide its display. Single source of truth for
-   *  the "slot is idle" invariant: life=0 + invisible + transparent.
-   *  Called by both clearSliceEffects (bulk reset) and updateSliceEffects (expiry). */
-  function resetSlotDisplay(slot: { life: number; g: { visible: boolean; alpha: number } }) {
-    slot.life = 0;
-    slot.g.visible = false;
-    slot.g.alpha = 0;
-  }
-
   // ── Cleanup helper (call on unmount/replay) ───────────────────────────────
 
   function destroySlashPool() {
@@ -296,8 +284,8 @@ export function useSliceEffects({
 
   function clearSliceEffects() {
     slashCursorRef.current = 0;
-    for (const slot of slashPoolRef.current) resetSlotDisplay(slot);
-    for (const slot of halfPoolRef.current) resetSlotDisplay(slot);
+    for (const slot of slashPoolRef.current) { slot.life = 0; slot.g.visible = false; slot.g.alpha = 0; }
+    for (const slot of halfPoolRef.current) { slot.life = 0; slot.g.visible = false; slot.g.alpha = 0; }
   }
 
   function updateSliceEffects(deltaSeconds: number, viewportHeight: number) {

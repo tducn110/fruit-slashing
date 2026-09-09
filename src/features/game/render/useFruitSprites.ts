@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Container, Sprite, Texture } from "pixi.js";
 import { getWorldRenderTransform, WORLD_HEIGHT, WORLD_WIDTH, type GameState } from "../../../game/core";
-import { getFruitArtworkScale } from "./fruitScale";
+import { getFruitArtworkScale } from "./fruitVisuals";
 
 const FRUIT_SLOT_CAPACITY = 32;
 

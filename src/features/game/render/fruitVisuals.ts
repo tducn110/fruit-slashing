@@ -1,5 +1,5 @@
 import { Graphics, Container } from "pixi.js";
-import type { FruitKind } from "../../../game/core";
+import { getWorldRenderTransform, smoothStep, type FruitKind } from "../../../game/core";
 
 const GAME_COLORS = {
   ricePaper: 0xf5ecd7,
@@ -241,4 +241,10 @@ export function drawBackground(c: Container, W: number, H: number) {
       .stroke({ color: GAME_COLORS.birdGray, width: 1.2, alpha: 0.55, cap: "round" });
   }
   c.addChild(birds);
+}
+
+/** Same artwork transform for whole fruit and its two split textures. */
+export function getFruitArtworkScale(kind: FruitKind, width: number, height: number): number {
+  const boost = 2 - 0.55 * smoothStep(410, 470, width) - 0.45 * smoothStep(600, 680, width);
+  return (VISUAL_RADIUS[kind] / 20) * 0.9 * boost * getWorldRenderTransform(width, height).scaleX;
 }

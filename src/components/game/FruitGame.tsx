@@ -24,6 +24,7 @@ import { useFruitSprites } from "../../features/game/render/useFruitSprites";
 import { useParticleSystem } from "../../features/game/render/useParticleSystem";
 import { useGameFeedback } from "../../features/game/render/useGameFeedback";
 import { useSliceEffects } from "../../features/game/render/useSliceEffects";
+import { getFxPreset } from "../../features/game/render/fxPreset";
 import { PauseOverlay } from "./PauseOverlay";
 import { showRewardedVideo } from "../../utils/mockAds";
 import { audioManager } from "../../utils/audio-manager";
@@ -59,10 +60,10 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
   const callbacksRef = useRef({ onSubmitScore, onCompleteRound, onExitGame, onGameStart, muted });
   callbacksRef.current = { onSubmitScore, onCompleteRound, onExitGame, onGameStart, muted };
   const onViewportResizeRef = useRef<(() => void) | null>(null);
-  const { wrapRef, appRef, sizeRef, playLayerRef, trailGraphicsRef, fxPresetRef, ready } = usePixiApp({
+  const { wrapRef, appRef, sizeRef, playLayerRef, trailGraphicsRef, ready } = usePixiApp({
     onViewportResize: () => onViewportResizeRef.current?.(),
   });
-  const getCurrentFxPreset = useCallback(() => fxPresetRef.current, [fxPresetRef]);
+  const getCurrentFxPreset = useCallback(() => getFxPreset(sizeRef.current.w), [sizeRef]);
   const { texturesRef, texturesReady } = useFruitTextures({ appRef, appReady: ready });
   const { syncFruitSprites, clearFruitSprites } = useFruitSprites({ playLayerRef, texturesRef, texturesReady, sizeRef });
   onViewportResizeRef.current = () => {
