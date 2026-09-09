@@ -6,9 +6,9 @@
 
 type SfxName = "bgm" | "slice" | "bomb";
 
-const LANDING_BGM_VOLUME = 0.50;
-const GAME_BGM_VOLUME = 0.44;
-const BUTTON_SFX_VOLUME = 0.45;
+const LANDING_BGM_VOLUME = 0.30;
+const GAME_BGM_VOLUME = 0.22;
+const BUTTON_SFX_VOLUME = 0.65;
 
 interface AudioBuffers {
   slice: AudioBuffer | null;
@@ -103,6 +103,9 @@ class AudioManager {
         osc.start(this.ctx.currentTime);
         osc.stop(this.ctx.currentTime + 0.001);
       } catch {}
+    }
+    if (!this.buffers.slice || !this.buffers.bomb) {
+      void this.preloadEssentialAudio("/assets/");
     }
   }
 
@@ -241,7 +244,11 @@ class AudioManager {
   private voicePools: Map<SfxName, AudioBufferSourceNode[]> = new Map();
 
   playSfx(name: SfxName, options: { volume?: number; playbackRate?: number; maxVoices?: number } = {}): void {
-    if (!this.ctx || !this.buffers[name]) return;
+    if (!this.ctx) return;
+    if (!this.buffers[name]) {
+      void this.preloadEssentialAudio("/assets/");
+      return;
+    }
     
     const { volume = 0.6, playbackRate = 1.0, maxVoices = 5 } = options;
 

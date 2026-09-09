@@ -31,20 +31,20 @@ export interface SliceAudioTuningConfig {
  * Initial tuning hypotheses — named constants, not dogmatic standards.
  */
 export const DEFAULT_SLICE_AUDIO_CONFIG: SliceAudioTuningConfig = {
-  baseVolume: 0.45,
+  baseVolume: 0.75,
   basePitch: 1.0,
   baseMaxVoices: 4,
 
   combo2Pitch: 1.05,
-  combo2Volume: 0.48,
+  combo2Volume: 0.80,
 
   combo3Pitch: 1.10,
-  combo3Volume: 0.52,
+  combo3Volume: 0.85,
 
   combo4Pitch: 1.16,
-  combo4Volume: 0.55,
+  combo4Volume: 0.90,
 
-  bombVolume: 0.65,
+  bombVolume: 0.85,
   bombPitch: 1.0,
   bombMaxVoices: 2,
 };
