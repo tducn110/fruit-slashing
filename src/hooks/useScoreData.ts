@@ -7,7 +7,6 @@ import type {
   WinkIntegrationErrorCode,
   WinkLeaderboardEntry,
 } from "../integrations/wink/types";
-import { WinkGameClientError } from "../integrations/wink/client";
 
 const SAFE_ERROR_MESSAGES: Record<WinkIntegrationErrorCode, string> = {
   PARENT_REQUIRED: "Mini-game phải được mở trong iframe Wink.",
@@ -20,7 +19,7 @@ const SAFE_ERROR_MESSAGES: Record<WinkIntegrationErrorCode, string> = {
   CAPABILITY_DENIED: "Thao tác này không được cấp quyền cho phiên hiện tại.",
   API_NETWORK_ERROR: "Không thể kết nối dịch vụ Wink.",
   MESSAGE_REJECTED: "Thông điệp từ Wink không hợp lệ.",
-  BRIDGE_MISSING: "Wink bridge chưa được cài đặt.",
+  BRIDGE_MISSING: "Wink SDK chưa sẵn sàng.",
   INVALID_SCORE: "Điểm số cuối không hợp lệ.",
   INVALID_ROUND: "Mã vòng chơi không hợp lệ.",
 };
@@ -41,18 +40,11 @@ function visibleError(
   fallbackCode: WinkIntegrationErrorCode = "API_NETWORK_ERROR",
 ): WinkIntegrationError {
   const candidateCode =
-    value instanceof WinkGameClientError
-      ? value.code
-      : typeof value === "object" &&
-          value !== null &&
-          "code" in value
-        ? (value as { code?: unknown }).code
-        : value;
+    typeof value === "object" && value !== null && "code" in value
+      ? (value as { code?: unknown }).code
+      : value;
   const code = isErrorCode(candidateCode) ? candidateCode : fallbackCode;
-  const retryable =
-    value instanceof WinkGameClientError
-      ? value.retryable
-      : code === "API_NETWORK_ERROR" || code === "BRIDGE_READY_TIMEOUT";
+  const retryable = code === "API_NETWORK_ERROR" || code === "BRIDGE_READY_TIMEOUT";
   return Object.freeze({
     code,
     message: SAFE_ERROR_MESSAGES[code],
@@ -61,12 +53,7 @@ function visibleError(
 }
 
 function mapRemoteScores(
-  entries: readonly {
-    rank: number;
-    score: number;
-    playTime: number | null;
-    displayName: string | null;
-  }[],
+  entries: readonly WinkLeaderboardEntry[],
 ): LeaderboardEntry[] {
   return entries.map((entry) => ({
     name: entry.displayName ?? "Anonymous player",
@@ -78,7 +65,7 @@ function mapRemoteScores(
 }
 
 export function useScoreData(integration: WinkIntegration) {
-  const offline = integration.mode === "offline";
+  const isStandalone = integration.status === "standalone";
   const [scores, setScores] = useState<LeaderboardEntry[]>([]);
   const [lastScore, setLastScore] = useState<number | null>(null);
   const [error, setError] = useState<WinkIntegrationError | null>(
@@ -86,12 +73,15 @@ export function useScoreData(integration: WinkIntegration) {
   );
   const [scoreSubmissionError, setScoreSubmissionError] =
     useState<WinkIntegrationError | null>(null);
-  const [personalBest, setPersonalBest] =
-    useState<WinkLeaderboardEntry | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (integration.error) setError(integration.error);
+    if (integration.error) {
+      setError(integration.error);
+      if (integration.error.code === "CAPABILITY_DENIED") {
+        setScoreSubmissionError(integration.error);
+      }
+    }
   }, [integration.error]);
 
   useEffect(() => {
@@ -103,31 +93,24 @@ export function useScoreData(integration: WinkIntegration) {
     return () => window.clearTimeout(timeoutId);
   }, [scoreSubmissionError]);
 
-  const refreshLeaderboard = useCallback(async () => {
-    if (offline) {
+  useEffect(() => {
+    if (isStandalone) {
       setScores(readOfflineScores());
-      setPersonalBest(null);
+    } else if (integration.leaderboard.length > 0) {
+      setScores(mapRemoteScores(integration.leaderboard));
+    }
+  }, [isStandalone, integration.leaderboard]);
+
+  const refreshLeaderboard = useCallback(async () => {
+    if (isStandalone) {
+      setScores(readOfflineScores());
       setError(null);
       return;
     }
 
-    if (!integration.client) {
-      const nextError = visibleError(undefined, "BRIDGE_MISSING");
-      setError(nextError);
-      throw nextError;
-    }
-    if (!integration.capabilities.getLeaderboard) {
-      const nextError = visibleError(undefined, "CAPABILITY_DENIED");
-      setError(nextError);
-      throw nextError;
-    }
-
     setLoading(true);
     try {
-      // 30 is the server's cap; anything larger is trimmed to it server-side.
-      const board = await integration.client.getLeaderboard({ limit: 30 });
-      setScores(mapRemoteScores(board.entries));
-      setPersonalBest(board.me);
+      await integration.refreshLeaderboard();
       setError(null);
     } catch (value) {
       const nextError = visibleError(value);
@@ -136,17 +119,11 @@ export function useScoreData(integration: WinkIntegration) {
     } finally {
       setLoading(false);
     }
-  }, [
-    offline,
-    integration.client,
-    integration.capabilities.getLeaderboard,
-  ]);
+  }, [isStandalone, integration.refreshLeaderboard]);
 
   useEffect(() => {
     const onFocus = () => {
-      void refreshLeaderboard().catch(() => {
-        // The visible error state is the user-facing result of a failed refresh.
-      });
+      void refreshLeaderboard().catch(() => {});
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
@@ -172,13 +149,8 @@ export function useScoreData(integration: WinkIntegration) {
       }
       if (!qualifies) return;
 
-      if (offline) {
-        setError(visibleError(undefined, "PARENT_REQUIRED"));
-        return;
-      }
-
-      if (!result.roundId) {
-        setError(visibleError(undefined, "INVALID_ROUND"));
+      if (isStandalone) {
+        setLastScore(result.score);
         return;
       }
 
@@ -193,7 +165,6 @@ export function useScoreData(integration: WinkIntegration) {
         setLastScore(result.score);
         setError(null);
       } catch (value) {
-        // A denied or failed remote mutation is never converted into a local row.
         const nextError = visibleError(value);
         setError(nextError);
         setScoreSubmissionError(
@@ -201,23 +172,19 @@ export function useScoreData(integration: WinkIntegration) {
         );
       }
     },
-    [offline, integration.submitFinalScore],
+    [isStandalone, integration.submitFinalScore],
   );
 
-  // Online, the player's best now comes from the server rather than from the
-  // last score this tab happened to submit — those differ for anyone who has
-  // played before, and the page cap means the old fallback of scanning the
-  // returned rows could not find them either.
-  const bestScore = offline
+  const bestScore = isStandalone
     ? bestLocalScore(scores)
-    : personalBest?.score ?? lastScore ?? 0;
+    : integration.personalBest?.score ?? lastScore ?? 0;
 
   return {
     bestScore,
     lastScore,
     totalGamesPlayed: scores.length,
     leaderboard: scores,
-    personalBest,
+    personalBest: integration.personalBest,
     loading,
     error,
     scoreSubmissionError,

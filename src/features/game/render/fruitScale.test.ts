@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { expect, it } from 'vitest';
 import { getFruitArtworkScale } from './fruitVisuals';
 it('keeps artwork size continuous across mobile breakpoints', () => {

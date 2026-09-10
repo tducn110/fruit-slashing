@@ -1,36 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  createWinkGameClient,
-  getInstalledWinkBridge,
-  WinkGameClientError,
-} from "./client";
+import i18n from "../../i18n";
 import type {
-  RedactedWinkState,
-  WinkCapabilities,
+  WinkCapability,
   WinkIntegration,
   WinkIntegrationError,
   WinkIntegrationErrorCode,
   WinkLeaderboardEntry,
-  WinkGameClient,
+  WinkMode,
+  WinkPhase,
+  WinkSDK,
+  WinkStatus,
+  WinkSubmitScoreResult,
 } from "./types";
-
-const EMPTY_CAPABILITIES: WinkCapabilities = Object.freeze({
-  getLeaderboard: false,
-  submitScore: false,
-  complete: false,
-});
-
-const OFFLINE_STATE: RedactedWinkState = Object.freeze({
-  phase: "ready_anonymous",
-  gameId: null,
-  environment: "dev",
-  sessionId: null,
-  identityType: "anonymous",
-  capabilities: EMPTY_CAPABILITIES,
-  expiresAt: null,
-  lifecycle: Object.freeze({ paused: false, muted: false }),
-  error: null,
-});
 
 const SAFE_ERROR_MESSAGES: Record<WinkIntegrationErrorCode, string> = {
   PARENT_REQUIRED: "Mini-game phải được mở trong iframe Wink.",
@@ -43,351 +24,319 @@ const SAFE_ERROR_MESSAGES: Record<WinkIntegrationErrorCode, string> = {
   CAPABILITY_DENIED: "Thao tác này không được cấp quyền cho phiên hiện tại.",
   API_NETWORK_ERROR: "Không thể kết nối dịch vụ Wink.",
   MESSAGE_REJECTED: "Thông điệp từ Wink không hợp lệ.",
-  BRIDGE_MISSING: "Wink bridge chưa được cài đặt.",
+  BRIDGE_MISSING: "Wink SDK chưa sẵn sàng.",
   INVALID_SCORE: "Điểm số cuối không hợp lệ.",
   INVALID_ROUND: "Mã vòng chơi không hợp lệ.",
 };
 
-export function isOfflineModeEnabled(input: {
-  dev: boolean;
-  flag: string | undefined;
-}): boolean {
-  return input.dev === true && input.flag === "true";
-}
-
 function safeError(
-  value: unknown,
-  fallbackCode: WinkIntegrationErrorCode = "API_NETWORK_ERROR",
+  code: WinkIntegrationErrorCode,
+  retryable = false,
 ): WinkIntegrationError {
-  const candidateCode =
-    value instanceof WinkGameClientError
-      ? value.code
-      : typeof value === "object" &&
-          value !== null &&
-          "code" in value
-        ? (value as { code?: unknown }).code
-        : value;
-  const code = isIntegrationErrorCode(candidateCode)
-    ? candidateCode
-    : fallbackCode;
-  const retryable =
-    value instanceof WinkGameClientError
-      ? value.retryable
-      : code === "API_NETWORK_ERROR" || code === "BRIDGE_READY_TIMEOUT";
   return Object.freeze({
     code,
+    message: SAFE_ERROR_MESSAGES[code] || "Lỗi kết nối Wink.",
     retryable,
-    message: SAFE_ERROR_MESSAGES[code],
   });
 }
 
-function isIntegrationErrorCode(value: unknown): value is WinkIntegrationErrorCode {
-  return (
-    typeof value === "string" &&
-    Object.hasOwn(SAFE_ERROR_MESSAGES, value)
-  );
+// Global bootstrap promise so multiple hook instances share the same initialization
+let globalInitPromise: Promise<WinkSDK | null> | null = null;
+let lastTargetWink: unknown = undefined;
+
+export function resetGlobalWinkInit(): void {
+  globalInitPromise = null;
+  lastTargetWink = undefined;
 }
 
-function stateWithError(
-  state: RedactedWinkState,
-  error: WinkIntegrationError | null,
-): RedactedWinkState {
-  return Object.freeze({
-    ...state,
-    error,
-    lifecycle: Object.freeze({ ...state.lifecycle }),
-    capabilities: Object.freeze({ ...state.capabilities }),
-  });
-}
-
-function stateWithLifecycle(
-  state: RedactedWinkState,
-  lifecycle: Partial<RedactedWinkState["lifecycle"]>,
-): RedactedWinkState {
-  return stateWithError(
-    {
-      ...state,
-      lifecycle: Object.freeze({ ...state.lifecycle, ...lifecycle }),
-    },
-    errorFromState(state),
-  );
-}
-
-function initialConnection(): {
-  client: WinkGameClient | null;
-  state: RedactedWinkState;
-  error: WinkIntegrationError | null;
-} {
-  const bridge = getInstalledWinkBridge();
-  if (!bridge) {
-    const error = safeError(undefined, "BRIDGE_MISSING");
-    return {
-      client: null,
-      state: stateWithError(
-        Object.freeze({
-          phase: "error",
-          gameId: null,
-          environment: null,
-          sessionId: null,
-          identityType: null,
-          capabilities: EMPTY_CAPABILITIES,
-          expiresAt: null,
-          lifecycle: Object.freeze({ paused: false, muted: false }),
-          error: null,
-        }),
-        error,
-      ),
-      error,
-    };
+export function resolveGlobalWink(): Promise<WinkSDK | null> {
+  const currentWink = typeof window !== "undefined" ? window.Wink : undefined;
+  if (globalInitPromise && lastTargetWink === currentWink) {
+    return globalInitPromise;
   }
+  lastTargetWink = currentWink;
 
-  try {
-    const client = createWinkGameClient(bridge);
-    const state = client.getState();
-    return { client, state, error: state.error };
-  } catch (value) {
-    const error = safeError(value, "MESSAGE_REJECTED");
-    return {
-      client: null,
-      state: stateWithError(
-        Object.freeze({
-          phase: "error",
-          gameId: null,
-          environment: null,
-          sessionId: null,
-          identityType: null,
-          capabilities: EMPTY_CAPABILITIES,
-          expiresAt: null,
-          lifecycle: Object.freeze({ paused: false, muted: false }),
-          error: null,
-        }),
-        error,
-      ),
-      error,
+  globalInitPromise = new Promise((resolve) => {
+    if (typeof window === "undefined") {
+      resolve(null);
+      return;
+    }
+
+    const checkSdk = () => {
+      if (window.Wink?.init) {
+        window.Wink.init()
+          .then((sdk) => resolve(sdk))
+          .catch(() => resolve(window.Wink || null));
+        return true;
+      }
+      return false;
     };
-  }
-}
 
-function readBuildFlag(): boolean {
-  return isOfflineModeEnabled({
-    dev: import.meta.env.DEV === true,
-    flag: import.meta.env.VITE_WINK_OFFLINE_MODE,
+    if (checkSdk()) return;
+
+    // In test environment, don't wait 2.5s if not in browser
+    const maxWaitMs = typeof process !== "undefined" && process.env.NODE_ENV === "test" ? 100 : 2000;
+    let elapsed = 0;
+    const interval = setInterval(() => {
+      elapsed += 25;
+      if (checkSdk() || elapsed >= maxWaitMs) {
+        clearInterval(interval);
+        resolve(window.Wink || null);
+      }
+    }, 25);
   });
+
+  return globalInitPromise;
 }
 
 export function useWinkIntegration(): WinkIntegration {
-  const offline = readBuildFlag();
-  const connectionRef = useRef<{
-    initialized: boolean;
-    client: WinkGameClient | null;
-    state: RedactedWinkState;
-    error: WinkIntegrationError | null;
-  }>({
-    initialized: false,
-    client: null,
-    state: OFFLINE_STATE,
-    error: null,
-  });
-
-  if (!connectionRef.current.initialized) {
-    connectionRef.current.initialized = true;
-    if (!offline) {
-      const connection = initialConnection();
-      connectionRef.current.client = connection.client;
-      connectionRef.current.state = connection.state;
-      connectionRef.current.error = connection.error;
-    }
-  }
-
-  const connection = connectionRef.current;
-  const [state, setState] = useState<RedactedWinkState>(connection.state);
-  const [error, setError] = useState<WinkIntegrationError | null>(
-    connection.error,
-  );
-  const [hostPaused, setHostPaused] = useState(
-    connection.state.lifecycle.paused,
-  );
-  const [parentMuted, setParentMuted] = useState(
-    connection.state.lifecycle.muted,
-  );
+  const [sdk, setSdk] = useState<WinkSDK | null>(typeof window !== "undefined" ? window.Wink || null : null);
+  const [status, setStatus] = useState<WinkStatus>(sdk?.status ?? "connecting");
+  const [isReady, setIsReady] = useState(false);
+  const [hostPaused, setHostPaused] = useState(false);
+  const [parentMuted, setParentMuted] = useState(sdk?.muted ?? false);
+  const [locale, setLocale] = useState(sdk?.locale ?? "vi");
+  const [error, setError] = useState<WinkIntegrationError | null>(null);
   const [personalBest, setPersonalBest] = useState<WinkLeaderboardEntry | null>(null);
-  const [leaderboard, setLeaderboard] = useState<
-    readonly WinkLeaderboardEntry[]
-  >([]);
+  const [leaderboard, setLeaderboard] = useState<readonly WinkLeaderboardEntry[]>([]);
 
+  const sdkRef = useRef<WinkSDK | null>(sdk);
+  sdkRef.current = sdk;
 
   useEffect(() => {
-    const client = connection.client;
-    if (!client) return;
-
-    const applyState = (next: RedactedWinkState) => {
-      const projectedError = next.error ? safeError(next.error) : null;
-      setState(stateWithError(next, projectedError));
-      setError(projectedError);
-      setHostPaused(next.lifecycle.paused);
-      setParentMuted(next.lifecycle.muted);
-    };
-
+    let unmounted = false;
     const cleanups: Array<() => void> = [];
-    try {
-      cleanups.push(client.subscribe(applyState));
-      cleanups.push(
-        client.onPause(() => {
-          setHostPaused(true);
-          setState((current) => stateWithLifecycle(current, { paused: true }));
-        }),
-      );
-      cleanups.push(
-        client.onResume(() => {
-          setHostPaused(false);
-          setState((current) => stateWithLifecycle(current, { paused: false }));
-        }),
-      );
-      cleanups.push(
-        client.onMute(() => {
-          setParentMuted(true);
-          setState((current) => stateWithLifecycle(current, { muted: true }));
-        }),
-      );
-      cleanups.push(
-        client.onUnmute(() => {
-          setParentMuted(false);
-          setState((current) => stateWithLifecycle(current, { muted: false }));
-        }),
-      );
-    } catch (value) {
-      const nextError = safeError(value, "MESSAGE_REJECTED");
-      setError(nextError);
-      setState((current) => stateWithError(current, nextError));
-      cleanups.splice(0).forEach((cleanup) => cleanup());
-    }
+
+    void resolveGlobalWink().then((resolvedSdk) => {
+      if (unmounted) return;
+      if (resolvedSdk) {
+        setSdk(resolvedSdk);
+        setStatus(resolvedSdk.status);
+        setParentMuted(resolvedSdk.muted);
+        if (resolvedSdk.locale) {
+          setLocale(resolvedSdk.locale);
+          const lang = resolvedSdk.locale === "vi" ? "vi" : "en";
+          void i18n.changeLanguage(lang);
+        }
+
+        try {
+          cleanups.push(
+            resolvedSdk.on("pause", () => {
+              setHostPaused(true);
+            }),
+          );
+          cleanups.push(
+            resolvedSdk.on("resume", () => {
+              setHostPaused(false);
+            }),
+          );
+          cleanups.push(
+            resolvedSdk.on("mute", () => {
+              setParentMuted(true);
+            }),
+          );
+          cleanups.push(
+            resolvedSdk.on("unmute", () => {
+              setParentMuted(false);
+            }),
+          );
+          cleanups.push(
+            resolvedSdk.on("locale", (nextLocale: string) => {
+              setLocale(nextLocale);
+              const lang = nextLocale === "vi" ? "vi" : "en";
+              void i18n.changeLanguage(lang);
+            }),
+          );
+        } catch (e) {
+          console.warn("[WinkIntegration] Error subscribing to SDK events", e);
+        }
+      } else {
+        setStatus("standalone");
+      }
+      setIsReady(true);
+    });
 
     return () => {
-      cleanups.splice(0).forEach((cleanup) => {
+      unmounted = true;
+      cleanups.forEach((cleanup) => {
         try {
           cleanup();
-        } catch {
-          // Cleanup must not turn a normal React unmount into an integration error.
-        }
+        } catch {}
       });
     };
-  }, [connection]);
+  }, []);
 
-  const recordError = useCallback((value: unknown, fallback?: WinkIntegrationErrorCode) => {
-    const nextError = safeError(value, fallback);
-    setError(nextError);
-    setState((current) => stateWithError(current, nextError));
-    return nextError;
+  const can = useCallback(
+    (capability: WinkCapability): boolean => {
+      return sdkRef.current?.can(capability) ?? false;
+    },
+    [],
+  );
+
+  const gameplayStart = useCallback(() => {
+    try {
+      sdkRef.current?.gameplayStart();
+    } catch (e) {
+      console.warn("[WinkIntegration] gameplayStart error", e);
+    }
+  }, []);
+
+  const gameplayStop = useCallback(() => {
+    try {
+      sdkRef.current?.gameplayStop();
+    } catch (e) {
+      console.warn("[WinkIntegration] gameplayStop error", e);
+    }
   }, []);
 
   const refreshLeaderboard = useCallback(async () => {
-    if (offline) {
+    const currentSdk = sdkRef.current;
+    if (!currentSdk) {
       setLeaderboard([]);
       setPersonalBest(null);
       return;
     }
-    if (!connection.client) {
-      throw recordError(undefined, "BRIDGE_MISSING");
-    }
-    if (!state.capabilities.getLeaderboard) {
-      throw recordError(undefined, "CAPABILITY_DENIED");
-    }
-    try {
-      // The server caps a page at 30; this game asks for the 10 it displays.
-      // `me` comes back regardless of the page size, which is the point of it.
-      const board = await connection.client.getLeaderboard({ limit: 10 });
-      setLeaderboard(board.entries);
-      setPersonalBest(board.me);
-      setError(null);
-      setState((current) => stateWithError(current, null));
-    } catch (value) {
-      throw recordError(value);
-    }
-  }, [connection, offline, recordError, state.capabilities.getLeaderboard]);
 
-  const refreshPersonalBest = useCallback(async () => {
-    if (offline || !state.capabilities.submitScore) {
+    if (!currentSdk.can("getLeaderboard")) {
+      setLeaderboard([]);
       setPersonalBest(null);
       return;
     }
-    if (!connection.client) {
-      throw recordError(undefined, "BRIDGE_MISSING");
-    }
+
     try {
-      const result = await connection.client.getLeaderboard({ limit: 1 });
-      setPersonalBest(result.me);
-    } catch (value) {
+      const board = await currentSdk.getLeaderboard({ limit: 30 });
+      setLeaderboard(board.entries || []);
+      if (board.me) setPersonalBest(board.me);
+      setError(null);
+    } catch (err: any) {
+      console.warn("[WinkIntegration] getLeaderboard error", err);
+      setError(safeError("API_NETWORK_ERROR", true));
+      setLeaderboard([]);
     }
-  }, [connection, offline, recordError, state.capabilities.submitScore]);
+  }, []);
+
+  const refreshPersonalBest = useCallback(async () => {
+    const currentSdk = sdkRef.current;
+    if (!currentSdk || !currentSdk.can("submitScore")) {
+      setPersonalBest(null);
+      return;
+    }
+
+    try {
+      const result = await currentSdk.getPersonalBest();
+      if (result?.me) setPersonalBest(result.me);
+    } catch {
+      // Ignored non-fatal in standalone or network glitch
+    }
+  }, []);
 
   const submitFinalScore = useCallback(
     async (input: {
-      roundId: string;
+      roundId?: string;
       score: number;
-      playTimeSec: number;
-      qualifies: boolean;
-    }) => {
-      if (!input.qualifies || offline) return;
-      if (!connection.client) {
-        throw recordError(undefined, "BRIDGE_MISSING");
+      playTimeSec?: number;
+      qualifies?: boolean;
+      metadata?: Record<string, unknown>;
+    }): Promise<WinkSubmitScoreResult | null> => {
+      const currentSdk = sdkRef.current;
+      if (input.qualifies === false) return null;
+      if (!currentSdk) return null;
+
+      if (!currentSdk.can("submitScore")) {
+        const denied = safeError("CAPABILITY_DENIED");
+        setError(denied);
+        return null;
       }
-      if (!state.capabilities.submitScore) {
-        throw recordError(undefined, "CAPABILITY_DENIED");
-      }
+
       try {
-        await connection.client.submitScore({
+        const response = await currentSdk.submitScore({
           score: input.score,
-          playTime: input.playTimeSec,
-          metadata: { roundId: input.roundId },
+          playTime: input.playTimeSec ?? 0,
+          metadata: {
+            roundId: input.roundId,
+            ...input.metadata,
+          },
         });
+        if (response?.entry) {
+          setPersonalBest(response.entry);
+        }
         setError(null);
-        setState((current) => stateWithError(current, null));
-      } catch (value) {
-        throw recordError(value);
+        return {
+          entry: response?.entry ?? null,
+          isNewBest: Boolean(response?.isNewBest),
+          previousBest: response?.previousBest ?? null,
+        };
+      } catch (err: any) {
+        console.warn("[WinkIntegration] submitScore error", err);
+        const netErr = safeError("API_NETWORK_ERROR", true);
+        setError(netErr);
+        return null;
       }
     },
-    [connection, offline, recordError, state.capabilities.submitScore],
+    [],
   );
 
   const completeRound = useCallback(
-    async (input: { roundId: string; playDurationMs: number }) => {
-      if (offline) return;
-      if (!connection.client) {
-        throw recordError(undefined, "BRIDGE_MISSING");
-      }
-      if (!state.capabilities.complete) {
-        throw recordError(undefined, "CAPABILITY_DENIED");
-      }
-      try {
-        await connection.client.complete(input);
-        setError(null);
-        setState((current) => stateWithError(current, null));
-      } catch (value) {
-        throw recordError(value);
-      }
+    async (_input?: { roundId?: string; playDurationMs?: number }) => {
+      gameplayStop();
     },
-    [connection, offline, recordError, state.capabilities.complete],
+    [gameplayStop],
   );
 
-  const projectedState = stateWithError(state, error);
+  const track = useCallback(
+    (eventName: string, properties?: Record<string, unknown>) => {
+      const currentSdk = sdkRef.current;
+      if (currentSdk && currentSdk.can("track")) {
+        currentSdk.track(eventName, properties).catch((err) => {
+          console.warn("[WinkIntegration] track error", err);
+        });
+      }
+    },
+    [],
+  );
+
+  const mode: WinkMode = status === "standalone" ? "offline" : "wink";
+  const phase: WinkPhase =
+    status === "connecting"
+      ? "booting"
+      : status === "online"
+        ? sdk?.player?.isGuest
+          ? "ready_anonymous"
+          : "ready_authenticated"
+        : status === "connected"
+          ? "ready_anonymous"
+          : "ready_anonymous";
+
+  const bestScore = personalBest?.score ?? 0;
+  const playerEntry = personalBest;
+  const displayName = sdk?.player?.displayName ?? null;
+  const canSubmitScore = can("submitScore");
+
   return {
-    mode: offline ? "offline" : "wink",
-    phase: projectedState.phase,
-    capabilities: projectedState.capabilities,
-    state: projectedState,
-    client: connection.client,
+    status,
+    isReady,
+    readyPromise: resolveGlobalWink(),
+    sdk,
+    mode,
+    phase,
     hostPaused,
     parentMuted,
+    locale,
     error,
     leaderboard,
     personalBest,
+    playerEntry,
+    displayName,
+    bestScore,
+    canSubmitScore,
+    can,
+    gameplayStart,
+    gameplayStop,
     refreshLeaderboard,
     refreshPersonalBest,
+    fetchPersonalBest: refreshPersonalBest,
     submitFinalScore,
     completeRound,
+    track,
   };
-}
-
-function errorFromState(state: RedactedWinkState): WinkIntegrationError | null {
-  return state.error ? safeError(state.error) : null;
 }

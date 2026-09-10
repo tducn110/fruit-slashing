@@ -5,9 +5,8 @@ import { IntegrationStatusBanner } from "./IntegrationStatusBanner";
 import "../../i18n";
 
 const integration = {
-  mode: "wink",
-  phase: "ready_anonymous",
-} as WinkIntegration;
+  status: "online",
+} as unknown as WinkIntegration;
 
 describe("IntegrationStatusBanner", () => {
   it("stays hidden during normal anonymous play", () => {

@@ -4,7 +4,15 @@ import { HeroSection } from "./components/ui/HeroSection";
 import { GamePage } from "./components/game/GamePage";
 import { LeaderboardScreen } from "./components/game/DashboardPanel";
 import { audioManager } from "./utils/audio-manager";
-import { preloadGameResources } from "./utils/game-loader";
+import {
+  preloadCriticalResources,
+  preloadNonCriticalResources,
+} from "./utils/game-loader";
+import {
+  completeGameLoading,
+  onGameLoadingDismiss,
+  setGameLoadingProgress,
+} from "./utils/loading-controller";
 
 import { useScoreData } from "./hooks/useScoreData";
 import { IntegrationStatusBanner } from "./components/ui/IntegrationStatusBanner";
@@ -45,6 +53,14 @@ export default function App() {
   }, [integration.parentMuted]);
 
   useEffect(() => {
+    if (integration.hostPaused) {
+      audioManager.pauseBgm();
+    } else if (view !== "game" && !musicMuted) {
+      audioManager.resumeBgm();
+    }
+  }, [integration.hostPaused, view, musicMuted]);
+
+  useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === "hidden") {
         audioManager.pauseBgm();
@@ -83,36 +99,63 @@ export default function App() {
     return () => document.removeEventListener("click", playButtonClick, true);
   }, []);
 
+  // Unlock audio and start landing BGM when loading screen dismisses; trigger idle preloads
+  useEffect(() => {
+    const unbind = onGameLoadingDismiss(() => {
+      void audioManager.unlock().then(() => {
+        if (!audioManager.bgmPlaying && !musicMuted) {
+          audioManager.playBgm(audioManager.landingBgmVolume);
+        }
+      }).catch(() => {});
+
+      // Non-critical assets (BGM ~1.5MB) warm up in background idle time
+      preloadNonCriticalResources();
+    });
+    return unbind;
+  }, [musicMuted]);
+
+  // Fallback: unlock audio on first user touch/click if browser blocked autoplay on auto-dismiss
+  useEffect(() => {
+    const handleFirstInteraction = () => {
+      void audioManager.unlock().then(() => {
+        if (!audioManager.bgmPlaying && !musicMuted && view !== "game") {
+          audioManager.playBgm(audioManager.landingBgmVolume);
+        }
+      }).catch(() => {});
+      window.removeEventListener("pointerdown", handleFirstInteraction);
+      window.removeEventListener("touchstart", handleFirstInteraction);
+      window.removeEventListener("click", handleFirstInteraction);
+    };
+
+    window.addEventListener("pointerdown", handleFirstInteraction, { passive: true });
+    window.addEventListener("touchstart", handleFirstInteraction, { passive: true });
+    window.addEventListener("click", handleFirstInteraction, { passive: true });
+
+    return () => {
+      window.removeEventListener("pointerdown", handleFirstInteraction);
+      window.removeEventListener("touchstart", handleFirstInteraction);
+      window.removeEventListener("click", handleFirstInteraction);
+    };
+  }, [musicMuted, view]);
+
   useEffect(() => {
     void refreshPersonalBest().catch(() => {});
-  }, []);
+  }, [refreshPersonalBest]);
 
-  // Bootstrap once in background: SFX decoding and web fonts.
+  // Unified bootstrap barrier: Critical Resources + Wink SDK
   useEffect(() => {
-    void preloadGameResources().catch((error) => {
-      console.error("Game resource preload failed", error);
+    setGameLoadingProgress(20);
+
+    const criticalPromise = preloadCriticalResources((pct) => {
+      setGameLoadingProgress(Math.min(95, pct));
     });
-  }, []);
 
-  // BGM is heavy (~1.5MB) — fetch it during browser idle, never block UI.
-  useEffect(() => {
-    const preloadBgm = () => { void audioManager.preloadBgm(); };
+    const winkPromise = integration.readyPromise;
 
-    // requestIdleCallback is not available in every mobile Safari/WebView.
-    // This preload is optional, so fall back to a cancellable timer instead
-    // of allowing a missing API to crash the whole React tree on mount.
-    if (typeof window.requestIdleCallback === "function") {
-      const id = window.requestIdleCallback(preloadBgm, { timeout: 3000 });
-      return () => {
-        if (typeof window.cancelIdleCallback === "function") {
-          window.cancelIdleCallback(id);
-        }
-      };
-    }
-
-    const timeoutId = window.setTimeout(preloadBgm, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, []);
+    void Promise.allSettled([criticalPromise, winkPromise]).then(() => {
+      completeGameLoading();
+    });
+  }, [integration.readyPromise]);
 
   // "Chơi ngay" -> directly enter game (countdown handled by FruitGame)
   const handlePlay = useCallback(async () => {
@@ -131,34 +174,23 @@ export default function App() {
 
   const handleHome = useCallback(() => {
     audioManager.setBgmVolume(audioManager.landingBgmVolume);
-    void refreshLeaderboard().catch(() => {
-      // useScoreData owns the visible error state for a failed refresh.
-    });
+    void refreshLeaderboard().catch(() => {});
     void refreshPersonalBest().catch(() => {});
     setView("landing");
   }, [refreshLeaderboard, refreshPersonalBest]);
 
   const handleCompleteRound = useCallback(
-    (result: GameResult) => {
-      if (!result.roundId) return;
-      void integration.completeRound({
-        roundId: result.roundId,
-        playDurationMs: result.playTimeSec * 1000,
-      }).catch(() => {
-        // The integration status banner exposes the typed completion error.
-      });
+    (_result: GameResult) => {
+      integration.gameplayStop();
     },
-    [integration.completeRound],
+    [integration.gameplayStop],
   );
 
   const handleOpenLeaderboard = useCallback((returnView: LeaderboardReturnView) => {
-    void refreshLeaderboard().catch(() => {
-      // useScoreData owns the visible error state for a failed refresh.
-    });
+    void refreshLeaderboard().catch(() => {});
     setLeaderboardReturnView(returnView);
     setView("leaderboard");
   }, [refreshLeaderboard]);
-
 
   // Game view — full screen, dashboard panel opens on demand inside GamePage
   if (view === "game") {
@@ -174,6 +206,7 @@ export default function App() {
           hostPaused={integration.hostPaused}
           onToggleMusic={() => setMusicMuted((m) => !m)}
           onToggleSfx={() => setSfxMuted((m) => !m)}
+          onGameStart={integration.gameplayStart}
           onSaveScore={onGameOver}
           onCompleteRound={handleCompleteRound}
           onHome={handleHome}
@@ -189,47 +222,34 @@ export default function App() {
 
   if (view === "leaderboard") {
     return (
-      <>
-        <IntegrationStatusBanner
-          integration={integration}
-          operationError={scoreSubmissionError}
-        />
-        <LeaderboardScreen
-          leaderboard={leaderboard}
-          bestScore={personalBest?.score ?? bestScore}
-          onBack={() => setView(leaderboardReturnView)}
-        />
-      </>
+      <LeaderboardScreen
+        leaderboard={leaderboard}
+        bestScore={personalBest?.score ?? bestScore}
+        onBack={() => setView(leaderboardReturnView)}
+      />
     );
   }
 
-  // Landing view — just nav + hero, no dashboard/footer sections
+  // Landing page / Start Screen
   return (
-    <>
+    <div style={{ position: "relative", minHeight: "100vh", overflowX: "hidden" }}>
       <IntegrationStatusBanner
         integration={integration}
         operationError={scoreSubmissionError}
       />
-      <div
-        className="landing-enter"
-        style={{
-          minHeight: "100vh",
-          background: "#f5ecd7",
-          fontFamily: "'Be Vietnam Pro', sans-serif",
-          color: "#2a2418",
+      <TopNav
+        muted={musicMuted && sfxMuted}
+        onToggleMute={() => {
+          const next = !(musicMuted && sfxMuted);
+          setMusicMuted(next);
+          setSfxMuted(next);
         }}
-      >
-        <TopNav
-          muted={musicMuted}
-          onToggleMute={() => setMusicMuted((m) => !m)}
-        />
-
-        <HeroSection
-          onPlay={handlePlay}
-          onOpenLeaderboard={() => handleOpenLeaderboard("landing")}
-          bestScore={bestScore}
-        />
-      </div>
-    </>
+      />
+      <HeroSection
+        onPlay={handlePlay}
+        onOpenLeaderboard={() => handleOpenLeaderboard("landing")}
+        bestScore={personalBest?.score ?? bestScore}
+      />
+    </div>
   );
 }

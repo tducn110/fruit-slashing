@@ -22,8 +22,7 @@ export function IntegrationStatusBanner({
       className="wink-integration-status"
       role="alert"
       aria-live="assertive"
-      data-mode={integration.mode}
-      data-phase={integration.phase}
+      data-status={integration.status}
       data-error="true"
       style={{
         position: "fixed",

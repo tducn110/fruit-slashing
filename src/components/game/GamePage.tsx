@@ -13,6 +13,7 @@ interface Props {
   hostPaused: boolean;
   onToggleMusic: () => void;
   onToggleSfx: () => void;
+  onGameStart?: () => void;
   onSaveScore: (result: GameResult) => void;
   onCompleteRound: (result: GameResult) => void;
   onHome: () => void;
@@ -27,6 +28,7 @@ export function GamePage({
   hostPaused,
   onToggleMusic,
   onToggleSfx,
+  onGameStart,
   onSaveScore,
   onCompleteRound,
   onHome,
@@ -65,7 +67,7 @@ export function GamePage({
     };
   }, [hasActiveRun]);
 
-  const gameplayPaused = hasActiveRun && (manualPaused || hostPaused || resumeRequired || panel === "leaderboard");
+  const gameplayPaused = hostPaused || manualPaused || resumeRequired;
 
   useEffect(() => {
     if (gameplayPaused) {
@@ -77,9 +79,8 @@ export function GamePage({
 
   const handleGameStart = useCallback(() => {
     setPanel(null);
-  }, []);
-
-  // 🎵 Sound — BGM managed by App.tsx, SFX for in-game slicing
+    onGameStart?.();
+  }, [onGameStart]);
 
   const toggleSettings = () => setPanel((prev) => (prev === "settings" ? null : "settings"));
   const toggleLeaderboard = () => {
@@ -120,59 +121,55 @@ export function GamePage({
   };
 
   return (
-    <div
-      className="game-container"
-      style={{
-        position: "fixed",
-        inset: 0,
-        width: "100vw",
-        height: "100dvh",
-        background: "var(--rice-paper)",
-        display: "flex",
-        flexDirection: "column",
-        zIndex: 100,
-        overflow: "hidden",
-      }}
-    >
-      {/* Top bar */}
-      <div className="gameTopBar" style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "10px 16px",
-        background: "color-mix(in srgb, var(--rice-paper) 92%, transparent)",
-        borderBottom: "1.5px solid var(--border)",
-        backdropFilter: "blur(8px)",
-        zIndex: 10,
-        flexShrink: 0,
-      }}>
-        {/* Left: home */}
-        <button onClick={onHome} className="game-btn" style={btnStyle} aria-label="Trang chủ">
-          <Home size={15} />
-        </button>
+    <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}>
+      <div style={{ width: "100%", height: "100%", position: "relative" }}>
+        {/* Top Floating Control Bar */}
+        <div style={{
+          position: "absolute",
+          top: 14, left: 16, right: 16,
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          zIndex: 10,
+          pointerEvents: "none",
+        }}>
+          {/* Left: Home button */}
+          <button
+            onClick={onHome}
+            aria-label="Về trang chủ"
+            style={{ ...btnStyle, pointerEvents: "auto" }}
+          >
+            <Home size={16} />
+            <span style={{ fontSize: 12 }}>Trang chủ</span>
+          </button>
 
-        {/* Right: Settings + Dashboard */}
-        <div className="gameActions" style={{ display: "flex", gap: 8 }}>
-          <button
-            onClick={toggleLeaderboard}
-            className="game-btn"
-            aria-label="Bảng điểm"
-            style={{ ...btnStyle, ...(panel === "leaderboard" ? { background: "color-mix(in srgb, var(--primary) 12%, transparent)", border: "2px solid var(--primary)" } : {}) }}
-          >
-            <Trophy size={15} />
-          </button>
-          <button
-            onClick={hasActiveRun ? handlePause : toggleSettings}
-            className="game-btn"
-            aria-label={hasActiveRun ? "Tạm dừng" : "Cài đặt"}
-            style={{ ...btnStyle, ...(panel === "settings" ? { background: "color-mix(in srgb, var(--primary) 12%, transparent)", border: "2px solid var(--primary)" } : {}) }}
-          >
-            {hasActiveRun ? <Pause size={15} /> : <Settings size={15} />}
-          </button>
+          {/* Right: Pause, Leaderboard, Settings */}
+          <div style={{ display: "flex", gap: 8, pointerEvents: "auto" }}>
+            <button
+              onClick={handlePause}
+              aria-label="Tạm dừng"
+              style={{ ...btnStyle, padding: "8px 12px" }}
+              disabled={gameplayPaused}
+            >
+              <Pause size={16} />
+            </button>
+            <button
+              onClick={toggleLeaderboard}
+              aria-label="Bảng xếp hạng"
+              style={{ ...btnStyle, padding: "8px 12px" }}
+            >
+              <Trophy size={16} />
+            </button>
+            <button
+              onClick={toggleSettings}
+              aria-label="Cài đặt"
+              style={{ ...btnStyle, padding: "8px 12px" }}
+            >
+              <Settings size={16} />
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Game canvas — fills remaining space */}
-      <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
-        <div className="game-canvas-layer">
+        {/* The Game Canvas */}
+        <div style={{ width: "100%", height: "100%" }}>
           <FruitGame
             onSubmitScore={onSaveScore}
             onCompleteRound={onCompleteRound}

@@ -35,6 +35,7 @@ class AudioManager {
   private _sfxMuted = false;
   private _parentMuted = false;
   private _bgmPlaying = false;
+  private _bgmPaused = false;
   private currentBgmVolume = LANDING_BGM_VOLUME;
 
   private ensureContext() {
@@ -172,13 +173,20 @@ class AudioManager {
   /** Play BGM in a loop at given volume (0-1). If still loading, waits on the shared
    *  preload promise and starts as soon as the buffer is ready. */
   playBgm(volume = 0.3): void {
+    this.ensureContext();
     if (!this.ctx || this._musicMuted) return;
-    if (!this.buffers.bgm) {
-      void this.preloadBgm().then(() => this.playBgm(volume));
-      return;
-    }
     this.currentBgmVolume = this.clampVolume(volume);
     this.bgmRequested = true;
+    this._bgmPaused = false;
+
+    if (!this.buffers.bgm) {
+      void this.preloadBgm().then(() => {
+        if (this.bgmRequested && !this._bgmPaused && !this._musicMuted && !this._parentMuted) {
+          this.playBgm(this.currentBgmVolume);
+        }
+      });
+      return;
+    }
     
     if (this.bgmLocalGain) {
       this.bgmLocalGain.gain.value = this.currentBgmVolume;
@@ -212,7 +220,11 @@ class AudioManager {
   }
 
   pauseBgm(): void {
-    if (!this.bgmSourceNode || !this.ctx || !this.buffers.bgm) return;
+    this._bgmPaused = true;
+    if (!this.bgmSourceNode || !this.ctx || !this.buffers.bgm) {
+      this._bgmPlaying = false;
+      return;
+    }
     const elapsed = Math.max(0, this.ctx.currentTime - this.bgmStartedAt);
     this.bgmOffset = (this.bgmOffset + elapsed) % this.buffers.bgm.duration;
     try { this.bgmSourceNode.stop(); } catch {}
@@ -222,7 +234,8 @@ class AudioManager {
   }
 
   resumeBgm(): void {
-    if (!this.ctx || !this.bgmRequested || this._musicMuted) return;
+    if (!this.ctx || !this.bgmRequested || this._musicMuted || this._parentMuted) return;
+    this._bgmPaused = false;
     this.playBgm(this.currentBgmVolume);
   }
 
@@ -233,6 +246,7 @@ class AudioManager {
       this.bgmSourceNode = null;
     }
     this._bgmPlaying = false;
+    this._bgmPaused = false;
     this.bgmOffset = 0;
     this.bgmStartedAt = 0;
     this.bgmRequested = false;

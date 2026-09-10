@@ -57,8 +57,8 @@ interface Props {
 }
 
 export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameStart, onRunStateChange, hostPaused = false, manualPaused = false, resumeRequired = false, restartKey = 0, muted = false, musicMuted = false, sfxMuted = false, onToggleMusic, onToggleSfx, onResumePause, onRestartPause }: Props) {
-  const callbacksRef = useRef({ onSubmitScore, onCompleteRound, onExitGame, onGameStart, muted });
-  callbacksRef.current = { onSubmitScore, onCompleteRound, onExitGame, onGameStart, muted };
+  const callbacksRef = useRef({ onSubmitScore, onCompleteRound, onExitGame, onGameStart, muted, sfxMuted });
+  callbacksRef.current = { onSubmitScore, onCompleteRound, onExitGame, onGameStart, muted, sfxMuted };
   const onViewportResizeRef = useRef<(() => void) | null>(null);
   const { wrapRef, appRef, sizeRef, playLayerRef, trailGraphicsRef, ready } = usePixiApp({
     onViewportResize: () => onViewportResizeRef.current?.(),
@@ -128,7 +128,7 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
   if (!audioPolicyRef.current) {
     const sink: SliceAudioSink = {
       playSfx: (name, options) => {
-        if (callbacksRef.current.muted) return;
+        if (callbacksRef.current.muted || callbacksRef.current.sfxMuted) return;
         audioManager.playSfx(name, options);
       },
       getActiveVoiceCount: (name) => audioManager.getActiveVoiceCount(name),
