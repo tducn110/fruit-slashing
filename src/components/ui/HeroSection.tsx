@@ -89,7 +89,7 @@ export function HeroSection({ onPlay, onOpenLeaderboard, bestScore }: Props) {
               <Trophy size={16} />
               {t('game.best_score')}
             </span>
-            <strong className="heroStatValue">{bestScore.toLocaleString("vi-VN")}</strong>
+            <strong className="heroStatValue">{bestScore.toLocaleString()}</strong>
           </div>
           <div className="heroStatCard">
             <span className="heroStatLabel">

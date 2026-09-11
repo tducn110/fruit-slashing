@@ -62,7 +62,7 @@ export function DashboardPanel({
     >
       <div className="dashboardBestCard">
         <div className="dashboardBestLabel">{t('game.your_record')}</div>
-        <div className="dashboardBestScore">{bestScore.toLocaleString("vi-VN")}</div>
+        <div className="dashboardBestScore">{bestScore.toLocaleString()}</div>
         <div className="dashboardBestRank">{t('game.title')} {getRank(bestScore)}</div>
       </div>
 
@@ -116,7 +116,7 @@ export function LeaderboardScreen({
 
         <div className="leaderboardBestCard">
           <p className="leaderboardEyebrow">{t('game.your_record')}</p>
-          <h1>{bestScore.toLocaleString("vi-VN")}</h1>
+          <h1>{bestScore.toLocaleString()}</h1>
           <span>{t('game.title')} {getRank(bestScore)}</span>
         </div>
 
@@ -204,7 +204,7 @@ function RankingRow({
       </div>
 
       <div className="dashboardRankScore">
-        {entry.score > 0 ? entry.score.toLocaleString("vi-VN") : t('game.none')}
+        {entry.score > 0 ? entry.score.toLocaleString() : t('game.none')}
       </div>
     </div>
   );

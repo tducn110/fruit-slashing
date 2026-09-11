@@ -23,22 +23,34 @@ async function preloadLandingSpritesheet(): Promise<void> {
   }
 }
 
+async function preloadBrandLogo(): Promise<void> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = "/assets/brand/PapaStudio_Logo_Symbol_Black.png";
+    img.onload = () => resolve();
+    img.onerror = () => resolve();
+  });
+}
+
 /**
- * Preload strictly CRITICAL resources required for the initial scene (Landing / Start Screen).
- * BGM and non-critical items are deferred to idle time to guarantee instant transition.
+ * Preload ALL resources required for the initial scene (Landing / Start Screen),
+ * including fonts, spritesheets, SFX, and BGM during the Papa loading screen.
  */
 export function preloadCriticalResources(onProgress?: (pct: number) => void): Promise<void> {
   if (criticalPreloadPromise) return criticalPreloadPromise;
 
   criticalPreloadPromise = (async () => {
-    onProgress?.(25);
+    onProgress?.(15);
 
-    // Phase 1: Fonts & First Scene Pixi Spritesheet
-    await Promise.allSettled([preloadFont(), preloadLandingSpritesheet()]);
-    onProgress?.(65);
+    // Phase 1: Fonts, Brand Logo & First Scene Pixi Spritesheet
+    await Promise.allSettled([preloadFont(), preloadLandingSpritesheet(), preloadBrandLogo()]);
+    onProgress?.(55);
 
-    // Phase 2: Core Gameplay SFX (slice, bomb)
-    await audioManager.preloadEssentialAudio("/assets/").catch(() => {});
+    // Phase 2: All audio required for first screen (SFX + BGM)
+    await Promise.allSettled([
+      audioManager.preloadEssentialAudio("/assets/"),
+      audioManager.preloadBgm("/assets/"),
+    ]);
     onProgress?.(95);
   })()
     .then(() => undefined)
@@ -54,8 +66,7 @@ export function preloadCriticalResources(onProgress?: (pct: number) => void): Pr
 export const preloadGameResources = preloadCriticalResources;
 
 /**
- * Preload NON-CRITICAL assets (heavy BGM ~1.5MB, decorative items) in browser idle time
- * AFTER player has already entered the Start Screen.
+ * Secondary non-critical idle preload. All first-screen assets are already loaded in Papa screen.
  */
 export function preloadNonCriticalResources(): void {
   if (typeof window === "undefined") return;

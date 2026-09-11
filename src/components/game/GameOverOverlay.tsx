@@ -39,7 +39,7 @@ function ScoreCard({ displayScore, canDoubleScore }: { displayScore: number; can
   return (
     <DecisionCard>
       <div className="scoreLabel">{t('game.score')}</div>
-      <div className="scoreValue">{displayScore.toLocaleString("vi-VN")} {t('game.points')}</div>
+      <div className="scoreValue">{displayScore.toLocaleString()} {t('game.points')}</div>
       <div className="scoreMeta">
         {canDoubleScore ? t('game.choose_double_or_end') : t('game.score_doubled_choose_end')}
       </div>

@@ -94,7 +94,7 @@ export function useWinkIntegration(): WinkIntegration {
   const [isReady, setIsReady] = useState(false);
   const [hostPaused, setHostPaused] = useState(false);
   const [parentMuted, setParentMuted] = useState(sdk?.muted ?? false);
-  const [locale, setLocale] = useState(sdk?.locale ?? "vi");
+  const [locale, setLocale] = useState(sdk?.locale ?? "en");
   const [error, setError] = useState<WinkIntegrationError | null>(null);
   const [personalBest, setPersonalBest] = useState<WinkLeaderboardEntry | null>(null);
   const [leaderboard, setLeaderboard] = useState<readonly WinkLeaderboardEntry[]>([]);

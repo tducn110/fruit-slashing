@@ -26,13 +26,11 @@ export function TopNav({ muted, onToggleMute }: Props) {
     }}>
       {/* Logo */}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{
-          width: 38, height: 38, borderRadius: "50%",
-          background: "radial-gradient(circle at 30% 30%, #f8c860, #d99820)",
-          border: "2px solid #2a2418",
-          display: "grid", placeItems: "center",
-          color: "#2a2418", fontWeight: 800,
-        }}>L</div>
+        <img
+          src="/assets/brand/PapaStudio_Logo_Symbol_Black.png"
+          alt="Papa Studio"
+          style={{ height: 32, width: "auto", objectFit: "contain" }}
+        />
         <span className="brandName" style={{ fontWeight: 800, color: "#2a2418", letterSpacing: 0.3 }}>
           {t('game.brand_name')}
         </span>
