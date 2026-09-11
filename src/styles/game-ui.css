@@ -48,7 +48,7 @@
   .gameActions { gap: 4px !important; }
 
   .gameHud {
-    top: 12px !important;
+    top: calc(58px + env(safe-area-inset-top)) !important;
     left: max(12px, env(safe-area-inset-left)) !important;
     right: max(12px, env(safe-area-inset-right)) !important;
     font-size: 0.9em !important;
@@ -91,7 +91,8 @@
 
 .gameHud {
   position: absolute;
-  top: 14px;
+  /* GamePage's floating controls occupy the first row of the game surface. */
+  top: calc(58px + env(safe-area-inset-top));
   left: max(20px, env(safe-area-inset-left));
   right: max(20px, env(safe-area-inset-right));
   display: flex;
