@@ -278,18 +278,6 @@ export function useWinkIntegration(): WinkIntegration {
     [gameplayStop],
   );
 
-  const track = useCallback(
-    (eventName: string, properties?: Record<string, unknown>) => {
-      const currentSdk = sdkRef.current;
-      if (currentSdk && currentSdk.can("track")) {
-        currentSdk.track(eventName, properties).catch((err) => {
-          console.warn("[WinkIntegration] track error", err);
-        });
-      }
-    },
-    [],
-  );
-
   const mode: WinkMode = status === "standalone" ? "offline" : "wink";
   const phase: WinkPhase =
     status === "connecting"
@@ -332,6 +320,5 @@ export function useWinkIntegration(): WinkIntegration {
     fetchPersonalBest: refreshPersonalBest,
     submitFinalScore,
     completeRound,
-    track,
   };
 }

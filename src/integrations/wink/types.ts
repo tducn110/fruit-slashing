@@ -5,8 +5,7 @@ export type WinkPhase = 'booting' | 'ready_anonymous' | 'ready_authenticated' | 
 export type WinkCapability =
   | 'getLeaderboard'
   | 'submitScore'
-  | 'complete'
-  | 'track';
+  | 'complete';
 
 export type WinkEvent =
   | 'pause'
@@ -88,7 +87,6 @@ export interface WinkSDK {
     offset?: number;
   }): Promise<WinkLeaderboard>;
   getPersonalBest(options?: unknown): Promise<{ me: WinkLeaderboardEntry | null }>;
-  track(eventName: string, properties?: Record<string, unknown>): Promise<void>;
   on(event: WinkEvent, listener: (data?: any) => void): () => void;
   can(capability: WinkCapability): boolean;
   readonly player: WinkPlayer | null;
@@ -140,5 +138,4 @@ export interface WinkIntegration {
     roundId?: string;
     playDurationMs?: number;
   }): Promise<void>;
-  track(eventName: string, properties?: Record<string, unknown>): void;
 }

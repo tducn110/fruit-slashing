@@ -93,7 +93,6 @@ describe('useWinkIntegration (Wink SDK v1 Contract)', () => {
         total: 1,
       })),
       getPersonalBest: vi.fn(async () => ({ me: null })),
-      track: vi.fn(async () => {}),
       on: vi.fn((event, cb) => {
         listeners[event]?.push(cb);
         return () => {
@@ -144,19 +143,6 @@ describe('useWinkIntegration (Wink SDK v1 Contract)', () => {
     });
     expect(mockSdk.gameplayStart).toHaveBeenCalledTimes(1);
     expect(mockSdk.gameplayStop).toHaveBeenCalledTimes(1);
-
-    // Test custom tracking
-    act(() => {
-      getLatest().track("custom_event", { foo: "bar" });
-    });
-    expect(mockSdk.track).not.toHaveBeenCalled(); // can('track') was not mocked as true
-
-    // Now enable can('track')
-    (mockSdk.can as any).mockImplementation((cap: string) => cap === "track" || cap === "submitScore");
-    act(() => {
-      getLatest().track("custom_event", { foo: "bar" });
-    });
-    expect(mockSdk.track).toHaveBeenCalledWith("custom_event", { foo: "bar" });
 
     // Test Wink Dev Kit standard properties
     expect(getLatest().mode).toBe("wink");
