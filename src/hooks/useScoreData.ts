@@ -156,12 +156,15 @@ export function useScoreData(integration: WinkIntegration) {
 
       try {
         setScoreSubmissionError(null);
-        await integration.submitFinalScore({
+        const submission = await integration.submitFinalScore({
           roundId: result.roundId,
           score: result.score,
           playTimeSec: result.playTimeSec,
           qualifies,
         });
+        if (submission) {
+          await integration.refreshLeaderboard();
+        }
         setLastScore(result.score);
         setError(null);
       } catch (value) {

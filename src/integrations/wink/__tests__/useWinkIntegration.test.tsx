@@ -129,6 +129,11 @@ describe('useWinkIntegration (Wink SDK v1 Contract)', () => {
     });
     expect(getLatest().parentMuted).toBe(true);
 
+    act(() => {
+      listeners.locale.forEach((cb) => cb("en-US"));
+    });
+    expect(getLatest().locale).toBe("en");
+
     // Test host pause event
     expect(getLatest().hostPaused).toBe(false);
     act(() => {
