@@ -6,6 +6,7 @@ import { DashboardPanel } from "./DashboardPanel";
 import { SettingsPanel } from "./SettingsPanel";
 import { audioManager } from "../../utils/audio-manager";
 import type { LeaderboardEntry } from "../../lib/localScores";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   musicMuted: boolean;
@@ -36,6 +37,7 @@ export function GamePage({
   leaderboard,
   bestScore,
 }: Props) {
+  const { t } = useTranslation();
   const [panel, setPanel] = useState<null | "settings" | "leaderboard">(null);
   const [hasActiveRun, setHasActiveRun] = useState(false);
   const [manualPaused, setManualPaused] = useState(false);
@@ -138,14 +140,14 @@ export function GamePage({
             style={{ ...btnStyle, pointerEvents: "auto" }}
           >
             <Home size={16} />
-            <span style={{ fontSize: 12 }}>Trang chủ</span>
+            <span style={{ fontSize: 12 }}>{t("game.home", "Home")}</span>
           </button>
 
           {/* Right: Pause, Leaderboard, Settings */}
           <div style={{ display: "flex", gap: 8, pointerEvents: "auto" }}>
             <button
               onClick={handlePause}
-              aria-label="Tạm dừng"
+              aria-label={t("game.pause", "Pause")}
               style={{ ...btnStyle, padding: "8px 12px" }}
               disabled={gameplayPaused}
             >
@@ -153,14 +155,14 @@ export function GamePage({
             </button>
             <button
               onClick={toggleLeaderboard}
-              aria-label="Bảng xếp hạng"
+              aria-label={t("game.leaderboard", "Leaderboard")}
               style={{ ...btnStyle, padding: "8px 12px" }}
             >
               <Trophy size={16} />
             </button>
             <button
               onClick={toggleSettings}
-              aria-label="Cài đặt"
+              aria-label={t("game.settings", "Settings")}
               style={{ ...btnStyle, padding: "8px 12px" }}
             >
               <Settings size={16} />

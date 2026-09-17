@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import i18n from "../../i18n";
 import type {
   WinkCapability,
   WinkIntegration,
@@ -15,18 +14,9 @@ import type {
 
 const SAFE_ERROR_MESSAGES: Record<WinkIntegrationErrorCode, string> = {
   PARENT_REQUIRED: "Mini-game phải được mở trong iframe Wink.",
-  BRIDGE_READY_TIMEOUT: "Không thể khởi tạo kết nối với Wink.",
-  PROTOCOL_MISMATCH: "Phiên bản giao thức Wink không tương thích.",
-  RUNTIME_CONFIG_INVALID: "Cấu hình mini-game không hợp lệ.",
-  SESSION_CREATE_FAILED: "Không thể tạo phiên chơi.",
-  SESSION_RENEWAL_FAILED: "Không thể gia hạn phiên chơi.",
-  SESSION_EXPIRED: "Phiên chơi đã hết hạn.",
   CAPABILITY_DENIED: "Thao tác này không được cấp quyền cho phiên hiện tại.",
   API_NETWORK_ERROR: "Không thể kết nối dịch vụ Wink.",
-  MESSAGE_REJECTED: "Thông điệp từ Wink không hợp lệ.",
-  BRIDGE_MISSING: "Wink SDK chưa sẵn sàng.",
   INVALID_SCORE: "Điểm số cuối không hợp lệ.",
-  INVALID_ROUND: "Mã vòng chơi không hợp lệ.",
 };
 
 function safeError(
@@ -99,7 +89,6 @@ export function useWinkIntegration(): WinkIntegration {
         setParentMuted(resolvedSdk.muted);
         const initialLocale = normalizeLocale(resolvedSdk.locale);
         setLocale(initialLocale);
-        void i18n.changeLanguage(initialLocale);
 
         try {
           cleanups.push(
@@ -126,11 +115,20 @@ export function useWinkIntegration(): WinkIntegration {
             resolvedSdk.on("locale", (nextLocale: string) => {
               const normalizedLocale = normalizeLocale(nextLocale);
               setLocale(normalizedLocale);
-              void i18n.changeLanguage(normalizedLocale);
             }),
           );
         } catch (e) {
           console.warn("[WinkIntegration] Error subscribing to SDK events", e);
+        }
+
+        // ponytail: fetch personal best on boot so menu displays authenticated high score immediately
+        if (resolvedSdk.can("submitScore")) {
+          void resolvedSdk
+            .getPersonalBest()
+            .then((result) => {
+              if (!unmounted && result?.me) setPersonalBest(result.me);
+            })
+            .catch(() => undefined);
         }
       } else {
         setStatus("standalone");
@@ -188,7 +186,6 @@ export function useWinkIntegration(): WinkIntegration {
     try {
       const board = await currentSdk.getLeaderboard({ limit: 30 });
       setLeaderboard(board.entries || []);
-      if (board.me) setPersonalBest(board.me);
       setError(null);
     } catch (err: any) {
       console.warn("[WinkIntegration] getLeaderboard error", err);
@@ -258,13 +255,6 @@ export function useWinkIntegration(): WinkIntegration {
     [],
   );
 
-  const completeRound = useCallback(
-    async (_input?: { roundId?: string; playDurationMs?: number }) => {
-      gameplayStop();
-    },
-    [gameplayStop],
-  );
-
   const mode: WinkMode = status === "standalone" ? "offline" : "wink";
   const phase: WinkPhase =
     status === "connecting"
@@ -306,6 +296,5 @@ export function useWinkIntegration(): WinkIntegration {
     refreshPersonalBest,
     fetchPersonalBest: refreshPersonalBest,
     submitFinalScore,
-    completeRound,
   };
 }

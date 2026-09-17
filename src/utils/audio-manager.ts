@@ -4,7 +4,7 @@
  * SFX preloads eagerly; BGM preloads on idle or on first play.
  */
 
-type SfxName = "bgm" | "slice" | "bomb";
+type SfxName = "slice" | "bomb";
 
 const LANDING_BGM_VOLUME = 0.30;
 const GAME_BGM_VOLUME = 0.22;
@@ -13,7 +13,6 @@ const BUTTON_SFX_VOLUME = 0.65;
 interface AudioBuffers {
   slice: AudioBuffer | null;
   bomb: AudioBuffer | null;
-  bgm: AudioBuffer | null;
 }
 
 class AudioManager {
@@ -23,12 +22,11 @@ class AudioManager {
   private masterGain: GainNode | null = null;
   private limiter: DynamicsCompressorNode | null = null;
 
-  private buffers: AudioBuffers = { slice: null, bomb: null, bgm: null };
-  
-  private bgmSourceNode: AudioBufferSourceNode | null = null;
-  private bgmLocalGain: GainNode | null = null;
-  private bgmOffset = 0;
-  private bgmStartedAt = 0;
+  private buffers: AudioBuffers = { slice: null, bomb: null };
+
+  // ponytail: dual-engine architecture. HTML5 Audio streams BGM (saving 20-30MB RAM on mobile),
+  // while Web Audio API handles polyphonic SFX with sample-accurate dynamics limiting.
+  private bgm: HTMLAudioElement | null = null;
   private bgmRequested = false;
 
   private _musicMuted = false;
@@ -94,6 +92,10 @@ class AudioManager {
     if (this.ctx && this.ctx.state === "suspended") {
       await this.ctx.resume();
     }
+    this.initBgm();
+    if (this.bgm && this.bgmRequested && !this._bgmPaused && !this._musicMuted && !this._parentMuted) {
+      void this.bgm.play().catch(() => {});
+    }
     if (this.ctx) {
       try {
         const osc = this.ctx.createOscillator();
@@ -147,108 +149,62 @@ class AudioManager {
     await Promise.all(files.map((f) => loadOne(f.name, f.url)));
   }
 
-  private bgmLoadPromise: Promise<void> | null = null;
-
-  /**
-   * Preload the BGM file. Idempotent — concurrent calls share the same promise,
-   * so the file is never fetched twice. Safe to fire from idle and from playBgm.
-   */
-  async preloadBgm(basePath = "/assets/"): Promise<void> {
-    if (this.buffers.bgm) return;
-    if (this.bgmLoadPromise) return this.bgmLoadPromise;
-    this.bgmLoadPromise = (async () => {
-      this.ensureContext();
-      if (!this.ctx) return;
-      const resp = await fetch(`${basePath}moavii-we-are.mp3`);
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const arrayBuf = await resp.arrayBuffer();
-      this.buffers.bgm = await this.ctx.decodeAudioData(arrayBuf);
-    })().catch((err) => {
-      this.bgmLoadPromise = null;
-      console.warn("[AudioManager] Failed to preload BGM", err);
-    });
-    return this.bgmLoadPromise;
+  private initBgm(basePath = "/assets/"): void {
+    if (this.bgm || typeof Audio === "undefined") return;
+    this.bgm = new Audio(`${basePath}moavii-we-are.mp3`);
+    this.bgm.loop = true;
+    this.bgm.preload = "metadata";
+    this.bgm.setAttribute("playsinline", "true");
   }
 
-  /** Play BGM in a loop at given volume (0-1). If still loading, waits on the shared
-   *  preload promise and starts as soon as the buffer is ready. */
-  playBgm(volume = 0.3): void {
+  /**
+   * Preload the BGM stream. Safe to fire from idle or loader.
+   */
+  async preloadBgm(basePath = "/assets/"): Promise<void> {
+    this.initBgm(basePath);
+    this.bgm?.load();
+  }
+
+  /** Play BGM in a loop at given volume (0-1). */
+  playBgm(volume = LANDING_BGM_VOLUME): void {
     this.ensureContext();
-    if (!this.ctx || this._musicMuted) return;
+    this.initBgm();
     this.currentBgmVolume = this.clampVolume(volume);
     this.bgmRequested = true;
     this._bgmPaused = false;
 
-    if (!this.buffers.bgm) {
-      void this.preloadBgm().then(() => {
-        if (this.bgmRequested && !this._bgmPaused && !this._musicMuted && !this._parentMuted) {
-          this.playBgm(this.currentBgmVolume);
-        }
-      });
-      return;
-    }
-    
-    if (this.bgmLocalGain) {
-      this.bgmLocalGain.gain.value = this.currentBgmVolume;
-    }
-    
-    if (this._bgmPlaying && this.bgmSourceNode) {
-      return; // Already playing
-    }
-    
-    if (this.bgmSourceNode) {
-      try { this.bgmSourceNode.stop(); } catch {}
-      this.bgmSourceNode.disconnect();
-    }
-    
-    if (!this.bgmLocalGain) {
-      this.bgmLocalGain = this.ctx.createGain();
-      this.bgmLocalGain.gain.value = this.currentBgmVolume;
-      this.bgmLocalGain.connect(this.bgmGain!);
-    }
-    
-    this.bgmSourceNode = this.ctx.createBufferSource();
-    this.bgmSourceNode.buffer = this.buffers.bgm;
-    this.bgmSourceNode.loop = true;
-    this.bgmSourceNode.connect(this.bgmLocalGain);
-    const offset = this.buffers.bgm.duration > 0
-      ? this.bgmOffset % this.buffers.bgm.duration
-      : 0;
-    this.bgmSourceNode.start(0, offset);
-    this.bgmStartedAt = this.ctx.currentTime;
+    if (!this.bgm) return;
+    this.bgm.volume = this.currentBgmVolume;
+
+    if (this._musicMuted || this._parentMuted) return;
+
+    void this.bgm.play().catch(() => {
+      // Autoplay blocked fallback: unlocked on user gesture
+    });
     this._bgmPlaying = true;
   }
 
   pauseBgm(): void {
     this._bgmPaused = true;
-    if (!this.bgmSourceNode || !this.ctx || !this.buffers.bgm) {
-      this._bgmPlaying = false;
-      return;
-    }
-    const elapsed = Math.max(0, this.ctx.currentTime - this.bgmStartedAt);
-    this.bgmOffset = (this.bgmOffset + elapsed) % this.buffers.bgm.duration;
-    try { this.bgmSourceNode.stop(); } catch {}
-    this.bgmSourceNode.disconnect();
-    this.bgmSourceNode = null;
     this._bgmPlaying = false;
+    if (this.bgm) {
+      this.bgm.pause();
+    }
   }
 
   resumeBgm(): void {
-    if (!this.ctx || !this.bgmRequested || this._musicMuted || this._parentMuted) return;
+    if (!this.bgmRequested || this._musicMuted || this._parentMuted) return;
     this._bgmPaused = false;
     this.playBgm(this.currentBgmVolume);
   }
 
   stopBgm(): void {
-    if (this.bgmSourceNode) {
-      try { this.bgmSourceNode.stop(); } catch {}
-      this.bgmSourceNode.disconnect();
-      this.bgmSourceNode = null;
+    if (this.bgm) {
+      this.bgm.pause();
+      this.bgm.currentTime = 0;
     }
     this._bgmPlaying = false;
     this._bgmPaused = false;
-    this.bgmOffset = 0;
-    this.bgmStartedAt = 0;
     this.bgmRequested = false;
   }
 
@@ -375,8 +331,19 @@ class AudioManager {
   }
 
   private applyMuteState(): void {
+    const bgmShouldMute = this._parentMuted || this._musicMuted;
     if (this.bgmGain) {
-      this.bgmGain.gain.value = this._parentMuted || this._musicMuted ? 0 : 1;
+      this.bgmGain.gain.value = bgmShouldMute ? 0 : 1;
+    }
+    if (this.bgm) {
+      this.bgm.muted = bgmShouldMute;
+      if (bgmShouldMute) {
+        this.bgm.pause();
+        this._bgmPlaying = false;
+      } else if (this.bgmRequested && !this._bgmPaused) {
+        void this.bgm.play().catch(() => {});
+        this._bgmPlaying = true;
+      }
     }
     if (this.sfxGain) {
       this.sfxGain.gain.value = this._parentMuted || this._sfxMuted ? 0 : 1;
@@ -386,8 +353,8 @@ class AudioManager {
   /** Change BGM volume dynamically (0-1). Does not restart the track. */
   setBgmVolume(volume: number): void {
     this.currentBgmVolume = this.clampVolume(volume);
-    if (this.bgmLocalGain) {
-      this.bgmLocalGain.gain.value = this.currentBgmVolume;
+    if (this.bgm) {
+      this.bgm.volume = this.currentBgmVolume;
     }
   }
 
@@ -402,10 +369,6 @@ class AudioManager {
     );
     this.voicePools.clear();
     
-    if (this.bgmLocalGain) {
-      this.bgmLocalGain.disconnect();
-      this.bgmLocalGain = null;
-    }
     if (this.bgmGain) {
       this.bgmGain.disconnect();
       this.bgmGain = null;
@@ -426,10 +389,15 @@ class AudioManager {
       this.ctx.close().catch(() => {});
       this.ctx = null;
     }
-    this.buffers = { slice: null, bomb: null, bgm: null };
-    this.bgmLoadPromise = null;
-    this.bgmOffset = 0;
-    this.bgmStartedAt = 0;
+    if (this.bgm) {
+      try {
+        this.bgm.pause();
+        this.bgm.removeAttribute("src");
+        this.bgm.load();
+      } catch {}
+      this.bgm = null;
+    }
+    this.buffers = { slice: null, bomb: null };
     this.bgmRequested = false;
   }
 

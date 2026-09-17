@@ -4,8 +4,7 @@ export type WinkPhase = 'booting' | 'ready_anonymous' | 'ready_authenticated' | 
 
 export type WinkCapability =
   | 'getLeaderboard'
-  | 'submitScore'
-  | 'complete';
+  | 'submitScore';
 
 export type WinkEvent =
   | 'pause'
@@ -16,18 +15,9 @@ export type WinkEvent =
 
 export type WinkIntegrationErrorCode =
   | 'PARENT_REQUIRED'
-  | 'BRIDGE_READY_TIMEOUT'
-  | 'PROTOCOL_MISMATCH'
-  | 'RUNTIME_CONFIG_INVALID'
-  | 'SESSION_CREATE_FAILED'
-  | 'SESSION_RENEWAL_FAILED'
-  | 'SESSION_EXPIRED'
   | 'CAPABILITY_DENIED'
   | 'API_NETWORK_ERROR'
-  | 'MESSAGE_REJECTED'
-  | 'BRIDGE_MISSING'
-  | 'INVALID_SCORE'
-  | 'INVALID_ROUND';
+  | 'INVALID_SCORE';
 
 export interface WinkIntegrationError {
   code: WinkIntegrationErrorCode;
@@ -134,8 +124,4 @@ export interface WinkIntegration {
     qualifies?: boolean;
     metadata?: Record<string, unknown>;
   }): Promise<WinkSubmitScoreResult | null>;
-  completeRound(input?: {
-    roundId?: string;
-    playDurationMs?: number;
-  }): Promise<void>;
 }

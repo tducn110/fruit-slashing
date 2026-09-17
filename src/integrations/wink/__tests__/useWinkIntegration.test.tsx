@@ -120,7 +120,7 @@ describe('useWinkIntegration (Wink SDK v1 Contract)', () => {
     expect(mockSdk.init).toHaveBeenCalled();
     expect(getLatest().status).toBe('online');
     expect(getLatest().can('submitScore')).toBe(true);
-    expect(getLatest().can('complete')).toBe(false);
+    expect(getLatest().can('getLeaderboard')).toBe(true);
 
     // Test host mute event
     expect(getLatest().parentMuted).toBe(false);

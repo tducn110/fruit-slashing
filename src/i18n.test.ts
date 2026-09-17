@@ -30,4 +30,12 @@ describe("i18n configuration and persistence", () => {
     expect(getInitialLanguage()).toBe("vi");
     expect(window.localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("vi");
   });
+
+  it("syncs document.documentElement.lang on language change", async () => {
+    await i18n.changeLanguage("vi");
+    expect(document.documentElement.lang).toBe("vi");
+
+    await i18n.changeLanguage("en");
+    expect(document.documentElement.lang).toBe("en");
+  });
 });

@@ -26,7 +26,7 @@ export function SettingsPanel({
     <PanelFrame
       title={(
         <span className="settingsPanelTitle">
-          <SettingsIcon size={20} /> {currentLanguage === "vi" ? "Cài đặt" : "Settings"}
+          <SettingsIcon size={20} /> {t("game.settings", "Settings")}
         </span>
       )}
       width={330}
@@ -37,10 +37,10 @@ export function SettingsPanel({
             <div className="settingsOptionRow">
               <div className="settingsOptionLabel">
                 <Globe size={20} />
-                <span>{currentLanguage === "vi" ? "Ngôn ngữ" : "Language"}</span>
+                <span>{t("game.language", "Language")}</span>
               </div>
               <IconButton
-                label={t("game.toggle_language", "Chuyển ngôn ngữ")}
+                label={t("game.toggle_language", "Toggle language")}
                 variant="solid"
                 onClick={() => void i18n.changeLanguage(nextLanguage)}
                 className="settingsToggle is-on"
@@ -51,33 +51,33 @@ export function SettingsPanel({
             <div className="settingsOptionRow">
               <div className="settingsOptionLabel">
                 {musicMuted ? <VolumeX size={20} /> : <Music2 size={20} />}
-                <span>Nhạc nền</span>
+                <span>{t("game.music", "Music")}</span>
               </div>
               <IconButton
-                label={musicMuted ? "Bật nhạc nền" : "Tắt nhạc nền"}
+                label={musicMuted ? t("game.unmute_bgm", "Unmute background music") : t("game.mute_bgm", "Mute background music")}
                 aria-pressed={!musicMuted}
                 variant="solid"
                 onClick={onToggleMusic}
                 className={`settingsToggle ${musicMuted ? "is-off" : "is-on"}`}
               >
                 {musicMuted ? <VolumeX size={14} /> : <Music2 size={14} />}
-                {musicMuted ? "Bật" : "Tắt"}
+                {musicMuted ? t("game.on", "On") : t("game.off", "Off")}
               </IconButton>
             </div>
             <div className="settingsOptionRow">
               <div className="settingsOptionLabel">
                 {sfxMuted ? <VolumeX size={20} /> : <Sparkles size={20} />}
-                <span>SFX</span>
+                <span>{t("game.sfx", "SFX")}</span>
               </div>
               <IconButton
-                label={sfxMuted ? "Bật hiệu ứng âm thanh" : "Tắt hiệu ứng âm thanh"}
+                label={sfxMuted ? t("game.unmute_sfx", "Unmute sound effects") : t("game.mute_sfx", "Mute sound effects")}
                 aria-pressed={!sfxMuted}
                 variant="solid"
                 onClick={onToggleSfx}
                 className={`settingsToggle ${sfxMuted ? "is-off" : "is-on"}`}
               >
                 {sfxMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-                {sfxMuted ? "Bật" : "Tắt"}
+                {sfxMuted ? t("game.on", "On") : t("game.off", "Off")}
               </IconButton>
             </div>
       </div>

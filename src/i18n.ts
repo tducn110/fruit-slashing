@@ -4,13 +4,7 @@ import { initReactI18next } from "react-i18next";
 export const LANGUAGE_STORAGE_KEY = "01-fruit-language";
 const LEGACY_STORAGE_KEYS = ["fruit-slashing-language"];
 
-export let isOnlineSession = false;
-export function setOnlineSession(online: boolean): void {
-  isOnlineSession = online;
-}
-
 type SupportedLanguage = "vi" | "en";
-
 export function isSupportedLanguage(value: string | null): value is SupportedLanguage {
   return value === "vi" || value === "en";
 }
@@ -36,12 +30,14 @@ export function getInitialLanguage(): SupportedLanguage {
 }
 
 export function persistLanguage(language: string): void {
-  if (isOnlineSession) return;
   const normalizedLanguage = language.split("-")[0];
   if (!isSupportedLanguage(normalizedLanguage) || typeof window === "undefined") return;
 
   try {
     window.localStorage.setItem(LANGUAGE_STORAGE_KEY, normalizedLanguage);
+    if (typeof document !== "undefined") {
+      document.documentElement.lang = normalizedLanguage;
+    }
   } catch {
     // Language persistence is optional and must not break gameplay in a
     // restricted WebView/private browsing context.
@@ -97,19 +93,20 @@ const resources = {
           master: "Cao Thủ",
           apprentice: "Tập Sự",
           newbie: "Mầm Non"
-        }
+        },
+        pause: "Tạm dừng",
+        settings: "Cài đặt",
+        music: "Nhạc nền",
+        sfx: "Hiệu ứng âm thanh",
+        on: "Bật",
+        off: "Tắt",
+        language: "Ngôn ngữ",
+        home: "Trang chủ"
       },
       errors: {
-        bridge_ready_timeout: "Không thể khởi tạo kết nối với Wink.",
-        protocol_mismatch: "Phiên bản giao thức Wink không tương thích.",
-        runtime_config_invalid: "Cấu hình mini-game không hợp lệ.",
-        session_create_failed: "Không thể tạo phiên chơi.",
-        session_renewal_failed: "Không thể gia hạn phiên chơi.",
         capability_denied: "Thao tác này không được cấp quyền cho phiên hiện tại.",
         api_network_error: "Không thể kết nối dịch vụ Wink.",
-        message_rejected: "Thông điệp từ Wink không hợp lệ.",
-        invalid_score: "Điểm số cuối không hợp lệ.",
-        invalid_round: "Mã vòng chơi không hợp lệ."
+        invalid_score: "Điểm số cuối không hợp lệ."
       }
     }
   },
@@ -161,29 +158,35 @@ const resources = {
           master: "Master",
           apprentice: "Apprentice",
           newbie: "Newbie"
-        }
+        },
+        pause: "Pause",
+        settings: "Settings",
+        music: "Music",
+        sfx: "Sound effects",
+        on: "On",
+        off: "Off",
+        language: "Language",
+        home: "Home"
       },
       errors: {
-        bridge_ready_timeout: "Failed to initialize Wink connection.",
-        protocol_mismatch: "Incompatible Wink protocol version.",
-        runtime_config_invalid: "Invalid mini-game config.",
-        session_create_failed: "Failed to create session.",
-        session_renewal_failed: "Failed to renew session.",
         capability_denied: "Action not permitted for current session.",
         api_network_error: "Failed to connect to Wink service.",
-        message_rejected: "Invalid message from Wink.",
-        invalid_score: "Invalid final score.",
-        invalid_round: "Invalid round ID."
+        invalid_score: "Invalid final score."
       }
     }
   }
 };
 
+const initialLanguage = getInitialLanguage();
+if (typeof document !== "undefined") {
+  document.documentElement.lang = initialLanguage;
+}
+
 i18n
   .use(initReactI18next)
   .init({
     resources,
-    lng: getInitialLanguage(),
+    lng: initialLanguage,
     fallbackLng: "en",
     interpolation: {
       escapeValue: false // React already escapes values

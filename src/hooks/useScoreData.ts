@@ -10,18 +10,9 @@ import type {
 
 const SAFE_ERROR_MESSAGES: Record<WinkIntegrationErrorCode, string> = {
   PARENT_REQUIRED: "Mini-game phải được mở trong iframe Wink.",
-  BRIDGE_READY_TIMEOUT: "Không thể khởi tạo kết nối với Wink.",
-  PROTOCOL_MISMATCH: "Phiên bản giao thức Wink không tương thích.",
-  RUNTIME_CONFIG_INVALID: "Cấu hình mini-game không hợp lệ.",
-  SESSION_CREATE_FAILED: "Không thể tạo phiên chơi.",
-  SESSION_RENEWAL_FAILED: "Không thể gia hạn phiên chơi.",
-  SESSION_EXPIRED: "Phiên chơi đã hết hạn.",
   CAPABILITY_DENIED: "Thao tác này không được cấp quyền cho phiên hiện tại.",
   API_NETWORK_ERROR: "Không thể kết nối dịch vụ Wink.",
-  MESSAGE_REJECTED: "Thông điệp từ Wink không hợp lệ.",
-  BRIDGE_MISSING: "Wink SDK chưa sẵn sàng.",
   INVALID_SCORE: "Điểm số cuối không hợp lệ.",
-  INVALID_ROUND: "Mã vòng chơi không hợp lệ.",
 };
 
 const SCORE_BLOCKED_NOTICE_MS = 4_000;
@@ -44,7 +35,7 @@ function visibleError(
       ? (value as { code?: unknown }).code
       : value;
   const code = isErrorCode(candidateCode) ? candidateCode : fallbackCode;
-  const retryable = code === "API_NETWORK_ERROR" || code === "BRIDGE_READY_TIMEOUT";
+  const retryable = code === "API_NETWORK_ERROR";
   return Object.freeze({
     code,
     message: SAFE_ERROR_MESSAGES[code],
