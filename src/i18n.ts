@@ -1,27 +1,42 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 
-const LANGUAGE_STORAGE_KEY = "fruit-slashing-language";
+export const LANGUAGE_STORAGE_KEY = "01-fruit-language";
+const LEGACY_STORAGE_KEYS = ["fruit-slashing-language"];
+
+export let isOnlineSession = false;
+export function setOnlineSession(online: boolean): void {
+  isOnlineSession = online;
+}
+
 type SupportedLanguage = "vi" | "en";
 
-function isSupportedLanguage(value: string | null): value is SupportedLanguage {
+export function isSupportedLanguage(value: string | null): value is SupportedLanguage {
   return value === "vi" || value === "en";
 }
 
-function getInitialLanguage(): SupportedLanguage {
+export function getInitialLanguage(): SupportedLanguage {
   if (typeof window === "undefined") return "en";
-
   try {
-    const storedLanguage = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
-    return isSupportedLanguage(storedLanguage) ? storedLanguage : "en";
+    const value = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (isSupportedLanguage(value)) return value;
+    for (const legacyKey of LEGACY_STORAGE_KEYS) {
+      const legacyValue = window.localStorage.getItem(legacyKey);
+      if (isSupportedLanguage(legacyValue)) {
+        try {
+          window.localStorage.setItem(LANGUAGE_STORAGE_KEY, legacyValue);
+        } catch {}
+        return legacyValue;
+      }
+    }
   } catch {
-    // Some embedded browsers can deny localStorage access. English remains
-    // the safe default in that case.
-    return "en";
+    // Storage read failure fallback
   }
+  return "en";
 }
 
-function persistLanguage(language: string): void {
+export function persistLanguage(language: string): void {
+  if (isOnlineSession) return;
   const normalizedLanguage = language.split("-")[0];
   if (!isSupportedLanguage(normalizedLanguage) || typeof window === "undefined") return;
 

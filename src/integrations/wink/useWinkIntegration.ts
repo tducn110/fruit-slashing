@@ -47,56 +47,35 @@ function normalizeLocale(value?: string): "vi" | "en" {
 
 // Global bootstrap promise so multiple hook instances share the same initialization
 let globalInitPromise: Promise<WinkSDK | null> | null = null;
-let lastTargetWink: unknown = undefined;
+let globalReadyPromise: Promise<void> | null = null;
+let boundWinkInstance: unknown = undefined;
 
 export function resetGlobalWinkInit(): void {
   globalInitPromise = null;
-  lastTargetWink = undefined;
+  globalReadyPromise = null;
+  boundWinkInstance = undefined;
 }
 
 export function resolveGlobalWink(): Promise<WinkSDK | null> {
   const currentWink = typeof window !== "undefined" ? window.Wink : undefined;
-  if (globalInitPromise && lastTargetWink === currentWink) {
-    return globalInitPromise;
+  if (!globalInitPromise || boundWinkInstance !== currentWink) {
+    boundWinkInstance = currentWink;
+    globalInitPromise = Promise.resolve()
+      .then(() => (typeof window !== "undefined" && window.Wink?.init ? window.Wink.init() : undefined))
+      .then((sdk) => sdk || window.Wink || null)
+      .catch(() => window.Wink || null);
+    globalReadyPromise = globalInitPromise.then(() => undefined).catch(() => undefined);
   }
-  lastTargetWink = currentWink;
-
-  globalInitPromise = new Promise((resolve) => {
-    if (typeof window === "undefined") {
-      resolve(null);
-      return;
-    }
-
-    const checkSdk = () => {
-      if (window.Wink?.init) {
-        window.Wink.init()
-          .then((sdk) => resolve(sdk))
-          .catch(() => resolve(window.Wink || null));
-        return true;
-      }
-      return false;
-    };
-
-    if (checkSdk()) return;
-
-    // In test environment, don't wait 2.5s if not in browser
-    const maxWaitMs = typeof process !== "undefined" && process.env.NODE_ENV === "test" ? 100 : 2000;
-    let elapsed = 0;
-    const interval = setInterval(() => {
-      elapsed += 25;
-      if (checkSdk() || elapsed >= maxWaitMs) {
-        clearInterval(interval);
-        resolve(window.Wink || null);
-      }
-    }, 25);
-  });
-
   return globalInitPromise;
 }
 
+
+
 export function useWinkIntegration(): WinkIntegration {
-  const [sdk, setSdk] = useState<WinkSDK | null>(typeof window !== "undefined" ? window.Wink || null : null);
-  const [status, setStatus] = useState<WinkStatus>(sdk?.status ?? "connecting");
+  const initPromise = resolveGlobalWink();
+  
+  const [sdk, setSdk] = useState<WinkSDK | null>(null);
+  const [status, setStatus] = useState<WinkStatus>("connecting");
   const [isReady, setIsReady] = useState(false);
   const [hostPaused, setHostPaused] = useState(false);
   const [parentMuted, setParentMuted] = useState(sdk?.muted ?? false);
@@ -306,7 +285,7 @@ export function useWinkIntegration(): WinkIntegration {
   return {
     status,
     isReady,
-    readyPromise: resolveGlobalWink(),
+    readyPromise: initPromise,
     sdk,
     mode,
     phase,

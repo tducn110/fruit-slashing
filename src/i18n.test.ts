@@ -1,11 +1,9 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, beforeEach } from "vitest";
-import i18n from "./i18n";
+import i18n, { LANGUAGE_STORAGE_KEY, getInitialLanguage } from "./i18n";
 
 describe("i18n configuration and persistence", () => {
-  const STORAGE_KEY = "fruit-slashing-language";
-
   beforeEach(() => {
     window.localStorage.clear();
   });
@@ -19,11 +17,17 @@ describe("i18n configuration and persistence", () => {
 
   it("persists language change to localStorage when changed", async () => {
     await i18n.changeLanguage("vi");
-    expect(window.localStorage.getItem(STORAGE_KEY)).toBe("vi");
+    expect(window.localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("vi");
     expect(i18n.t("game.score")).toBe("Điểm số");
 
     await i18n.changeLanguage("en");
-    expect(window.localStorage.getItem(STORAGE_KEY)).toBe("en");
+    expect(window.localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("en");
     expect(i18n.t("game.score")).toBe("Score");
+  });
+
+  it("migrates from legacy storage key if present", () => {
+    window.localStorage.setItem("fruit-slashing-language", "vi");
+    expect(getInitialLanguage()).toBe("vi");
+    expect(window.localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("vi");
   });
 });
