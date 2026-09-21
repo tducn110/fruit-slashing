@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import i18n, { applyHostLocale, hasStoredLanguagePreference } from "../../i18n";
+
 import type {
   WinkCapability,
   WinkIntegration,
@@ -114,11 +114,11 @@ export function useWinkIntegration(): WinkIntegration {
           );
           cleanups.push(
             resolvedSdk.on("locale", (nextLocale: string) => {
-              const normalizedLocale = applyHostLocale(nextLocale);
+              // Only track host locale as React state.
+              // Do NOT auto-switch i18n language — game defaults to English
+              // and the user switches language manually via settings.
+              const normalizedLocale = normalizeLocale(nextLocale);
               setLocale(normalizedLocale);
-              if (!hasStoredLanguagePreference()) {
-                void i18n.changeLanguage(normalizedLocale);
-              }
             }),
           );
         } catch (e) {
