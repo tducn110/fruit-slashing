@@ -10,8 +10,8 @@ export function TopNav({ muted, onToggleMute }: Props) {
   const { t, i18n } = useTranslation();
 
   const toggleLanguage = () => {
-    const nextLang = i18n.language.startsWith('en') ? 'vi' : 'en';
-    i18n.changeLanguage(nextLang);
+    const nextLang = (i18n.resolvedLanguage || i18n.language).startsWith('vi') ? 'en' : 'vi';
+    void i18n.changeLanguage(nextLang);
   };
 
   return (
@@ -50,7 +50,7 @@ export function TopNav({ muted, onToggleMute }: Props) {
             fontWeight: 800, fontSize: 13, textTransform: "uppercase"
           }}
         >
-          {i18n.language.startsWith('en') ? 'EN' : 'VI'}
+          {(i18n.resolvedLanguage || i18n.language).startsWith('vi') ? 'VI' : 'EN'}
         </button>
 
         <button

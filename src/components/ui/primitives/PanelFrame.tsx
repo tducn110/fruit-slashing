@@ -1,5 +1,6 @@
 import React from "react";
 import { X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { IconButton } from "./IconButton";
 
 interface PanelFrameProps {
@@ -23,6 +24,8 @@ export function PanelFrame({
   style,
   children,
 }: PanelFrameProps) {
+  const { t } = useTranslation();
+
   return (
     <div className={className} style={{
       position: "absolute", top: 12, right: 12,
@@ -43,7 +46,7 @@ export function PanelFrame({
         <span style={{ fontWeight: 800, fontSize: 15 }}>{title}</span>
         {showClose && <button
           type="button"
-          aria-label="Đóng"
+          aria-label={t("game.close", "Close")}
           onClick={onClose}
           style={{
             display: "flex",

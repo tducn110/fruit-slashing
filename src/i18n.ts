@@ -9,6 +9,21 @@ export function isSupportedLanguage(value: string | null): value is SupportedLan
   return value === "vi" || value === "en";
 }
 
+export function hasStoredLanguagePreference(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const value = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (isSupportedLanguage(value)) return true;
+    for (const legacyKey of LEGACY_STORAGE_KEYS) {
+      const legacyValue = window.localStorage.getItem(legacyKey);
+      if (isSupportedLanguage(legacyValue)) return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 export function getInitialLanguage(): SupportedLanguage {
   if (typeof window === "undefined") return "en";
   try {
@@ -29,19 +44,39 @@ export function getInitialLanguage(): SupportedLanguage {
   return "en";
 }
 
+let isApplyingHostLocale = false;
+
 export function persistLanguage(language: string): void {
   const normalizedLanguage = language.split("-")[0];
   if (!isSupportedLanguage(normalizedLanguage) || typeof window === "undefined") return;
 
+  if (typeof document !== "undefined") {
+    document.documentElement.lang = normalizedLanguage;
+  }
+
+  if (isApplyingHostLocale) return;
+
   try {
     window.localStorage.setItem(LANGUAGE_STORAGE_KEY, normalizedLanguage);
-    if (typeof document !== "undefined") {
-      document.documentElement.lang = normalizedLanguage;
-    }
   } catch {
     // Language persistence is optional and must not break gameplay in a
     // restricted WebView/private browsing context.
   }
+}
+
+export function applyHostLocale(value?: string): SupportedLanguage {
+  if (hasStoredLanguagePreference()) {
+    return i18n.resolvedLanguage?.startsWith("vi") ? "vi" : "en";
+  }
+  const baseLocale = value?.trim().toLowerCase().split(/[-_]/, 1)[0];
+  const normalized: SupportedLanguage = baseLocale === "vi" ? "vi" : "en";
+  try {
+    isApplyingHostLocale = true;
+    void i18n.changeLanguage(normalized);
+  } finally {
+    isApplyingHostLocale = false;
+  }
+  return normalized;
 }
 
 const resources = {
@@ -101,7 +136,8 @@ const resources = {
         on: "Bật",
         off: "Tắt",
         language: "Ngôn ngữ",
-        home: "Trang chủ"
+        home: "Trang chủ",
+        close: "Đóng"
       },
       errors: {
         capability_denied: "Thao tác này không được cấp quyền cho phiên hiện tại.",
@@ -166,7 +202,8 @@ const resources = {
         on: "On",
         off: "Off",
         language: "Language",
-        home: "Home"
+        home: "Home",
+        close: "Close"
       },
       errors: {
         capability_denied: "Action not permitted for current session.",

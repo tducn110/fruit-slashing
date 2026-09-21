@@ -45,7 +45,7 @@ export function SettingsPanel({
                 onClick={() => void i18n.changeLanguage(nextLanguage)}
                 className="settingsToggle is-on"
               >
-                {nextLanguage.toUpperCase()}
+                {currentLanguage.toUpperCase()}
               </IconButton>
             </div>
             <div className="settingsOptionRow">

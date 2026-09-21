@@ -30,8 +30,8 @@ export function PauseOverlay({
   if (!visible) return null;
 
   const toggleLanguage = () => {
-    const nextLang = i18n.language.startsWith('en') ? 'vi' : 'en';
-    i18n.changeLanguage(nextLang);
+    const nextLang = (i18n.resolvedLanguage || i18n.language).startsWith('vi') ? 'en' : 'vi';
+    void i18n.changeLanguage(nextLang);
   };
 
   return (
@@ -40,7 +40,7 @@ export function PauseOverlay({
         className="pauseHudCard"
         role="dialog"
         aria-modal="true"
-        aria-label="Menu tạm dừng"
+        aria-label={t('game.pause', 'Tạm dừng')}
       >
         <div className="pauseHudUtilityRow">
           <button
@@ -50,7 +50,7 @@ export function PauseOverlay({
             aria-label={t('game.toggle_language', 'Chuyển ngôn ngữ')}
           >
             <span style={{ fontSize: 24, fontWeight: 800, textTransform: "uppercase" }}>
-              {i18n.language.startsWith('en') ? 'EN' : 'VI'}
+              {(i18n.resolvedLanguage || i18n.language).startsWith('vi') ? 'VI' : 'EN'}
             </span>
           </button>
 

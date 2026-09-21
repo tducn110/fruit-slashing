@@ -130,7 +130,7 @@ export function GamePage({
           {/* Left: Home button */}
           <button
             onClick={onHome}
-            aria-label="Về trang chủ"
+            aria-label={t("game.home", "Home")}
             style={{ ...btnStyle, pointerEvents: "auto" }}
           >
             <Home size={16} />
