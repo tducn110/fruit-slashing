@@ -45,27 +45,15 @@ export function GamePage({
   const [restartKey, setRestartKey] = useState(0);
 
   useEffect(() => {
-    if (hostPaused && hasActiveRun) setResumeRequired(true);
-  }, [hostPaused, hasActiveRun]);
-
-  useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === "hidden" && hasActiveRun) {
         setResumeRequired(true);
         audioManager.pauseBgm();
       }
     };
-    const handleBlur = () => {
-      if (hasActiveRun) {
-        setResumeRequired(true);
-        audioManager.pauseBgm();
-      }
-    };
     document.addEventListener("visibilitychange", handleVisibility);
-    window.addEventListener("blur", handleBlur);
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
-      window.removeEventListener("blur", handleBlur);
     };
   }, [hasActiveRun]);
 

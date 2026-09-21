@@ -319,7 +319,6 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
     clearTransientGameFx();
     syncHud(state);
     session.resumeSession((state.tick / TICK_RATE) * 1000);
-    callbacksRef.current.onGameStart?.();
   }
 
   const lastRestartKeyRef = useRef(restartKey);
@@ -441,7 +440,7 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
       <CountdownOverlay countdown={countdown} starting={starting} />
 
       <PauseOverlay
-        visible={!suppressPauseOverlay && (manualPaused || resumeRequired || hostPaused)}
+        visible={!suppressPauseOverlay && (manualPaused || resumeRequired)}
         musicMuted={musicMuted}
         sfxMuted={sfxMuted}
         onResume={onResumePause ?? (() => undefined)}

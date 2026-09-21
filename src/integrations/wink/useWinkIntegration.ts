@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import i18n from "../../i18n";
 import type {
   WinkCapability,
   WinkIntegration,
@@ -33,6 +34,12 @@ function safeError(
 function normalizeLocale(value?: string): "vi" | "en" {
   const locale = value?.split("-")[0];
   return locale === "vi" || locale === "en" ? locale : "en";
+}
+
+function applyHostLocale(value?: string): "vi" | "en" {
+  const normalizedLocale = normalizeLocale(value);
+  void i18n.changeLanguage(normalizedLocale);
+  return normalizedLocale;
 }
 
 // Global bootstrap promise so multiple hook instances share the same initialization
@@ -87,7 +94,7 @@ export function useWinkIntegration(): WinkIntegration {
         setSdk(resolvedSdk);
         setStatus(resolvedSdk.status);
         setParentMuted(resolvedSdk.muted);
-        const initialLocale = normalizeLocale(resolvedSdk.locale);
+        const initialLocale = applyHostLocale(resolvedSdk.locale);
         setLocale(initialLocale);
 
         try {
@@ -113,7 +120,7 @@ export function useWinkIntegration(): WinkIntegration {
           );
           cleanups.push(
             resolvedSdk.on("locale", (nextLocale: string) => {
-              const normalizedLocale = normalizeLocale(nextLocale);
+              const normalizedLocale = applyHostLocale(nextLocale);
               setLocale(normalizedLocale);
             }),
           );
