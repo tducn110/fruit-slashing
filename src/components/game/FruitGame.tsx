@@ -54,9 +54,10 @@ interface Props {
   onToggleSfx?: () => void;
   onResumePause?: () => void;
   onRestartPause?: () => void;
+  suppressPauseOverlay?: boolean;
 }
 
-export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameStart, onRunStateChange, hostPaused = false, manualPaused = false, resumeRequired = false, restartKey = 0, muted = false, musicMuted = false, sfxMuted = false, onToggleMusic, onToggleSfx, onResumePause, onRestartPause }: Props) {
+export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameStart, onRunStateChange, hostPaused = false, manualPaused = false, resumeRequired = false, restartKey = 0, muted = false, musicMuted = false, sfxMuted = false, onToggleMusic, onToggleSfx, onResumePause, onRestartPause, suppressPauseOverlay = false }: Props) {
   const callbacksRef = useRef({ onSubmitScore, onCompleteRound, onExitGame, onGameStart, muted, sfxMuted });
   callbacksRef.current = { onSubmitScore, onCompleteRound, onExitGame, onGameStart, muted, sfxMuted };
   const onViewportResizeRef = useRef<(() => void) | null>(null);
@@ -440,7 +441,7 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
       <CountdownOverlay countdown={countdown} starting={starting} />
 
       <PauseOverlay
-        visible={manualPaused || resumeRequired || hostPaused}
+        visible={!suppressPauseOverlay && (manualPaused || resumeRequired || hostPaused)}
         musicMuted={musicMuted}
         sfxMuted={sfxMuted}
         onResume={onResumePause ?? (() => undefined)}

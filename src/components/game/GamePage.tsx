@@ -84,7 +84,13 @@ export function GamePage({
     onGameStart?.();
   }, [onGameStart]);
 
-  const toggleSettings = () => setPanel((prev) => (prev === "settings" ? null : "settings"));
+  const toggleSettings = () => {
+    setPanel((prev) => {
+      if (prev === "settings") return null;
+      if (hasActiveRun) setManualPaused(true);
+      return "settings";
+    });
+  };
   const toggleLeaderboard = () => {
     setPanel((prev) => {
       if (prev === "leaderboard") return null;
@@ -189,6 +195,7 @@ export function GamePage({
             onToggleSfx={onToggleSfx}
             onResumePause={handleResume}
             onRestartPause={handleRestart}
+            suppressPauseOverlay={panel !== null}
           />
         </div>
 
