@@ -13,7 +13,7 @@ import "../../i18n";
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
 vi.mock("./FruitGame", () => ({
-  FruitGame: ({ onRunStateChange, manualPaused, resumeRequired, hostPaused }: any) => {
+  FruitGame: ({ onRunStateChange, manualPaused, resumeRequired, hostPaused, onResumePause }: any) => {
     return (
       <div data-testid="fruit-game">
         <button
@@ -26,12 +26,19 @@ vi.mock("./FruitGame", () => ({
         <span data-testid="paused-flag">
           {manualPaused || resumeRequired || hostPaused ? "PAUSED" : "RUNNING"}
         </span>
+        <button
+          data-testid="resume-btn"
+          type="button"
+          onClick={onResumePause}
+        >
+          Resume
+        </button>
       </div>
     );
   },
 }));
 
-describe("GamePage pause and settingsPanel lifecycle", () => {
+describe("GamePage pause lifecycle without settingsPanel", () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -48,7 +55,7 @@ describe("GamePage pause and settingsPanel lifecycle", () => {
     container.remove();
   });
 
-  it("shows settingsPanel and enters pause when window loses focus during an active run", async () => {
+  it("enters pause when window loses focus during an active run and resumes via resume button", async () => {
     await act(async () => {
       root.render(
         <GamePage
@@ -74,27 +81,28 @@ describe("GamePage pause and settingsPanel lifecycle", () => {
     });
 
     expect(container.querySelector(".settingsPanel")).toBeNull();
+    expect(container.querySelector('[data-testid="paused-flag"]')?.textContent).toBe("RUNNING");
 
     // Trigger blur (lost focus)
     await act(async () => {
       window.dispatchEvent(new Event("blur"));
     });
 
-    // settingsPanel MUST be shown and gameplay must be paused
-    expect(container.querySelector(".settingsPanel")).not.toBeNull();
+    // Gameplay must be paused and settingsPanel must NOT be rendered
+    expect(container.querySelector(".settingsPanel")).toBeNull();
     expect(container.querySelector('[data-testid="paused-flag"]')?.textContent).toBe("PAUSED");
 
-    // Clicking close on settingsPanel should resume
-    const closeBtn = container.querySelector('.settingsPanel button[aria-label="Close"]') as HTMLButtonElement;
+    // Clicking resume should resume
+    const resumeBtn = container.querySelector('[data-testid="resume-btn"]') as HTMLButtonElement;
     await act(async () => {
-      closeBtn.click();
+      resumeBtn.click();
     });
 
     expect(container.querySelector(".settingsPanel")).toBeNull();
     expect(container.querySelector('[data-testid="paused-flag"]')?.textContent).toBe("RUNNING");
   });
 
-  it("shows settingsPanel when hostPaused is true according to Wink contract", async () => {
+  it("enters pause when hostPaused is true according to Wink contract and resumes when host unpauses", async () => {
     const renderComponent = (hostPaused: boolean) => (
       <GamePage
         musicMuted={false}
@@ -116,13 +124,14 @@ describe("GamePage pause and settingsPanel lifecycle", () => {
     });
 
     expect(container.querySelector(".settingsPanel")).toBeNull();
+    expect(container.querySelector('[data-testid="paused-flag"]')?.textContent).toBe("RUNNING");
 
     // Host sends pause (hostPaused becomes true)
     await act(async () => {
       root.render(renderComponent(true));
     });
 
-    expect(container.querySelector(".settingsPanel")).not.toBeNull();
+    expect(container.querySelector(".settingsPanel")).toBeNull();
     expect(container.querySelector('[data-testid="paused-flag"]')?.textContent).toBe("PAUSED");
 
     // Host sends resume (hostPaused becomes false)
@@ -134,7 +143,7 @@ describe("GamePage pause and settingsPanel lifecycle", () => {
     expect(container.querySelector('[data-testid="paused-flag"]')?.textContent).toBe("RUNNING");
   });
 
-  it("shows settingsPanel when manual pause button is clicked", async () => {
+  it("enters pause when manual pause button is clicked and does not show settings button or settingsPanel", async () => {
     await act(async () => {
       root.render(
         <GamePage
@@ -153,12 +162,22 @@ describe("GamePage pause and settingsPanel lifecycle", () => {
       );
     });
 
+    // Settings button should not exist in the top bar
+    expect(container.querySelector('button[aria-label="Settings"]')).toBeNull();
+
     const pauseBtn = container.querySelector('button[aria-label="Pause"]') as HTMLButtonElement;
     await act(async () => {
       pauseBtn.click();
     });
 
-    expect(container.querySelector(".settingsPanel")).not.toBeNull();
+    expect(container.querySelector(".settingsPanel")).toBeNull();
     expect(container.querySelector('[data-testid="paused-flag"]')?.textContent).toBe("PAUSED");
+
+    // Resume
+    const resumeBtn = container.querySelector('[data-testid="resume-btn"]') as HTMLButtonElement;
+    await act(async () => {
+      resumeBtn.click();
+    });
+    expect(container.querySelector('[data-testid="paused-flag"]')?.textContent).toBe("RUNNING");
   });
 });

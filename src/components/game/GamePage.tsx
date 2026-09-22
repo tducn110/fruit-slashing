@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FruitGame } from "./FruitGame";
 import type { GameResult } from "../../game/types";
-import { Home, Pause, Settings, Trophy } from "lucide-react";
+import { Home, Pause, Trophy } from "lucide-react";
 import { DashboardPanel } from "./DashboardPanel";
-import { SettingsPanel } from "./SettingsPanel";
 import { audioManager } from "../../utils/audio-manager";
 import type { LeaderboardEntry } from "../../lib/localScores";
 import { useTranslation } from "react-i18next";
@@ -38,7 +37,7 @@ export function GamePage({
   bestScore,
 }: Props) {
   const { t } = useTranslation();
-  const [panel, setPanel] = useState<null | "settings" | "leaderboard">(null);
+  const [panel, setPanel] = useState<null | "leaderboard">(null);
   const [hasActiveRun, setHasActiveRun] = useState(false);
   const [manualPaused, setManualPaused] = useState(false);
   const [resumeRequired, setResumeRequired] = useState(false);
@@ -46,13 +45,12 @@ export function GamePage({
 
   const prevHostPausedRef = useRef(hostPaused);
 
-  // Focus loss (blur & visibility hidden): pause active run and show settingsPanel
+  // Focus loss (blur & visibility hidden): pause active run
   useEffect(() => {
     const handleLostFocus = () => {
       if (hasActiveRun) {
         setManualPaused(true);
         setResumeRequired(true);
-        setPanel("settings");
         audioManager.pauseBgm();
       }
     };
@@ -75,17 +73,15 @@ export function GamePage({
     };
   }, [hasActiveRun]);
 
-  // Wink SDK contract: when host pauses, pause gameplay and open settingsPanel
+  // Wink SDK contract: when host pauses, pause gameplay
   useEffect(() => {
     const wasHostPaused = prevHostPausedRef.current;
     prevHostPausedRef.current = hostPaused;
 
     if (hostPaused) {
       setManualPaused(true);
-      setPanel("settings");
       audioManager.pauseBgm();
     } else if (wasHostPaused && !hostPaused) {
-      setPanel((prev) => (prev === "settings" ? null : prev));
       setManualPaused(false);
       setResumeRequired(false);
     }
@@ -106,27 +102,6 @@ export function GamePage({
     onGameStart?.();
   }, [onGameStart]);
 
-  const handleCloseSettings = useCallback(() => {
-    setPanel(null);
-    if (!hostPaused) {
-      setManualPaused(false);
-      setResumeRequired(false);
-    }
-  }, [hostPaused]);
-
-  const toggleSettings = () => {
-    setPanel((prev) => {
-      if (prev === "settings") {
-        if (!hostPaused) {
-          setManualPaused(false);
-          setResumeRequired(false);
-        }
-        return null;
-      }
-      if (hasActiveRun) setManualPaused(true);
-      return "settings";
-    });
-  };
   const toggleLeaderboard = () => {
     setPanel((prev) => {
       if (prev === "leaderboard") return null;
@@ -138,7 +113,6 @@ export function GamePage({
 
   const handlePause = () => {
     setManualPaused(true);
-    setPanel("settings");
     audioManager.pauseBgm();
   };
 
@@ -187,7 +161,7 @@ export function GamePage({
             <span style={{ fontSize: 12 }}>{t("game.home", "Home")}</span>
           </button>
 
-          {/* Right: Pause, Leaderboard, Settings */}
+          {/* Right: Pause, Leaderboard */}
           <div style={{ display: "flex", gap: 8, pointerEvents: "auto" }}>
             <button
               onClick={handlePause}
@@ -203,13 +177,6 @@ export function GamePage({
               style={{ ...btnStyle, padding: "8px 12px" }}
             >
               <Trophy size={16} />
-            </button>
-            <button
-              onClick={toggleSettings}
-              aria-label={t("game.settings", "Settings")}
-              style={{ ...btnStyle, padding: "8px 12px" }}
-            >
-              <Settings size={16} />
             </button>
           </div>
         </div>
@@ -242,17 +209,7 @@ export function GamePage({
             <div
               className="gamePanelBackdrop"
               aria-hidden="true"
-              onClick={panel === "settings" ? handleCloseSettings : () => setPanel(null)}
-            />
-          )}
-          {/* Settings overlay */}
-          {panel === "settings" && (
-            <SettingsPanel
-              musicMuted={musicMuted}
-              sfxMuted={sfxMuted}
-              onToggleMusic={onToggleMusic}
-              onToggleSfx={onToggleSfx}
-              onClose={handleCloseSettings}
+              onClick={() => setPanel(null)}
             />
           )}
           {panel === "leaderboard" && (
