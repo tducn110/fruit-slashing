@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { FruitGame } from "./FruitGame";
 import type { GameResult } from "../../game/types";
 import { Home, Pause, Settings, Trophy } from "lucide-react";
@@ -44,18 +44,52 @@ export function GamePage({
   const [resumeRequired, setResumeRequired] = useState(false);
   const [restartKey, setRestartKey] = useState(0);
 
+  const prevHostPausedRef = useRef(hostPaused);
+
+  // Focus loss (blur & visibility hidden): pause active run and show settingsPanel
   useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState === "hidden" && hasActiveRun) {
+    const handleLostFocus = () => {
+      if (hasActiveRun) {
+        setManualPaused(true);
         setResumeRequired(true);
+        setPanel("settings");
         audioManager.pauseBgm();
       }
     };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        handleLostFocus();
+      }
+    };
+
+    const handleBlur = () => {
+      handleLostFocus();
+    };
+
     document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("blur", handleBlur);
     return () => {
       document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("blur", handleBlur);
     };
   }, [hasActiveRun]);
+
+  // Wink SDK contract: when host pauses, pause gameplay and open settingsPanel
+  useEffect(() => {
+    const wasHostPaused = prevHostPausedRef.current;
+    prevHostPausedRef.current = hostPaused;
+
+    if (hostPaused) {
+      setManualPaused(true);
+      setPanel("settings");
+      audioManager.pauseBgm();
+    } else if (wasHostPaused && !hostPaused) {
+      setPanel((prev) => (prev === "settings" ? null : prev));
+      setManualPaused(false);
+      setResumeRequired(false);
+    }
+  }, [hostPaused]);
 
   const gameplayPaused = hostPaused || manualPaused || resumeRequired;
 
@@ -72,9 +106,23 @@ export function GamePage({
     onGameStart?.();
   }, [onGameStart]);
 
+  const handleCloseSettings = useCallback(() => {
+    setPanel(null);
+    if (!hostPaused) {
+      setManualPaused(false);
+      setResumeRequired(false);
+    }
+  }, [hostPaused]);
+
   const toggleSettings = () => {
     setPanel((prev) => {
-      if (prev === "settings") return null;
+      if (prev === "settings") {
+        if (!hostPaused) {
+          setManualPaused(false);
+          setResumeRequired(false);
+        }
+        return null;
+      }
       if (hasActiveRun) setManualPaused(true);
       return "settings";
     });
@@ -90,6 +138,8 @@ export function GamePage({
 
   const handlePause = () => {
     setManualPaused(true);
+    setPanel("settings");
+    audioManager.pauseBgm();
   };
 
   const handleResume = () => {
@@ -188,7 +238,13 @@ export function GamePage({
         </div>
 
         <div className="game-panel-layer">
-          {panel !== null && <div className="gamePanelBackdrop" aria-hidden="true" />}
+          {panel !== null && (
+            <div
+              className="gamePanelBackdrop"
+              aria-hidden="true"
+              onClick={panel === "settings" ? handleCloseSettings : () => setPanel(null)}
+            />
+          )}
           {/* Settings overlay */}
           {panel === "settings" && (
             <SettingsPanel
@@ -196,7 +252,7 @@ export function GamePage({
               sfxMuted={sfxMuted}
               onToggleMusic={onToggleMusic}
               onToggleSfx={onToggleSfx}
-              onClose={() => setPanel(null)}
+              onClose={handleCloseSettings}
             />
           )}
           {panel === "leaderboard" && (

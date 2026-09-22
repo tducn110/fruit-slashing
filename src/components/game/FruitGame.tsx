@@ -440,7 +440,7 @@ export function FruitGame({ onSubmitScore, onCompleteRound, onExitGame, onGameSt
       <CountdownOverlay countdown={countdown} starting={starting} />
 
       <PauseOverlay
-        visible={!suppressPauseOverlay && (manualPaused || resumeRequired)}
+        visible={!suppressPauseOverlay && (manualPaused || resumeRequired || hostPaused)}
         musicMuted={musicMuted}
         sfxMuted={sfxMuted}
         onResume={onResumePause ?? (() => undefined)}
