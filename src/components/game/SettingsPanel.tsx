@@ -61,7 +61,7 @@ export function SettingsPanel({
                 className={`settingsToggle ${musicMuted ? "is-off" : "is-on"}`}
               >
                 {musicMuted ? <VolumeX size={14} /> : <Music2 size={14} />}
-                {musicMuted ? t("game.on", "On") : t("game.off", "Off")}
+                {musicMuted ? t("game.off", "Off") : t("game.on", "On")}
               </IconButton>
             </div>
             <div className="settingsOptionRow">
@@ -77,7 +77,7 @@ export function SettingsPanel({
                 className={`settingsToggle ${sfxMuted ? "is-off" : "is-on"}`}
               >
                 {sfxMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-                {sfxMuted ? t("game.on", "On") : t("game.off", "Off")}
+                {sfxMuted ? t("game.off", "Off") : t("game.on", "On")}
               </IconButton>
             </div>
       </div>
